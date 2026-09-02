@@ -1,0 +1,380 @@
+[
+  {
+    "id": "numerical-methods",
+    "name": "Numerical Error Analysis",
+    "category": "Numerical Physics",
+    "kind": "lab",
+    "repo": "lord-navy-crypto/numerical-methods",
+    "branch": "main",
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "mpmath",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "description": "Taylor-series evaluation, floating-point error, cancellation, convergence and reliability diagnostics.",
+    "tags": [
+      "Numerics",
+      "Floating point",
+      "Taylor"
+    ],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "safeModeNote": "Uses the normal NumPy/mpmath scientific implementation; no fragile external physics engine is required.",
+    "fullModeNote": "Same validated numerical solver today. Full mode is reserved for future external reference engines."
+  },
+  {
+    "id": "ising-monte-carlo",
+    "name": "Ising Monte Carlo Lab",
+    "category": "Statistical Physics",
+    "kind": "lab",
+    "repo": "lord-navy-crypto/Ising-Monte-Carlo-Lab",
+    "branch": "main",
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "description": "1D/2D Ising systems, Monte Carlo samplers, critical behavior, uncertainty and convergence diagnostics.",
+    "tags": [
+      "Ising",
+      "Monte Carlo",
+      "Criticality"
+    ],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "safeModeNote": "Uses NumPy/SciPy Monte Carlo directly; no fragile external physics engine is required.",
+    "fullModeNote": "Same validated Ising solver today. No native external engine is required."
+  },
+  {
+    "id": "random-walk-monte-carlo",
+    "name": "Random Walk & Monte Carlo",
+    "category": "Stochastic Physics",
+    "kind": "lab",
+    "repo": "lord-navy-crypto/Random_Walk_Monte_Carlo_Studio",
+    "branch": "main",
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.11",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "matplotlib",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [
+      "pytest"
+    ],
+    "description": "Random walks, Monte Carlo integration, QMC comparisons, uncertainty and reproducible ensemble studies.",
+    "tags": [
+      "Random walk",
+      "QMC",
+      "Uncertainty"
+    ],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "safeModeNote": "Uses the normal NumPy/SciPy/Matplotlib implementation; no fragile engine is required.",
+    "fullModeNote": "Same validated stochastic solver today. No native external engine is required."
+  },
+  {
+    "id": "nonlinear-chaos",
+    "name": "Nonlinear Dynamics & Chaos",
+    "category": "Dynamics",
+    "kind": "lab",
+    "repo": "lord-navy-crypto/NONLINEAR_DYNAMICS_CHAOS_LAB_",
+    "branch": "main",
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "mpmath",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "description": "Driven pendula, Kapitza stabilization, double pendula, Lyapunov divergence and flip maps.",
+    "tags": [
+      "Chaos",
+      "Pendulum",
+      "Lyapunov"
+    ],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "safeModeNote": "Uses NumPy/SciPy/mpmath directly; no fragile external physics engine is required.",
+    "fullModeNote": "Same validated nonlinear solver today. No native external engine is required."
+  },
+  {
+    "id": "oscillation-integration",
+    "name": "Oscillation & Integration",
+    "category": "Dynamics",
+    "kind": "lab",
+    "repo": "lord-navy-crypto/OSCILLATION_NUMERICAL_INTEGRATION_LAB",
+    "branch": "main",
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "description": "Linear, damped, driven and nonlinear oscillators with method comparison, convergence and energy-work checks.",
+    "tags": [
+      "Oscillation",
+      "ODE",
+      "Integration"
+    ],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "safeModeNote": "Uses the existing NumPy/SciPy oscillator and integration solvers; no fragile external engine is required.",
+    "fullModeNote": "Same validated solver today. PyChrono is not forced into this model until a real comparison adapter is implemented."
+  },
+  {
+    "id": "radia-magnet-studio",
+    "name": "RADIA Magnet Studio",
+    "category": "Accelerator Physics",
+    "kind": "lab",
+    "repo": "lord-navy-crypto/radia-magnet-studio",
+    "branch": "main",
+    "entrypoint": "app/studio.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [
+      "radia"
+    ],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "pandas",
+      "streamlit",
+      "plotly",
+      "h5py",
+      "matplotlib"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "description": "3-D magnet geometry, field solving, manufacturing errors, harmonics, trajectories and computational studies.",
+    "tags": [
+      "RADIA",
+      "Magnetics",
+      "Undulator"
+    ],
+    "fragileDependencies": [
+      "radia"
+    ],
+    "safeBackend": "radia-analytic",
+    "safeModeNote": "Runs an analytical ideal-undulator fallback without importing RADIA. NumPy/SciPy/plotting packages remain allowed.",
+    "fullModeNote": "Runs the full RADIA 3-D magnet geometry and field solver."
+  },
+  {
+    "id": "radiation-platform",
+    "name": "Radiation Platform",
+    "category": "Accelerator Physics",
+    "kind": "lab",
+    "repo": "lord-navy-crypto/simulator-radiation-planfotm",
+    "branch": "main",
+    "entrypoint": "unified_entry.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [
+      "radia"
+    ],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "matplotlib",
+      "streamlit",
+      "plotly",
+      "h5py"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "description": "Unified magnet-to-trajectory-to-radiation workflow with scan-centric analysis and research visualization.",
+    "tags": [
+      "Radiation",
+      "Trajectory",
+      "RADIA"
+    ],
+    "fragileDependencies": [
+      "radia"
+    ],
+    "safeBackend": "radiation-analytic",
+    "safeModeNote": "Runs analytical undulator/radiation estimates without importing RADIA. It is a fallback, not a replacement for 3-D field solving.",
+    "fullModeNote": "Runs the full magnet → trajectory → radiation workflow with RADIA."
+  },
+  {
+    "id": "radia-runtime",
+    "name": "RADIA Universal2 Runtime",
+    "category": "Runtime & Builders",
+    "kind": "runtime",
+    "repo": "lord-navy-crypto/lord-navy-crypto-radia-universal2-macos-installer",
+    "branch": "main",
+    "entrypoint": null,
+    "requirements": null,
+    "launcher": "RUN_RADIA_UNIVERSAL2_SAFE.command",
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [
+      "xcode-clt",
+      "git",
+      "curl",
+      "make",
+      "clang",
+      "ar",
+      "ranlib",
+      "lipo",
+      "shasum",
+      "tar",
+      "xcrun"
+    ],
+    "runtimeExcludes": [],
+    "description": "Builds and verifies RADIA + FFTW as Universal2 for Apple Silicon and Intel Macs.",
+    "tags": [
+      "Universal2",
+      "RADIA",
+      "FFTW"
+    ]
+  },
+  {
+    "id": "chrono-modal-runtime",
+    "name": "Chrono::Modal Universal2 Builder",
+    "category": "Runtime & Builders",
+    "kind": "runtime",
+    "repo": "lord-navy-crypto/chrono-modal-macos-universal2-builder",
+    "branch": "main",
+    "entrypoint": null,
+    "requirements": null,
+    "launcher": "START_CHRONO_MODAL_BUILDER.command",
+    "runtimeRequires": [],
+    "pythonRequires": null,
+    "verifyImports": [],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [
+      "xcode-clt",
+      "git",
+      "curl",
+      "tar",
+      "clang",
+      "clang++",
+      "make",
+      "lipo",
+      "file",
+      "ditto",
+      "zip",
+      "otool",
+      "install_name_tool",
+      "xcrun",
+      "cmake"
+    ],
+    "runtimeExcludes": [],
+    "description": "Builds a relocatable Universal2 Project Chrono SDK with the Chrono::Modal component. Optional until a Lab consumes its provider.",
+    "tags": [
+      "Chrono",
+      "Modal",
+      "Universal2"
+    ]
+  },
+  {
+    "id": "vampire-runtime",
+    "name": "VAMPIRE Apple Silicon Builder",
+    "category": "Runtime & Builders",
+    "kind": "runtime",
+    "repo": "lord-navy-crypto/VAMPIRE-Apple-Silicon-Builder",
+    "branch": "main",
+    "entrypoint": null,
+    "requirements": null,
+    "launcher": "START.command",
+    "runtimeRequires": [],
+    "pythonRequires": null,
+    "verifyImports": [],
+    "supportedArches": [
+      "arm64"
+    ],
+    "systemRequires": [
+      "xcode-clt",
+      "git",
+      "curl",
+      "make",
+      "clang++",
+      "file"
+    ],
+    "runtimeExcludes": [],
+    "description": "Builds and smoke-tests the VAMPIRE atomistic magnetic simulator. Optional and currently Apple-Silicon-only.",
+    "tags": [
+      "VAMPIRE",
+      "Atomistic",
+      "Apple Silicon"
+    ]
+  }
+]

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Physical Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Φ</div>
+        <div><div class="brand-title">Physical Lab</div><div class="brand-sub">Computational Physics Workbench</div></div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="home"><span>⌂</span>Home</button>
+        <button class="nav-item" data-view="labs"><span>◌</span>Physics Labs</button>
+        <button class="nav-item" data-view="runtime"><span>⬡</span>Runtime Center</button>
+        <button class="nav-item" data-view="dependencies"><span>◇</span>Dependency Center</button>
+        <button class="nav-item" data-view="tasks"><span>≡</span>Task Center <b id="taskBadge" class="badge hidden">0</b></button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="system-line"><span class="dot" id="pythonDot"></span><span id="pythonMini">Python checking…</span></div>
+        <div class="system-line"><span class="dot" id="radiaDot"></span><span id="radiaMini">RADIA checking…</span></div>
+        <div class="version">Physical Lab v0.1.8</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="viewTitle">Physical Lab</h1>
+          <p id="viewSubtitle">One local home for your computational physics tools.</p>
+        </div>
+        <div class="top-actions">
+          <div class="search-wrap"><span>⌕</span><input id="searchInput" placeholder="Search labs and runtimes" /></div>
+          <button id="refreshBtn" class="icon-btn" title="Refresh status">↻</button>
+        </div>
+      </header>
+
+      <section id="homeView" class="view active-view">
+        <div class="hero">
+          <div>
+            <div class="eyebrow">LOCAL • MODULAR • REPRODUCIBLE</div>
+            <h2>All your physics tools.<br/>One application.</h2>
+            <p>Install a model once, let Physical Lab prepare its environment, then open it directly inside the desktop app.</p>
+            <div class="hero-actions">
+              <button class="primary" data-go="labs">Browse Physics Labs</button>
+              <button class="secondary" data-go="runtime">Open Runtime Center</button>
+            </div>
+          </div>
+          <div class="orbit-card" aria-hidden="true"><div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div><div class="nucleus"></div><div class="electron"></div></div>
+        </div>
+        <div class="stats" id="stats"></div>
+        <div class="section-head"><div><h3>Featured labs</h3><p>Start with your major computational-physics projects.</p></div></div>
+        <div id="featuredGrid" class="card-grid"></div>
+      </section>
+
+      <section id="labsView" class="view">
+        <div class="section-head"><div><h3>Physics Labs</h3><p>Each module keeps its own validated repository and isolated Python environment.</p></div><div id="labFilters" class="filters"></div></div>
+        <div id="labGrid" class="card-grid"></div>
+      </section>
+
+      <section id="runtimeView" class="view">
+        <div class="runtime-summary" id="runtimeSummary"></div>
+        <div class="section-head"><div><h3>Scientific runtimes & builders</h3><p>Physical Lab can download and run your existing installers without making users handle .command files manually.</p></div></div>
+        <div id="runtimeGrid" class="card-grid runtime-grid"></div>
+      </section>
+
+
+      <section id="dependenciesView" class="view">
+        <div class="dependency-policy">
+          <div><div class="eyebrow">DEPENDENCY DELIVERY POLICY</div><h2>Dependencies live inside the Physical Lab experience.</h2><p>Ordinary scientific Python packages are normal managed dependencies and remain available in both Safe and Full modes. The special dependency workflow is reserved for fragile native engines such as RADIA that can fail because of ABI, architecture, SDK or compiler issues. Physical Lab either reuses them, builds them, or keeps Safe mode available.</p></div>
+          <div class="policy-chips"><span>Auto-managed</span><span>Integrated builder</span><span>Official source</span></div>
+        </div>
+        <div class="section-head"><div><h3>Dependency Catalog</h3><p>Red / yellow / green health checks include module venvs, Conda environments, python.org Framework installs, Homebrew and common native-runtime locations.</p></div></div>
+        <div id="dependencySummary" class="dependency-summary"></div>
+        <div class="dependency-doctor-actions"><button id="exportDependencyReport" class="secondary">Export Dependency Doctor Report</button><button id="refreshDependencies" class="secondary">Re-scan dependencies</button></div>
+        <div id="dependencyGrid" class="dependency-grid"></div>
+      </section>
+
+      <section id="tasksView" class="view">
+        <div class="log-panel"><div><div class="category">BACKEND DIAGNOSTICS</div><h3>Persistent logs</h3><p>Build output, dependency preparation, task errors and Lab server stdout/stderr are written to Physical Lab's Application Support directory and remain after the app closes.</p><div class="path-lines"><span>Logs <code id="logPath">checking…</code></span><span>Data <code id="dataPath">checking…</code></span></div></div><div class="log-actions"><button id="openLogs" class="secondary">Open Log Folder</button><button id="openData" class="secondary">Open Data Folder</button></div></div>
+        <div class="section-head"><div><h3>Task Center</h3><p>Downloads, dependency preparation, builders and server launches appear here. Finished task cards can be deleted without deleting the persistent backend logs.</p></div><button id="clearTasks" class="secondary small">Clear finished</button></div>
+        <div id="taskList" class="task-list"><div class="empty-state">No tasks yet.</div></div>
+      </section>
+
+      <section id="labView" class="view lab-frame-view">
+        <div class="lab-toolbar">
+          <button id="backFromLab" class="secondary small">← Back to Labs</button>
+          <div class="lab-title-wrap"><strong id="openLabTitle">Lab</strong><span id="openLabUrl"></span></div>
+          <button id="reloadLab" class="icon-btn">↻</button>
+        </div>
+        <div class="frame-wrap"><iframe id="labFrame" title="Physical Lab module"></iframe></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toastHost" class="toast-host"></div>
+  <script src="app.js"></script>
+</body>
+</html>

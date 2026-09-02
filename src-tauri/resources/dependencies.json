@@ -1,0 +1,301 @@
+[
+  {
+    "id": "python-runtime",
+    "name": "Python Runtime",
+    "category": "Core Runtime",
+    "delivery": "detect-or-official",
+    "required": true,
+    "sourceName": "Python.org",
+    "sourceUrl": "https://www.python.org/downloads/macos/",
+    "description": "Base interpreter used to create isolated environments for the Python physics labs.",
+    "usedBy": [
+      "All Python Labs"
+    ],
+    "notes": "Physical Lab scans python.org Framework installs, Homebrew, PATH, Conda environments and module virtual environments."
+  },
+  {
+    "id": "conda-runtime",
+    "name": "Conda / Miniforge",
+    "category": "Environment Manager",
+    "delivery": "detect-or-official",
+    "required": false,
+    "sourceName": "conda-forge / Miniforge",
+    "sourceUrl": "https://github.com/conda-forge/miniforge",
+    "description": "Optional environment manager used to discover and preserve specialized runtimes such as the existing PyChrono environment.",
+    "usedBy": [
+      "PyChrono runtime discovery",
+      "Optional isolated native Python environments"
+    ],
+    "notes": "Physical Lab checks Miniforge, Miniconda, Anaconda and PATH. Current physics Labs do not require Conda when their normal venvs work."
+  },
+  {
+    "id": "node-build",
+    "name": "Node.js + npm",
+    "category": "Desktop Build Tool",
+    "delivery": "official-link",
+    "required": false,
+    "sourceName": "Node.js",
+    "sourceUrl": "https://nodejs.org/en/download",
+    "description": "Build-time dependency for compiling the Physical Lab Tauri desktop shell from source. Not required after a packaged app is installed.",
+    "usedBy": [
+      "Physical Lab source build"
+    ],
+    "notes": "The build script can use Homebrew to install Node when available; packaged users do not need Node."
+  },
+  {
+    "id": "rust-build",
+    "name": "Rust / Cargo / rustup",
+    "category": "Desktop Build Tool",
+    "delivery": "official-link",
+    "required": false,
+    "sourceName": "Rust",
+    "sourceUrl": "https://www.rust-lang.org/tools/install",
+    "description": "Build-time Rust toolchain used to compile the Tauri macOS shell and Universal2 targets.",
+    "usedBy": [
+      "Physical Lab source build"
+    ],
+    "notes": "Physical Lab checks cargo, rustc, rustup and the arm64/x86_64 Apple targets. Packaged users do not need Rust."
+  },
+  {
+    "id": "numpy",
+    "name": "NumPy",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": true,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/numpy/",
+    "description": "Array and numerical foundation used across the computational-physics labs.",
+    "usedBy": [
+      "Most Python Labs"
+    ],
+    "notes": "Ordinary dependency. Physical Lab searches every discovered Python environment and each installed Lab venv."
+  },
+  {
+    "id": "scipy",
+    "name": "SciPy",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": false,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/scipy/",
+    "description": "Scientific algorithms, integration, optimization and special functions.",
+    "usedBy": [
+      "Ising",
+      "Random Walk",
+      "Chaos",
+      "Oscillation",
+      "Radiation Platform"
+    ],
+    "notes": "Ordinary dependency; automatically installed per Lab when required."
+  },
+  {
+    "id": "pandas",
+    "name": "pandas",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": false,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/pandas/",
+    "description": "Tabular result handling and export support.",
+    "usedBy": [
+      "Most Python Labs"
+    ],
+    "notes": "Ordinary dependency; automatically installed per Lab when required."
+  },
+  {
+    "id": "plotly",
+    "name": "Plotly",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": false,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/plotly/",
+    "description": "Interactive scientific visualization used by several Streamlit labs.",
+    "usedBy": [
+      "Numerical",
+      "Ising",
+      "Chaos",
+      "Oscillation",
+      "RADIA",
+      "Radiation"
+    ],
+    "notes": "Ordinary dependency; automatically installed per Lab when required."
+  },
+  {
+    "id": "streamlit",
+    "name": "Streamlit",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": true,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/streamlit/",
+    "description": "Embedded local web UI runtime for the current Lab interfaces.",
+    "usedBy": [
+      "All current Python Lab UIs"
+    ],
+    "notes": "Ordinary dependency; each Lab keeps its own compatible version."
+  },
+  {
+    "id": "matplotlib",
+    "name": "Matplotlib",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": false,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/matplotlib/",
+    "description": "Scientific plotting backend used by Random Walk and accelerator-physics tools.",
+    "usedBy": [
+      "Random Walk",
+      "RADIA",
+      "Radiation"
+    ],
+    "notes": "Ordinary dependency; automatically installed per Lab when required."
+  },
+  {
+    "id": "h5py",
+    "name": "h5py",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": false,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/h5py/",
+    "description": "HDF5 import/export support for field maps and research packages.",
+    "usedBy": [
+      "RADIA Magnet Studio",
+      "Radiation Platform"
+    ],
+    "notes": "Ordinary dependency; automatically installed per Lab when required."
+  },
+  {
+    "id": "mpmath",
+    "name": "mpmath",
+    "category": "Managed Python Package",
+    "delivery": "module-managed",
+    "required": false,
+    "sourceName": "PyPI",
+    "sourceUrl": "https://pypi.org/project/mpmath/",
+    "description": "High-precision numerical references and special-function support.",
+    "usedBy": [
+      "Numerical Methods",
+      "Chaos"
+    ],
+    "notes": "Ordinary pure-Python dependency."
+  },
+  {
+    "id": "xcode-clt",
+    "name": "Xcode Command Line Tools",
+    "category": "System Prerequisite",
+    "delivery": "system-dialog",
+    "required": false,
+    "sourceName": "Apple",
+    "sourceUrl": "https://developer.apple.com/xcode/resources/",
+    "description": "Apple compiler and SDK toolchain used by native scientific builders.",
+    "usedBy": [
+      "RADIA Builder",
+      "Chrono::Modal Builder",
+      "VAMPIRE Builder"
+    ],
+    "notes": "The health check verifies xcode-select plus clang, clang++, make, lipo, otool, install_name_tool and xcrun."
+  },
+  {
+    "id": "native-toolchain",
+    "name": "Native Build Toolchain",
+    "category": "System Prerequisite",
+    "delivery": "system-dialog",
+    "required": false,
+    "sourceName": "Apple / macOS",
+    "sourceUrl": "https://developer.apple.com/xcode/resources/",
+    "description": "Command-line tools used by RADIA, Chrono::Modal and VAMPIRE builders.",
+    "usedBy": [
+      "RADIA Builder",
+      "Chrono::Modal Builder",
+      "VAMPIRE Builder"
+    ],
+    "notes": "Checks git, curl, make, clang/clang++, ar, ranlib, lipo, shasum, tar, xcrun, file, ditto, zip, otool and install_name_tool individually and reports their resolved paths."
+  },
+  {
+    "id": "cmake",
+    "name": "CMake",
+    "category": "Build Tool",
+    "delivery": "official-link",
+    "required": false,
+    "sourceName": "Kitware / CMake",
+    "sourceUrl": "https://cmake.org/download/",
+    "description": "Required when building Chrono::Modal from source.",
+    "usedBy": [
+      "Chrono::Modal Builder"
+    ],
+    "notes": "Physical Lab scans PATH, Homebrew and Conda environments before showing a download reminder."
+  },
+  {
+    "id": "fftw",
+    "name": "FFTW",
+    "category": "Native Library",
+    "delivery": "integrated-builder",
+    "required": false,
+    "sourceName": "RADIA Universal2 Builder",
+    "sourceUrl": "https://github.com/lord-navy-crypto/lord-navy-crypto-radia-universal2-macos-installer",
+    "description": "Native FFT library built as part of the verified RADIA runtime workflow.",
+    "usedBy": [
+      "RADIA Runtime"
+    ],
+    "notes": "Physical Lab checks common RADIA/FFTW output locations; the integrated RADIA builder can recreate it."
+  },
+  {
+    "id": "radia",
+    "name": "RADIA Runtime",
+    "category": "Physics Engine",
+    "delivery": "integrated-builder",
+    "required": false,
+    "sourceName": "Physical Lab RADIA Universal2 Builder",
+    "sourceUrl": "https://github.com/lord-navy-crypto/lord-navy-crypto-radia-universal2-macos-installer",
+    "description": "Native magnetic-field engine used by Full mode in the accelerator-physics Labs.",
+    "usedBy": [
+      "RADIA Magnet Studio",
+      "Radiation Platform"
+    ],
+    "notes": "Physical Lab searches environment variables and common RADIA directories, then validates CPython ABI and a real import smoke test."
+  },
+  {
+    "id": "pychrono",
+    "name": "PyChrono",
+    "category": "Physics Engine",
+    "delivery": "detect-or-official",
+    "required": false,
+    "sourceName": "Project Chrono",
+    "sourceUrl": "https://api.projectchrono.org/pychrono_installation.html",
+    "description": "Python interface for Project Chrono.",
+    "usedBy": [
+      "Dependency Center / future real adapters"
+    ],
+    "notes": "Physical Lab scans Conda environments and reports optional module availability instead of assuming one global Python."
+  },
+  {
+    "id": "chrono-modal",
+    "name": "Chrono::Modal Universal2 SDK",
+    "category": "Physics Engine",
+    "delivery": "integrated-builder",
+    "required": false,
+    "sourceName": "Physical Lab Chrono::Modal Builder",
+    "sourceUrl": "https://github.com/lord-navy-crypto/chrono-modal-macos-universal2-builder",
+    "description": "Optional C++ modal-analysis SDK.",
+    "usedBy": [
+      "Dependency Center / future real adapters"
+    ],
+    "notes": "Existing packaged SDK outputs are reused before any rebuild."
+  },
+  {
+    "id": "vampire",
+    "name": "VAMPIRE Atomistic Runtime",
+    "category": "Physics Engine",
+    "delivery": "integrated-builder",
+    "required": false,
+    "sourceName": "Physical Lab VAMPIRE Builder",
+    "sourceUrl": "https://github.com/lord-navy-crypto/VAMPIRE-Apple-Silicon-Builder",
+    "description": "Optional atomistic magnetism engine.",
+    "usedBy": [
+      "Dependency Center / future atomistic-magnetism adapter"
+    ],
+    "notes": "Existing Apple-Silicon installs are reused before invoking the integrated builder."
+  }
+]

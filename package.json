@@ -1,0 +1,14 @@
+{
+  "name": "physical-lab",
+  "private": true,
+  "version": "0.4.1",
+  "description": "Physical Lab — unified local computational physics workbench",
+  "scripts": {
+    "prepare": "python3 scripts/prepare.py",
+    "desktop:dev": "npm run prepare && tauri dev",
+    "desktop:build": "npm run prepare && tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}
