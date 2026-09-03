@@ -116,3 +116,38 @@ print("Local AI bridge reference validation: PASS")
 print("Context schema: physical-lab-local-ai-context-v3")
 print("Capability-gated local vision: configured")
 print("Structured solver context remains authoritative over visual estimates")
+
+
+# Every supported research Lab now has an explicit advanced-control guide. This
+# protects the Tutor from falling back to variable-name guessing for Physical
+# Lab's own experiment controls.
+expected_profiles = {
+    "numerical-methods", "ising-monte-carlo", "random-walk-monte-carlo",
+    "nonlinear-chaos", "oscillation-integration", "radia-magnet-studio",
+    "radiation-platform",
+}
+assert expected_profiles <= set(mod.ADVANCED_PARAMETER_GUIDES)
+for profile in expected_profiles:
+    entries = mod.ADVANCED_PARAMETER_GUIDES[profile]
+    assert len(entries) >= 3, (profile, len(entries))
+    for key, meta in entries.items():
+        assert key.startswith("pl_"), (profile, key)
+        assert isinstance(meta.get("unit"), str) and meta["unit"].strip(), (profile, key, "unit")
+        assert isinstance(meta.get("meaning"), str) and meta["meaning"].strip(), (profile, key, "meaning")
+
+merged = mod._parameter_guide(
+    "numerical-methods",
+    {"pl_n_xmax": 100.0, "pl_n_micro_n": 50},
+)
+assert merged["pl_n_xmax"]["unit"] == "rad"
+assert merged["pl_n_micro_n"]["unit"] == "Taylor terms"
+assert merged["pl_n_micro_n"]["meaning"].strip()
+
+merged_rad = mod._parameter_guide(
+    "radia-magnet-studio",
+    {"cfg_gap_mm": 12.0, "pl_m_seeds": 4},
+)
+assert merged_rad["cfg_gap_mm"]["unit"] == "mm"
+assert merged_rad["pl_m_seeds"]["unit"] == "independent RNG seeds"
+
+print("Seven-Lab advanced parameter guide coverage: PASS")

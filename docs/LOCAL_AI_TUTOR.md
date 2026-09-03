@@ -82,3 +82,10 @@ It may **not**:
 - absence of an `images` field for text-only calls.
 
 The validation is part of the repository's **Source Integrity** workflow.
+
+
+## Seven-Lab parameter semantics
+
+The Tutor carries explicit metadata not only for upstream/core controls but also for Physical Lab's advanced research-suite widgets. The advanced guide is keyed by the actual Streamlit control IDs used by the seven Labs, including numerical reliability/cancellation controls, Ising critical and Binder scans, random-walk scaling/QMC/recurrence controls, nonlinear-chaos Lyapunov and stability-atlas controls, oscillation solver/energy audits, RADIA manufacturing-seed ensembles, and radiation resonance/sensitivity controls.
+
+Metadata is merged only for controls that are present in the current session. Each documented advanced control has a non-empty `unit` and `meaning`; controls that are not explicitly documented remain visible as raw session state but are not assigned an invented unit.
