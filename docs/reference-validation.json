@@ -1,0 +1,76 @@
+{
+  "checks": {
+    "ideal_undulator_first_harmonic": {
+      "formula": "lambda_u * (1 + K^2/2) / (2 gamma^2)",
+      "input": {
+        "K": 0.7,
+        "gamma": 1000.0,
+        "lambda_u_m": 0.05,
+        "observation": "on-axis planar ideal-undulator reference"
+      },
+      "reference_wavelength_m": 3.1125e-08,
+      "reference_wavelength_nm": 31.125000000000004,
+      "status": "analytic-reference"
+    },
+    "ising_2d_exact_critical_temperature": {
+      "formula": "2 / ln(1 + sqrt(2))",
+      "input": {
+        "model": "2-D square-lattice zero-field Ising",
+        "units": "k_B T / J"
+      },
+      "reference": 2.269185314213022,
+      "status": "analytic-reference"
+    },
+    "numerical_taylor_sine": {
+      "absolute_error": 0.0,
+      "computed": 0.09983341664682815,
+      "input": {
+        "terms": 8,
+        "x": 0.1
+      },
+      "pass": true,
+      "reference": 0.09983341664682815
+    },
+    "oscillation_rk4_harmonic_period": {
+      "computed_final_state": {
+        "v": 5.213158116995631e-10,
+        "x": 0.999999999995662
+      },
+      "input": {
+        "period": 6.283185307179586,
+        "steps": 629,
+        "target_dt": 0.01
+      },
+      "pass": true,
+      "reference_final_state": {
+        "v": 0.0,
+        "x": 1.0
+      },
+      "state_l2_error": 5.213338599689058e-10
+    },
+    "radia_full_mode": {
+      "pass": null,
+      "reason": "Requires a native RADIA runtime and a real Full-mode field solve; no result is fabricated in CI.",
+      "required_evidence": [
+        "actual RADIA field solve",
+        "recorded geometry and material inputs",
+        "field/trajectory/radiation outputs",
+        "comparison against matched analytic or measured reference",
+        "source/runtime provenance"
+      ],
+      "status": "not-run-in-source-ci"
+    },
+    "random_walk_exact_msd": {
+      "absolute_error": 1.4210854715202004e-14,
+      "computed": 99.99999999999999,
+      "input": {
+        "model": "symmetric 1-D \u00b11 walk",
+        "steps": 100
+      },
+      "pass": true,
+      "reference": 100.0
+    }
+  },
+  "purpose": "Deterministic analytic/numerical references; not a substitute for experimental validation.",
+  "schema": "physical-lab-reference-validation-v1"
+}
