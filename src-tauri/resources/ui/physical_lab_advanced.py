@@ -57,20 +57,29 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
         import streamlit as st
     except Exception:
         return
-    if profile == "numerical-methods":
-        _numerical_suite(st, namespace)
-    elif profile == "ising-monte-carlo":
-        _ising_suite(st, namespace)
-    elif profile == "random-walk-monte-carlo":
-        _random_walk_suite(st, namespace)
-    elif profile == "nonlinear-chaos":
-        _chaos_suite(st, namespace)
-    elif profile == "oscillation-integration":
-        _oscillation_suite(st, namespace)
-    elif profile == "radia-magnet-studio":
-        _radia_magnet_suite(st, namespace)
-    elif profile == "radiation-platform":
-        _radiation_suite(st, namespace)
+    def _render_profile_suite() -> None:
+        if profile == "numerical-methods":
+            _numerical_suite(st, namespace)
+        elif profile == "ising-monte-carlo":
+            _ising_suite(st, namespace)
+        elif profile == "random-walk-monte-carlo":
+            _random_walk_suite(st, namespace)
+        elif profile == "nonlinear-chaos":
+            _chaos_suite(st, namespace)
+        elif profile == "oscillation-integration":
+            _oscillation_suite(st, namespace)
+        elif profile == "radia-magnet-studio":
+            _radia_magnet_suite(st, namespace)
+        elif profile == "radiation-platform":
+            _radiation_suite(st, namespace)
+
+    try:
+        from physical_lab_visualization import visualization_context
+        with visualization_context(st, profile):
+            _render_profile_suite()
+    except Exception as _pl_visualization_error:
+        st.warning(f"Physical Lab Visualization Studio could not load: {_pl_visualization_error}")
+        _render_profile_suite()
     try:
         from physical_lab_digital_twin_ui import render_digital_twin_workspace
         render_digital_twin_workspace(st, profile)

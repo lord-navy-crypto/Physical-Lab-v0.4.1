@@ -25,6 +25,7 @@
         <button class="nav-item" data-view="campaigns"><span>⋮</span>Campaigns</button>
         <button class="nav-item" data-view="results"><span>∿</span>Results</button>
         <button class="nav-item" data-view="tasks"><span>≡</span>Task Center <b id="taskBadge" class="badge hidden">0</b></button>
+        <button class="nav-item" data-view="settings"><span>⚙</span>Settings</button>
       </nav>
       <div class="sidebar-foot">
         <div class="system-line"><span class="dot" id="pythonDot"></span><span id="pythonMini">Python checking…</span></div>
@@ -133,6 +134,17 @@
         <div class="two-col"><div class="tool-panel"><h3>Model validation</h3><div class="form-grid"><label>Observed column<input id="observedColumn" placeholder="measured_Bz" /></label><label>Reference column<input id="referenceColumn" placeholder="radia_Bz" /></label></div><button id="validateDataset" class="primary">Compare Columns</button><div id="validationResult"></div></div>
         <div class="tool-panel"><h3>Run snapshot</h3><div class="form-grid"><label>Lab<select id="snapshotModule"></select></label><label>Mode<select id="snapshotMode"><option value="safe">Safe</option><option value="full">Full</option></select></label></div><label>Parameters JSON<textarea id="snapshotParameters" rows="4">{}</textarea></label><label>Results JSON<textarea id="snapshotResults" rows="4">{}</textarea></label><button id="saveSnapshot" class="primary">Save Snapshot</button></div></div>
         <div class="tool-panel"><h3>Compare saved runs</h3><div class="form-grid"><label>Run A<select id="compareRunA"></select></label><label>Run B<select id="compareRunB"></select></label></div><button id="compareRuns" class="secondary">Compare Run Provenance & Results</button><div id="runComparison" class="table-wrap"></div></div>
+      </section>
+
+
+      <section id="settingsView" class="view">
+        <div class="research-hero"><div><div class="eyebrow">WORKBENCH PREFERENCES</div><h2>Physical Lab Settings</h2><p>Choose desktop-shell defaults without changing scientific solver inputs. Per-Lab Visualization Studio settings live inside each model and are captured separately in Run Vault.</p></div><div class="research-badge">Display & workflow only</div></div>
+        <div class="two-col">
+          <div class="tool-panel"><h3>Lab launch defaults</h3><label>Preferred engine mode<select id="settingsEnginePreference"><option value="auto">Auto — Full when ready, otherwise Safe</option><option value="safe">Prefer Safe</option><option value="full">Prefer Full when available</option></select></label><p class="hint">This only chooses the initial Safe/Full button state. Readiness checks still decide whether a mode can actually launch.</p></div>
+          <div class="tool-panel"><h3>Desktop density</h3><label>Interface density<select id="settingsDensity"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><label class="settings-check"><input id="settingsShowFeatured" type="checkbox" checked /> Show Featured Labs on Home</label><label class="settings-check"><input id="settingsTaskToasts" type="checkbox" checked /> Toast when a background task completes</label></div>
+        </div>
+        <div class="tool-panel"><h3>Visualization policy</h3><p class="hint">Plot transforms are explicitly display-only. Normalization, z-score, percent-change, heatmap log-magnitude, axis overrides, trace hiding and display decimation never rewrite solver arrays, measurements or saved scientific results.</p><div class="settings-policy-grid"><div><span>Shared controls</span><strong>axes · legend · grid · hover · height · line/marker size · export · display point budget</strong></div><div><span>Analysis views</span><strong>raw · normalized · z-score · percent change · heatmap transforms</strong></div><div><span>Model-aware behavior</span><strong>theory/reference visibility · chaos equal phase scale · profile-specific defaults</strong></div></div></div>
+        <div class="card-actions"><button id="saveSettings" class="primary">Save Settings</button><button id="resetSettings" class="secondary">Reset Defaults</button></div>
       </section>
 
       <section id="labView" class="view lab-frame-view">
