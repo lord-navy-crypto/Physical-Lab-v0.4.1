@@ -94,3 +94,8 @@ Metadata is merged only for controls that are present in the current session. Ea
 ## Parameter Explorer
 
 The Tutor includes a read-only **Parameter Explorer** for documented controls that are actually present in the current Streamlit session. It displays the current value, unit/convention, meaning, and whether the control belongs to the upstream/core Lab or the Physical Lab advanced research suite. From the selected row, the user can prepare either a focused explanation question or a controlled-scan planning question. These actions only populate the Tutor question; they do not modify the parameter or launch a solver.
+
+
+## Opt-in AI research provenance
+
+After a successful Local AI response, Physical Lab may offer **Save this exchange to .physlab provenance** when managed workspaces are available. Saving is always an explicit user action. The JSON record is written to `<workspace>.physlab/provenance/ai-notes/` and includes the Lab profile, local runtime/model, question, answer, optional human research note, a bounded copy of the structured context, and a SHA-256 hash of that context. The record is classified as `AI ADVISORY NOTE` and explicitly states that it is not a measurement, solver result, fit, or validation record. Screenshot bytes are not written by this feature; only the structured context used by the Tutor is preserved.

@@ -166,3 +166,64 @@ assert by_key["pl_o_force"]["source"] == "Physical Lab advanced"
 assert by_key["pl_o_e_dt"]["unit"] == "s/step"
 assert all(row["meaning"].strip() for row in rows)
 print("Read-only Parameter Explorer: PASS")
+
+
+# Explicit AI provenance saving is opt-in, constrained to the managed workspaces
+# root, hashes the structured context, and never reclassifies advice as evidence.
+import os as _os
+import json as _json
+import tempfile as _tempfile
+from pathlib import Path as _Path
+
+_old_data_dir = _os.environ.get("PHYSICAL_LAB_DATA_DIR")
+try:
+    with _tempfile.TemporaryDirectory() as _td:
+        _os.environ["PHYSICAL_LAB_DATA_DIR"] = _td
+        _root = _Path(_td) / "workspaces"
+        _ws = _root / "test-project.physlab"
+        _ws.mkdir(parents=True)
+        (_ws / "project.json").write_text(
+            _json.dumps({"id": "test-project", "name": "Test Project"}),
+            encoding="utf-8",
+        )
+        _listed = mod.list_local_workspaces()
+        assert len(_listed) == 1
+        assert _listed[0]["id"] == "test-project"
+        _note = mod.save_ai_research_note(
+            _listed[0]["path"],
+            profile="numerical-methods",
+            runtime_label="External Ollama",
+            runtime_base="http://127.0.0.1:11434",
+            model="test-local-model",
+            question="Explain this parameter",
+            answer="Advisory explanation",
+            context={"schema": "physical-lab-local-ai-context-v3", "value": 1.0},
+            user_note="validation note",
+        )
+        _record = _json.loads(_Path(_note).read_text(encoding="utf-8"))
+        assert _record["schema"] == "physical-lab-local-ai-note-v1"
+        assert _record["classification"] == "AI ADVISORY NOTE"
+        assert len(_record["contextSha256"]) == 64
+        assert _Path(_note).parent == _ws / "provenance" / "ai-notes"
+        try:
+            mod.save_ai_research_note(
+                _td,
+                profile="numerical-methods",
+                runtime_label="x",
+                runtime_base="loopback",
+                model="m",
+                question="q",
+                answer="a",
+                context={},
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Unmanaged AI-note destination should be rejected")
+finally:
+    if _old_data_dir is None:
+        _os.environ.pop("PHYSICAL_LAB_DATA_DIR", None)
+    else:
+        _os.environ["PHYSICAL_LAB_DATA_DIR"] = _old_data_dir
+
+print("Opt-in .physlab AI provenance notes: PASS")

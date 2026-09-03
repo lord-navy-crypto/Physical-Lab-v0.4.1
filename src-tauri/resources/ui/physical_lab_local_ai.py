@@ -15,9 +15,12 @@ only to a model that explicitly reports a local ``vision`` capability.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import math
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -30,6 +33,7 @@ MAX_CONTEXT_BYTES = 96 * 1024
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_VISION_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_VISION_IMAGES = 2
+MAX_AI_NOTE_ANSWER_CHARS = 200_000
 _ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 _SYSTEM_PROMPT = """You are the read-only Physics Parameter Tutor inside Physical Lab.
@@ -493,6 +497,112 @@ def _current_parameter_rows(profile: str, session_state: Mapping[str, Any]) -> l
         })
     return rows
 
+
+
+def _workspaces_root_from_environment() -> Path | None:
+    raw = os.environ.get("PHYSICAL_LAB_DATA_DIR", "").strip()
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve() / "workspaces"
+
+
+def list_local_workspaces() -> list[dict[str, str]]:
+    """List managed .physlab workspaces visible to this local Lab process."""
+    root = _workspaces_root_from_environment()
+    if root is None or not root.is_dir():
+        return []
+    output: list[dict[str, str]] = []
+    for path in sorted(root.glob("*.physlab"), key=lambda item: item.name.lower()):
+        if not path.is_dir():
+            continue
+        name = path.stem
+        workspace_id = path.stem
+        project = path / "project.json"
+        try:
+            data = json.loads(project.read_text(encoding="utf-8"))
+            if isinstance(data, Mapping):
+                raw_name = data.get("name")
+                raw_id = data.get("id")
+                if isinstance(raw_name, str) and raw_name.strip():
+                    name = raw_name.strip()
+                if isinstance(raw_id, str) and raw_id.strip():
+                    workspace_id = raw_id.strip()
+        except Exception:
+            pass
+        output.append({"id": workspace_id, "name": name, "path": str(path.resolve())})
+    return output
+
+
+def save_ai_research_note(
+    workspace_path: str,
+    *,
+    profile: str,
+    runtime_label: str,
+    runtime_base: str,
+    model: str,
+    question: str,
+    answer: str,
+    context: Mapping[str, Any],
+    user_note: str = "",
+) -> str:
+    """Persist one explicit advisory exchange under provenance/ai-notes/."""
+    root = _workspaces_root_from_environment()
+    if root is None or not root.is_dir():
+        raise RuntimeError("Physical Lab workspace root is unavailable in this Lab process")
+    root = root.resolve()
+    workspace = Path(workspace_path).expanduser().resolve()
+    try:
+        workspace.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("AI notes can only be saved inside the managed Physical Lab workspaces directory") from exc
+    if workspace.parent != root or workspace.suffix != ".physlab" or not workspace.is_dir():
+        raise ValueError("Choose an existing top-level .physlab workspace")
+
+    plain_context = _plain(context)
+    canonical_context = json.dumps(
+        plain_context,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    context_hash = hashlib.sha256(canonical_context.encode("utf-8")).hexdigest()
+    answer_text = str(answer)
+    truncated = len(answer_text) > MAX_AI_NOTE_ANSWER_CHARS
+    if truncated:
+        answer_text = answer_text[:MAX_AI_NOTE_ANSWER_CHARS]
+
+    now = datetime.now(timezone.utc)
+    stamp = now.strftime("%Y%m%dT%H%M%S.%fZ")
+    notes_dir = workspace / "provenance" / "ai-notes"
+    notes_dir.mkdir(parents=True, exist_ok=True)
+    destination = notes_dir / f"{stamp}-{profile}-local-ai.json"
+    record = {
+        "schema": "physical-lab-local-ai-note-v1",
+        "createdUtc": now.isoformat(),
+        "classification": "AI ADVISORY NOTE",
+        "scientificAuthority": (
+            "Not a measurement, solver result, fitted quantity, or validation record. "
+            "Preserve the linked structured context and verify claims against Physical Lab evidence."
+        ),
+        "profile": profile,
+        "runtime": {"label": runtime_label, "base": runtime_base},
+        "model": model,
+        "question": str(question),
+        "answer": answer_text,
+        "answerTruncated": truncated,
+        "userNote": str(user_note).strip(),
+        "contextSha256": context_hash,
+        "context": plain_context,
+    }
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(record, ensure_ascii=False, allow_nan=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(destination)
+    return str(destination)
+
 def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any]) -> None:
     result_summary = _extract_result_summary(namespace)
     if result_summary:
@@ -623,6 +733,15 @@ def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any
                         temperature=temperature, images=images,
                     )
                 st.session_state[f"pl_local_ai_answer_{profile}"] = answer
+                st.session_state[f"__physical_lab_ai_exchange_{profile}"] = {
+                    "profile": profile,
+                    "runtimeLabel": engine["label"],
+                    "runtimeBase": engine["base"],
+                    "model": model,
+                    "question": question,
+                    "answer": answer,
+                    "context": _plain(context),
+                }
             except Exception as exc:
                 st.error(f"Local AI request failed: {exc}")
         answer = st.session_state.get(f"pl_local_ai_answer_{profile}")
@@ -630,3 +749,48 @@ def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any
             st.markdown("#### Explanation")
             st.write(answer)
             st.caption("AI explanation is advisory. Check units, model assumptions, measured data, uncertainty and solver validation before drawing scientific conclusions.")
+
+            exchange = st.session_state.get(f"__physical_lab_ai_exchange_{profile}")
+            workspaces = list_local_workspaces()
+            if isinstance(exchange, Mapping) and workspaces:
+                with st.expander("Save this exchange to .physlab provenance", expanded=False):
+                    st.caption(
+                        "Nothing is saved automatically. This writes a JSON advisory note under the selected project's provenance/ai-notes folder. "
+                        "It is explicitly labeled as AI advice and is not mixed with measured data or solver results."
+                    )
+                    workspace_labels = [f"{item['name']} · {item['id']}" for item in workspaces]
+                    workspace_label = st.selectbox(
+                        "Research workspace",
+                        workspace_labels,
+                        key=f"pl_local_ai_note_workspace_{profile}",
+                    )
+                    workspace = workspaces[workspace_labels.index(workspace_label)]
+                    research_note = st.text_input(
+                        "Optional research note",
+                        placeholder="Why is this explanation or scan idea worth preserving?",
+                        key=f"pl_local_ai_note_text_{profile}",
+                    )
+                    if st.button(
+                        "Save advisory note to .physlab",
+                        key=f"pl_local_ai_save_note_{profile}",
+                        width="stretch",
+                    ):
+                        try:
+                            saved = save_ai_research_note(
+                                workspace["path"],
+                                profile=str(exchange.get("profile") or profile),
+                                runtime_label=str(exchange.get("runtimeLabel") or "local runtime"),
+                                runtime_base=str(exchange.get("runtimeBase") or "loopback"),
+                                model=str(exchange.get("model") or model),
+                                question=str(exchange.get("question") or ""),
+                                answer=str(exchange.get("answer") or answer),
+                                context=(
+                                    exchange.get("context")
+                                    if isinstance(exchange.get("context"), Mapping)
+                                    else {}
+                                ),
+                                user_note=research_note,
+                            )
+                            st.success(f"Saved advisory provenance note: {saved}")
+                        except Exception as exc:
+                            st.error(f"Could not save AI research note: {exc}")
