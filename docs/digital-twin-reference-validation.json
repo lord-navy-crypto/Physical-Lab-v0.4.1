@@ -1,0 +1,51 @@
+{
+  "checks": {
+    "affine_inverse_fit": {
+      "offset": 1.0,
+      "pass": true,
+      "rmse_after": 0.0,
+      "scale": 2.0
+    },
+    "beam_phase_space": {
+      "normalized_x_emittance": 5.219779090153378,
+      "pass": true,
+      "x_emittance": 0.010439558180306755,
+      "y_emittance": 0.009807522622967087
+    },
+    "field_comparison": {
+      "measured_integral": 0.04999999999999993,
+      "model_integral": 0.0,
+      "pass": true,
+      "rmse": 0.05744562646538029
+    },
+    "linear_sensor_calibration": {
+      "offset": 1.0,
+      "pass": true,
+      "rmse": 0.0,
+      "slope": 2.0
+    },
+    "residual_guided_sampling": {
+      "boundary": "Heuristic residual-guided sampling; not Bayesian information gain or optimal experimental design.",
+      "pass": true,
+      "suggestions": [
+        {
+          "position": 2.0,
+          "residual": 0.8999999999999999,
+          "score": 1.097222222222222
+        },
+        {
+          "position": 3.0,
+          "residual": 0.19999999999999996,
+          "score": 1.0
+        },
+        {
+          "position": 1.0,
+          "residual": 0.09999999999999998,
+          "score": 0.9861111111111109
+        }
+      ]
+    }
+  },
+  "purpose": "Deterministic verification of shared calibration, comparison, inverse-fit, beam phase-space, and residual-guided sampling definitions.",
+  "schema": "physical-lab-digital-twin-reference-v1"
+}
