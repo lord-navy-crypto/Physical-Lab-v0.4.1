@@ -45,9 +45,10 @@ def _full_mode() -> bool:
 
 
 def _managed_radiation_paths() -> tuple[Path, Path]:
-    root = Path(os.environ.get("PHYSICAL_LAB_DATA_DIR", "").strip()).expanduser()
-    if not str(root):
+    raw = os.environ.get("PHYSICAL_LAB_DATA_DIR", "").strip()
+    if not raw:
         raise RuntimeError("PHYSICAL_LAB_DATA_DIR is unavailable")
+    root = Path(raw).expanduser().resolve()
     module = root / "modules" / "radiation-platform"
     return module / "source", module / ".venv" / "bin" / "python"
 
