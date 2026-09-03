@@ -75,11 +75,23 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
 
     try:
         from physical_lab_visualization import visualization_context
+        from physical_lab_visualization_engineering import engineering_visualization_context
         with visualization_context(st, profile):
-            _render_profile_suite()
+            with engineering_visualization_context(st, profile):
+                _render_profile_suite()
+                try:
+                    from physical_lab_engineering import render_engineering_vvuq
+                    render_engineering_vvuq(st, profile, namespace)
+                except Exception as _pl_engineering_error:
+                    st.warning(f"Physical Lab Engineering V&V/UQ could not load: {_pl_engineering_error}")
     except Exception as _pl_visualization_error:
         st.warning(f"Physical Lab Visualization Studio could not load: {_pl_visualization_error}")
         _render_profile_suite()
+        try:
+            from physical_lab_engineering import render_engineering_vvuq
+            render_engineering_vvuq(st, profile, namespace)
+        except Exception as _pl_engineering_error:
+            st.warning(f"Physical Lab Engineering V&V/UQ could not load: {_pl_engineering_error}")
     try:
         from physical_lab_digital_twin_ui import render_digital_twin_workspace
         render_digital_twin_workspace(st, profile)
