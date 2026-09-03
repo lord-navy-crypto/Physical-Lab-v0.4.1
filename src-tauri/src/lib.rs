@@ -1085,7 +1085,7 @@ fn launch_module(app: AppHandle, state: State<'_, PhysicalLabState>, module_id: 
         let vpy=venv_python(&app,&module_id)?;
         let radia_dir=radia_dir().unwrap_or_else(||home_dir().join("Desktop/Radia-master/cpp/gcc"));
         let mut pythonpath=String::new();
-        if matches!(module_id.as_str(), "numerical-methods"|"ising-monte-carlo"|"random-walk-monte-carlo"|"nonlinear-chaos"|"oscillation-integration"|"radiation-platform") {
+        if matches!(module_id.as_str(), "numerical-methods"|"ising-monte-carlo"|"random-walk-monte-carlo"|"nonlinear-chaos"|"oscillation-integration"|"radia-magnet-studio"|"radiation-platform") {
             if let Some(ui_dir)=ui_overlay_dir(&app){pythonpath.push_str(&ui_dir.to_string_lossy());pythonpath.push(':');}
         }
         pythonpath.push_str(&source.to_string_lossy());

@@ -71,6 +71,11 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
         _radia_magnet_suite(st, namespace)
     elif profile == "radiation-platform":
         _radiation_suite(st, namespace)
+    try:
+        from physical_lab_digital_twin_ui import render_digital_twin_workspace
+        render_digital_twin_workspace(st, profile)
+    except Exception as _pl_digital_twin_error:
+        st.warning(f"Physical Lab Measurement Digital Twin could not load: {_pl_digital_twin_error}")
     _render_run_vault(st, profile)
 
 

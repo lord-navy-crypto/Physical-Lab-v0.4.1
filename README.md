@@ -102,6 +102,18 @@ For numeric datasets, Physical Lab can report N, mean, sample standard deviation
 
 A reproducibility export packages project state with machine/runtime information, source revisions and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
 
+## Measurement Digital Twin
+
+Physical Lab now has a shared **measurement → calibration → model → comparison → update** scientific core instead of treating sensor data as a generic file attachment. `physical_lab_digital_twin.py` provides deterministic definitions for linear sensor calibration, measured/model field residuals and field integrals, affine model-discrepancy fitting, transverse beam phase-space/RMS-emittance statistics, and transparent residual-guided remeasurement priorities.
+
+The project-level **Measurement Digital Twin** view is injected into the accelerator/dynamics research layer and reads CSV/TSV datasets directly from `.physlab` workspaces. Calibration results can create lineage-tracked derived datasets; comparison, inverse-fit, phase-space and remeasurement outputs are written back to project provenance. Units and coordinate conventions are never silently inferred.
+
+The same core is exposed through `scripts/physical_lab_digital_twin_cli.py`, so GUI and scripted workflows share the same mathematical definitions. See [`docs/DIGITAL_TWIN_CORE.md`](docs/DIGITAL_TWIN_CORE.md).
+
+### Native Full-mode acceptance
+
+Source CI still keeps RADIA outside the deterministic source-only reference snapshot. Separately, `.github/workflows/full-mode-acceptance.yml` runs on a clean macOS runner, builds a **pinned RADIA Universal2** revision, verifies `arm64 + x86_64`, evaluates a real native magnetic field with `radia.Fld`, checks symmetry/sanity conditions, reruns the digital-twin reference core, and uploads a JSON evidence artifact. This proves a small native RADIA Full-mode path works in the acceptance environment; it does **not** claim validation of a specific undulator, manufactured magnet or radiation experiment.
+
 ## Reproducible reference validation
 
 Source CI runs `scripts/reference_validation.py --check` against committed deterministic reference snapshots. The current snapshot includes Taylor-series error, harmonic-oscillator RK4 return error, exact random-walk MSD, the exact 2-D zero-field Ising critical-temperature reference, and an ideal-undulator first-harmonic reference. **RADIA Full mode is deliberately recorded as not run in source CI** until a native 3-D field solve is available.

@@ -135,3 +135,20 @@ print('Original-contribution boundary: configured')
 print('Validation/research note: configured')
 print('Source Integrity CI: configured')
 print('Deterministic reference validation: configured')
+digital_core=(root/'src-tauri/resources/ui/physical_lab_digital_twin.py').read_text()
+digital_ui=(root/'src-tauri/resources/ui/physical_lab_digital_twin_ui.py').read_text()
+advanced_text=(root/'src-tauri/resources/ui/physical_lab_advanced.py').read_text()
+lib_text=(root/'src-tauri/src/lib.rs').read_text()
+tauri_text=(root/'src-tauri/tauri.conf.json').read_text()
+for needle in ['fit_linear_calibration','compare_field_series','fit_model_affine','analyze_beam_phase_space','suggest_residual_measurement_points']:
+    assert needle in digital_core, needle
+for needle in ['Measurement Digital Twin','linear-sensor-calibration','measured-model-field-comparison','beam-phase-space','residual-guided-remeasurement']:
+    assert needle in digital_ui, needle
+assert 'render_digital_twin_workspace(st, profile)' in advanced_text
+assert 'radia-magnet-studio' in lib_text and 'radiation-platform' in lib_text
+assert 'physical_lab_digital_twin.py' in tauri_text and 'physical_lab_digital_twin_ui.py' in tauri_text
+assert (root/'scripts/digital_twin_reference_validation.py').is_file()
+assert (root/'scripts/physical_lab_digital_twin_cli.py').is_file()
+assert (root/'.github/workflows/full-mode-acceptance.yml').is_file()
+print('Measurement Digital Twin core + project UI: configured')
+print('RADIA Full-mode acceptance workflow: configured')
