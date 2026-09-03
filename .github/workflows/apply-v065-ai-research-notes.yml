@@ -5,7 +5,7 @@ on:
     branches:
       - chatgpt/v065-ai-research-notes
     paths:
-      - 'scripts/apply_v065_ai_research_notes.py'
+      - 'scripts/apply_v065_ai_research_notes_v2.py'
       - '.github/workflows/apply-v065-ai-research-notes.yml'
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Apply AI research provenance patch
-        run: python scripts/apply_v065_ai_research_notes.py
+        run: python scripts/apply_v065_ai_research_notes_v2.py
       - name: Validate integrated source
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_local_ai.py scripts/local_ai_reference_validation.py
