@@ -42,8 +42,10 @@ for m in labs:
 
 radia_mag=next(m for m in mods if m['id']=='radia-magnet-studio')
 radiation=next(m for m in mods if m['id']=='radiation-platform')
+osc=next(m for m in mods if m['id']=='oscillation-integration')
 assert radia_mag['fragileDependencies']==['radia']
 assert radiation['fragileDependencies']==['radia']
+assert 'PyChrono' in osc['fullModeNote']
 fragile={d for m in labs for d in m['fragileDependencies']}
 assert not fragile & {'numpy','scipy','matplotlib','pandas','plotly','streamlit','mpmath','h5py'}
 assert not any('pychrono' in m['fragileDependencies'] for m in labs)
@@ -69,9 +71,10 @@ assert len(deps) >= 17
 assert {'python-runtime','numpy','scipy','pandas','plotly','streamlit','matplotlib','h5py','mpmath','xcode-clt','native-toolchain','cmake','fftw','radia','pychrono','chrono-modal','vampire'} <= dep_ids
 
 conf=json.loads((root/'src-tauri/tauri.conf.json').read_text())
-assert conf['version']=='0.4.1'
-assert json.loads((root/'package.json').read_text())['version']=='0.4.1'
-assert 'version = "0.4.1"' in (root/'src-tauri/Cargo.toml').read_text()
+assert conf['version']=='0.5.0'
+assert json.loads((root/'package.json').read_text())['version']=='0.5.0'
+assert 'version = "0.5.0"' in (root/'src-tauri/Cargo.toml').read_text()
+assert 'v0.5.0' in (root/'web/index.html').read_text()
 assert 'resources/safe_engine_server.py' in conf['bundle']['resources']
 assert 'resources/ui/sitecustomize.py' in conf['bundle']['resources']
 assert 'resources/ui/physical_lab_advanced.py' in conf['bundle']['resources']
@@ -85,17 +88,23 @@ assert 'ensure_advanced_experiment_hook' in lib
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in lib, profile
 advanced=(root/'src-tauri/resources/ui/physical_lab_advanced.py').read_text()
-for feature in ['2D sensitivity atlas','Binder cumulant','Twin-trajectory divergence','Run adaptive critical scan','Run stability atlas','Reliability frontier','Diffusion scaling law','Damping × drive atlas','Manufacturing seed ensemble','Driven bifurcation intelligence','Magnetization-distribution microscope']:
+for feature in [
+    '2D sensitivity atlas','Binder cumulant','Twin-trajectory divergence','Run adaptive critical scan',
+    'Run stability atlas','Reliability frontier','Diffusion scaling law','Damping × drive atlas',
+    'Manufacturing seed ensemble','Driven bifurcation intelligence','Magnetization-distribution microscope',
+    'Finite-size scaling','Linewidth & harmonic ladder','PyChrono cross-check','Content Validation Battery',
+    'γ/ν','1/(nN)',
+]:
     assert feature in advanced, feature
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in advanced, profile
 
-print('Physical Lab v0.4.1 all-lab advanced-experiment self-check: PASS')
+print('Physical Lab v0.5.0 content-quality upgrade self-check: PASS')
 print('Modules: 10 (7 labs + 3 runtime/builders)')
 print('Dependency health catalog:', len(deps), 'items')
 print('Persistent backend logs + data-folder access: configured')
 print('Per-model uninstall + per-task delete: configured')
 print('Old radiaition-study / Radiation Study: hard-excluded')
-
 print('Enhanced simulation profiles: 7')
+print('New content: finite-size scaling, undulator linewidth ladder, PyChrono adapter, validation battery')
 print('Responsive KPI/result-card system: configured')

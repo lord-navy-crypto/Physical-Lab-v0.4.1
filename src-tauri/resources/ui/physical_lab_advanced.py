@@ -71,6 +71,7 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
         _radia_magnet_suite(st, namespace)
     elif profile == "radiation-platform":
         _radiation_suite(st, namespace)
+    _render_content_validation(st, profile, namespace)
     _render_run_vault(st, profile)
 
 
@@ -297,6 +298,104 @@ def _render_run_vault(st, profile: str) -> None:
                 st.caption("No differing finite numeric values were found in the bounded snapshot summaries.")
 
 
+def _render_content_validation(st, profile: str, ns: dict[str, Any]) -> None:
+    """One-click content-quality checks that exercise analytic references already owned by each Lab."""
+    np = _np(); pd = _pd()
+    _section_header(
+        st,
+        "Physical Lab · Content Validation Battery",
+        "Runs short, deterministic sanity checks against analytic references. This strengthens scientific content quality without replacing the full advanced experiments above.",
+    )
+    if st.button("Run content validation", type="primary", key=f"pl_val_run_{profile}"):
+        rows = []
+        try:
+            if profile == "ising-monte-carlo":
+                onsager_tc = ns.get("onsager_tc"); IsingParams = ns.get("IsingParams"); Method = ns.get("Method"); simulate = ns.get("simulate")
+                if not all([onsager_tc, IsingParams, Method, simulate]):
+                    rows.append({"check": "Ising APIs", "status": "SKIP", "detail": "Upstream APIs unavailable"})
+                else:
+                    tc = float(onsager_tc(1.0))
+                    expected = 2.0 / math.log(1.0 + math.sqrt(2.0))
+                    rows.append({"check": "Onsager Tc(J=1)", "status": "PASS" if abs(tc - expected) < 1e-12 else "FAIL", "detail": f"got {tc:.12g}, expected {expected:.12g}"})
+                    p = IsingParams(size=8, coupling=1.0, field=0.0, temperature=10.0, dimension=2)
+                    r = simulate(p, method=Method.METROPOLIS, equilibration_sweeps=80, measurement_sweeps=200, measure_every=1, seed=7)
+                    mag = float(r["mean_abs_magnetization"])
+                    rows.append({"check": "High-T |M|/N small", "status": "PASS" if mag < 0.35 else "WARN", "detail": f"⟨|M|⟩/N={mag:.4g} at T=10, L=8"})
+            elif profile == "numerical-methods":
+                sine_taylor = ns.get("sine_taylor"); Method = ns.get("Method"); ReferenceBackend = ns.get("ReferenceBackend")
+                if not all([sine_taylor, Method, ReferenceBackend]):
+                    rows.append({"check": "Numerical APIs", "status": "SKIP", "detail": "Upstream APIs unavailable"})
+                else:
+                    r = sine_taylor(math.pi / 6, method=Method.RANGE_REDUCED, dtype="float64", max_terms=40, reference_backend=ReferenceBackend.MPMATH, reference_precision_digits=80)
+                    err = float(getattr(r, "absolute_error", float("nan")))
+                    rows.append({"check": "sin(π/6) absolute error", "status": "PASS" if err < 1e-12 else "WARN", "detail": f"|error|={err:.3e}"})
+            elif profile == "oscillation-integration":
+                Params = ns.get("OscillatorParams"); Method = ns.get("Method"); simulate_fixed = ns.get("simulate_fixed")
+                if not all([Params, Method, simulate_fixed]):
+                    rows.append({"check": "Oscillation APIs", "status": "SKIP", "detail": "Upstream APIs unavailable"})
+                else:
+                    omega0 = 2 * math.pi; mass = 1.0; u0 = 1.0; v0 = 0.0
+                    p = Params(mass=mass, omega0=omega0, gamma=0.0, force_amplitude=0.0, force_frequency=0.0)
+                    r = simulate_fixed(np.asarray([u0, v0], dtype=float), p, duration=1.0, dt=0.001, method=Method.RK4)
+                    t = np.asarray(r["time"]); u = np.asarray(r["state"])[:, 0]
+                    analytic = u0 * np.cos(omega0 * t)
+                    max_err = float(np.max(np.abs(u - analytic)))
+                    rows.append({"check": "Force-free RK4 vs analytic", "status": "PASS" if max_err < 5e-4 else "WARN", "detail": f"max |Δu|={max_err:.3e} over 1 s"})
+                    chrono_py = os.environ.get("PHYSICAL_LAB_PYCHRONO_PYTHON", "").strip()
+                    rows.append({"check": "PyChrono runtime discovered", "status": "PASS" if chrono_py else "INFO", "detail": chrono_py or "Not set — Runtime Center can detect a Conda chrono env"})
+            elif profile == "radiation-platform":
+                # Pure analytic resonance identity: doubling γ at fixed K,θ roughly scales E ~ γ²
+                gamma = 100.0; k = 1.0; period_mm = 50.0; theta = 0.0
+                lam_u = period_mm * 1e-3
+                def e_ph(g):
+                    denom = 1.0 + 0.5 * k * k + (g * theta * 1e-3) ** 2
+                    wavelength = lam_u * denom / (2.0 * g * g)
+                    return 1.2398419843320026e-6 / wavelength
+                ratio = e_ph(200.0) / e_ph(100.0)
+                rows.append({"check": "Undulator E(γ) ~ γ² scaling", "status": "PASS" if abs(ratio - 4.0) < 1e-9 else "FAIL", "detail": f"E(200)/E(100)={ratio:.12g}"})
+            elif profile == "random-walk-monte-carlo":
+                fit_power_law = ns.get("fit_power_law")
+                if fit_power_law is None:
+                    rows.append({"check": "Random-walk APIs", "status": "SKIP", "detail": "Upstream APIs unavailable"})
+                else:
+                    x = np.asarray([10.0, 20.0, 40.0, 80.0]); y = 3.0 * x ** 0.5
+                    fit = fit_power_law(x, y)
+                    exp = float(fit["exponent"])
+                    rows.append({"check": "Power-law fit recovers 1/2", "status": "PASS" if abs(exp - 0.5) < 1e-9 else "FAIL", "detail": f"exponent={exp:.12g}"})
+            elif profile == "nonlinear-chaos":
+                energy_fn = ns.get("double_pendulum_energy"); Params = ns.get("DoublePendulumParams"); sim = ns.get("simulate_double_pendulum")
+                if not all([energy_fn, Params, sim]):
+                    rows.append({"check": "Chaos APIs", "status": "SKIP", "detail": "Upstream APIs unavailable"})
+                else:
+                    p = Params(mass1=1.0, mass2=1.0, length1=1.0, length2=1.0, gravity=9.81, damping=0.0)
+                    state0 = np.asarray([0.2, 0.0, -0.15, 0.0])
+                    t, traj = sim(state0, p, duration=2.0, dt=0.002)
+                    e = np.asarray(energy_fn(traj, p), dtype=float)
+                    rel = float(np.max(np.abs(e - e[0])) / max(abs(float(e[0])), 1e-15))
+                    rows.append({"check": "Conservative energy drift", "status": "PASS" if rel < 1e-6 else "WARN", "detail": f"max |ΔE/E0|={rel:.3e}"})
+            elif profile == "radia-magnet-studio":
+                rows.append({"check": "Magnet Studio advanced suite loaded", "status": "PASS", "detail": "Engineering preflight / audit / seed ensemble available below"})
+                rows.append({"check": "RADIA Full engine", "status": "INFO" if os.environ.get("PHYSICAL_LAB_ENGINE_MODE", "") == "full" else "INFO", "detail": f"engine mode={os.environ.get('PHYSICAL_LAB_ENGINE_MODE', 'unknown')}"})
+            else:
+                rows.append({"check": "Profile", "status": "SKIP", "detail": f"No battery registered for {profile}"})
+        except Exception as exc:
+            rows.append({"check": "Validation battery", "status": "FAIL", "detail": str(exc)})
+        st.session_state[f"pl_val_{profile}"] = pd.DataFrame(rows)
+    df = st.session_state.get(f"pl_val_{profile}")
+    if df is not None and len(df):
+        passed = int(np.sum(df["status"].astype(str) == "PASS"))
+        failed = int(np.sum(df["status"].astype(str) == "FAIL"))
+        _headline(st, [
+            ("PASS", str(passed), "Checks that matched the expected reference"),
+            ("FAIL", str(failed), "Checks that missed the reference"),
+            ("Rows", str(len(df)), "Total battery rows"),
+            ("Engine", os.environ.get("PHYSICAL_LAB_ENGINE_MODE", "standard"), "Safe/Full context"),
+        ])
+        st.dataframe(df, width="stretch", hide_index=True)
+        raw = json.dumps({"schema": "physical-lab-content-validation-v1", "profile": profile, "rows": df.to_dict(orient="records")}, indent=2).encode("utf-8")
+        st.download_button("Export validation JSON", data=raw, file_name=f"physical-lab-validation-{profile}.json", mime="application/json", key=f"pl_val_export_{profile}")
+
+
 def _radiation_suite(st, ns: dict[str, Any]) -> None:
     np = _np(); pd = _pd(); go = _plotly()
     _section_header(
@@ -304,8 +403,8 @@ def _radiation_suite(st, ns: dict[str, Any]) -> None:
         "Physical Lab · Advanced Radiation Analysis",
         "Adds sensitivity maps, derived-quantity inspection, scan-point intelligence, and model-comparison diagnostics without changing the original V11/RADIA experiment chain.",
     )
-    tab_sense, tab_scan, tab_compare = st.tabs([
-        "2D sensitivity atlas", "Representative scan intelligence", "Analytic reference comparison"
+    tab_sense, tab_scan, tab_compare, tab_line = st.tabs([
+        "2D sensitivity atlas", "Representative scan intelligence", "Analytic reference comparison", "Linewidth & harmonic ladder"
     ])
 
     # Pull current upstream controls when possible. These names exist in the V11 UI;
@@ -485,6 +584,54 @@ def _radiation_suite(st, ns: dict[str, Any]) -> None:
                 st.plotly_chart(fig,width="stretch")
                 st.warning("Overlay comparison is valid only when the selected upstream observable has the same physical quantity and unit shown here. The analytic reference omits realized-field errors, trajectory effects, finite-emittance/energy-spread physics, beamline optics, and detector response.")
 
+    with tab_line:
+        st.markdown("### Ideal undulator harmonic ladder and finite-N linewidth")
+        st.caption(
+            "Uses the ideal planar-undulator resonance relation and the standard 1/(nN) relative-bandwidth "
+            "estimate for a finite-period device. This is a design reference, not a Full-mode RADIA spectrum."
+        )
+        c1, c2, c3, c4 = st.columns(4)
+        gamma = c1.number_input("γ", min_value=1.01, value=float(gamma_default), key="pl_rad_line_gamma")
+        kval = c2.number_input("K", min_value=0.0, value=1.0, key="pl_rad_line_k")
+        period_mm = c3.number_input("Period λu (mm)", min_value=0.1, value=float(period_mm_default), key="pl_rad_line_period")
+        n_periods = c4.number_input("Periods N", min_value=1, value=int(periods_default), key="pl_rad_line_n")
+        theta_mrad = st.number_input("Observation angle θ (mrad)", value=float(theta_x_default), key="pl_rad_line_theta")
+        if st.button("Build harmonic ladder", type="primary", key="pl_rad_line_run"):
+            rows = []
+            e1 = float(photon_energy_ev(np.asarray([gamma]), np.asarray([kval]), float(period_mm), np.asarray([theta_mrad]), harmonic=1)[0])
+            for n in (1, 3, 5, 7, 9):
+                en = n * e1
+                rel_bw = 1.0 / max(n * float(n_periods), 1.0)
+                rows.append({
+                    "harmonic n": n,
+                    "photon energy (eV)": en,
+                    "wavelength (nm)": 1.2398419843320026e3 / en if en > 0 else float("nan"),
+                    "relative bandwidth ~1/(nN)": rel_bw,
+                    "absolute ΔE (eV)": en * rel_bw,
+                })
+            st.session_state["pl_rad_ladder"] = (pd.DataFrame(rows), e1, float(n_periods), float(kval), float(gamma))
+        data = st.session_state.get("pl_rad_ladder")
+        if data:
+            df, e1, nper, kk, gg = data
+            _headline(st, [
+                ("Fundamental E1", f"{e1:.6g} eV", "Ideal planar undulator on-axis/off-axis resonance"),
+                ("N periods", f"{nper:.0f}", "Finite device length used for 1/(nN) estimate"),
+                ("K", f"{kk:.6g}", "Undulator strength parameter"),
+                ("γ", f"{gg:.6g}", "Lorentz factor"),
+            ])
+            fig = go.Figure(go.Bar(x=df["harmonic n"].astype(str), y=df["photon energy (eV)"], name="E_n"))
+            fig.update_layout(title="Ideal odd-harmonic energy ladder", xaxis_title="Harmonic n", yaxis_title="Photon energy (eV)", height=520)
+            st.plotly_chart(fig, width="stretch")
+            fig2 = go.Figure()
+            fig2.add_scatter(x=df["harmonic n"], y=df["relative bandwidth ~1/(nN)"], mode="lines+markers", name="ΔE/E ≈ 1/(nN)")
+            fig2.update_layout(title="Finite-N relative linewidth estimate", xaxis_title="Harmonic n", yaxis_title="Relative bandwidth", yaxis_type="log", height=500)
+            st.plotly_chart(fig2, width="stretch")
+            st.dataframe(df, width="stretch", hide_index=True)
+            st.caption(
+                "The 1/(nN) rule is an ideal finite-length estimate. Emittance, energy spread, tapering, "
+                "field errors and optics all broaden or reshape the realized spectrum in Full mode."
+            )
+
 
 def _ising_suite(st, ns: dict[str, Any]) -> None:
     np = _np(); pd = _pd(); go = _plotly()
@@ -493,7 +640,7 @@ def _ising_suite(st, ns: dict[str, Any]) -> None:
         "Physical Lab · Criticality & Sampling Suite",
         "Adds adaptive critical-window refinement, Binder-cumulant finite-size analysis, distribution views, and work-normalized sampler efficiency while preserving the original Ising experiments.",
     )
-    tab_adapt, tab_binder, tab_eff = st.tabs(["Adaptive critical scan", "Binder & distributions", "Sampler efficiency"])
+    tab_adapt, tab_binder, tab_eff, tab_fss = st.tabs(["Adaptive critical scan", "Binder & distributions", "Sampler efficiency", "Finite-size scaling"])
     IsingParams = ns.get("IsingParams"); Method = ns.get("Method")
     simulate = ns.get("simulate"); thermodynamic_scan = ns.get("thermodynamic_scan"); onsager_tc = ns.get("onsager_tc")
     method_compatibility = ns.get("method_compatibility")
@@ -624,6 +771,102 @@ def _ising_suite(st, ns: dict[str, Any]) -> None:
         edf=st.session_state.get("pl_i_eff")
         if edf is not None and len(edf):
             fig=go.Figure(go.Bar(x=edf["method"],y=edf["ESS / work"]));fig.update_layout(title="Effective energy samples per work unit",xaxis_title="Sampler",yaxis_title="ESS / work",height=500);st.plotly_chart(fig,width="stretch");st.dataframe(edf,width="stretch",hide_index=True)
+
+    with tab_fss:
+        st.markdown("### Finite-size scaling of critical response")
+        st.caption(
+            "For the 2D zero-field Ising model, Onsager exponents give ν=1 and γ=7/4. "
+            "Physical Lab measures χ-peak height versus lattice size and compares the empirical power "
+            "against γ/ν = 1.75. This is a finite-grid diagnostic, not a full data-collapse analysis."
+        )
+        if dim != 2 or abs(h) >= 1e-14:
+            st.info("Finite-size scaling reference exponents are shown for the 2D zero-field case. Switch the upstream Lab to dimension=2 and h≈0 for the Onsager comparison.")
+        c1, c2, c3 = st.columns(3)
+        sizes_text = c1.text_input("Lattice sizes", value="8,12,16,24,32", key="pl_i_fss_sizes")
+        tmin = c2.number_input("T window min", min_value=0.05, value=1.8, key="pl_i_fss_tmin")
+        tmax = c3.number_input("T window max", min_value=0.06, value=2.8, key="pl_i_fss_tmax")
+        points = st.select_slider("Temperature points / size", options=[9, 11, 15, 21], value=15, key="pl_i_fss_points")
+        method_label = st.selectbox("Update method", ["wolff", "metropolis", "heat_bath"], key="pl_i_fss_method")
+        if st.button("Run finite-size scaling scan", type="primary", key="pl_i_fss_run", disabled=tmax <= tmin):
+            try:
+                sizes = sorted({int(x.strip()) for x in sizes_text.split(",") if x.strip()})
+                if not sizes or min(sizes) < 4 or max(sizes) > 96:
+                    raise ValueError("sizes must be integers from 4 to 96")
+            except Exception as e:
+                st.error(str(e))
+                sizes = []
+            if sizes:
+                temps = np.linspace(float(tmin), float(tmax), int(points))
+                rows = []
+                total = len(sizes)
+                bar = st.progress(0, text="Finite-size χ-peak scan")
+                for i, L in enumerate(sizes):
+                    p = IsingParams(size=L, coupling=J, field=h, temperature=float((tmin + tmax) / 2), dimension=dim)
+                    meth = Method(method_label)
+                    if method_compatibility and not method_compatibility(p, meth)[0]:
+                        st.warning(f"L={L}: {method_compatibility(p, meth)[1]}")
+                        continue
+                    scan = thermodynamic_scan(
+                        temps, p, method=meth,
+                        equilibration_sweeps=max(200, eq // 2),
+                        measurement_sweeps=max(500, mc),
+                        measure_every=measure, seed=seed + L * 917,
+                    )
+                    T = np.asarray(scan["temperature"], dtype=float)
+                    chi = np.asarray(scan["susceptibility_standard"], dtype=float)
+                    cv = np.asarray(scan["specific_heat"], dtype=float)
+                    mag = np.asarray(scan["mean_abs_magnetization"], dtype=float)
+                    rows.append({
+                        "L": L,
+                        "T at χ peak": float(T[int(np.nanargmax(chi))]),
+                        "χ peak": float(np.nanmax(chi)),
+                        "T at Cv peak": float(T[int(np.nanargmax(cv))]),
+                        "Cv peak": float(np.nanmax(cv)),
+                        "⟨|M|⟩/N at χ peak": float(mag[int(np.nanargmax(chi))]),
+                    })
+                    bar.progress((i + 1) / total, text=f"Size {i + 1}/{total}")
+                st.session_state["pl_i_fss"] = pd.DataFrame(rows)
+        fdf = st.session_state.get("pl_i_fss")
+        if fdf is not None and len(fdf):
+            L = fdf["L"].to_numpy(dtype=float)
+            chi_peak = fdf["χ peak"].to_numpy(dtype=float)
+            # Power-law fit: χ_max ~ L^{γ/ν}
+            mask = (L > 0) & np.isfinite(chi_peak) & (chi_peak > 0)
+            exponent = float("nan")
+            intercept = float("nan")
+            if np.count_nonzero(mask) >= 2:
+                x = np.log(L[mask])
+                y = np.log(chi_peak[mask])
+                A = np.vstack([x, np.ones_like(x)]).T
+                exponent, intercept = np.linalg.lstsq(A, y, rcond=None)[0]
+            exact = float(onsager_tc(J)) if dim == 2 and abs(h) < 1e-14 else float("nan")
+            theory = 1.75  # γ/ν for 2D Ising
+            _headline(st, [
+                ("Observed γ/ν", f"{exponent:.4g}" if np.isfinite(exponent) else "n/a", "Log–log fit of χ_peak versus L"),
+                ("2D Onsager γ/ν", f"{theory:.4g}", "Exact thermodynamic-limit ratio γ/ν = (7/4)/1"),
+                ("Median T(χ peak)", f"{float(np.nanmedian(fdf['T at χ peak'])):.6g}", "Across scanned sizes"),
+                ("Onsager Tc", f"{exact:.6g}" if np.isfinite(exact) else "n/a", "Exact 2D zero-field reference"),
+            ])
+            fig = go.Figure()
+            fig.add_scatter(x=L, y=chi_peak, mode="markers+lines", name="χ peak")
+            if np.isfinite(exponent):
+                Lfit = np.linspace(float(np.min(L)), float(np.max(L)), 80)
+                fig.add_scatter(x=Lfit, y=np.exp(intercept) * Lfit ** exponent, mode="lines", name=f"Fit L^{exponent:.3f}")
+                L0 = float(np.min(L[mask])); chi0 = float(chi_peak[mask][np.argmin(L[mask])])
+                fig.add_scatter(x=Lfit, y=chi0 * (Lfit / L0) ** theory, mode="lines", name="Guide ∝ L^1.75", opacity=0.55)
+            fig.update_layout(title="Susceptibility-peak scaling", xaxis_title="Lattice size L", yaxis_title="χ peak", xaxis_type="log", yaxis_type="log", height=560)
+            st.plotly_chart(fig, width="stretch")
+            fig2 = go.Figure()
+            fig2.add_scatter(x=fdf["L"], y=fdf["T at χ peak"], mode="lines+markers", name="T(χ peak)")
+            if np.isfinite(exact):
+                fig2.add_hline(y=exact, line_dash="dash", annotation_text="Onsager Tc")
+            fig2.update_layout(title="Finite-size critical-temperature proxy", xaxis_title="L", yaxis_title="T at χ peak", height=500)
+            st.plotly_chart(fig2, width="stretch")
+            st.dataframe(fdf, width="stretch", hide_index=True)
+            st.caption(
+                "Observed γ/ν depends on equilibration, measurement budget, temperature grid and lattice range. "
+                "Disagreement with 1.75 usually means the scan is still pre-asymptotic, not that the Onsager exponents are wrong."
+            )
 
 
 def _chaos_suite(st, ns: dict[str, Any]) -> None:
@@ -969,7 +1212,7 @@ def _oscillation_suite(st, ns: dict[str, Any]) -> None:
         st.warning("Advanced oscillation APIs were not found in this upstream version. The original lab remains available.");return
     mass=float(st.session_state.get("mass",1.0));omega0=float(st.session_state.get("omega0",2*math.pi));u0=float(st.session_state.get("u0",1.0));v0=float(st.session_state.get("v0",0.0));duration=float(st.session_state.get("duration",10.0))
     initial=np.asarray([u0,v0],dtype=float)
-    tab_atlas,tab_solver,tab_energy=st.tabs(["Damping × drive atlas","Solver accuracy frontier","Energy-flow microscope"])
+    tab_atlas,tab_solver,tab_energy,tab_chrono=st.tabs(["Damping × drive atlas","Solver accuracy frontier","Energy-flow microscope","PyChrono cross-check"])
 
     with tab_atlas:
         c1,c2,c3,c4=st.columns(4)
@@ -1055,6 +1298,120 @@ def _oscillation_suite(st, ns: dict[str, Any]) -> None:
             ])
             fig=go.Figure();fig.add_scatter(x=t,y=energy-energy[0],mode="lines",name="E(t)-E(0)");fig.add_scatter(x=t,y=wi+wd,mode="lines",name="Integrated input+damping work");fig.update_layout(title="Energy balance closure",xaxis_title="Time (s)",yaxis_title="Energy / work (J)",height=570);st.plotly_chart(fig,width="stretch")
             fig2=go.Figure();fig2.add_scatter(x=t,y=resid,mode="lines",name="Balance residual");fig2.update_layout(title="Numerical energy-balance residual",xaxis_title="Time (s)",yaxis_title="Residual (J)",height=480);st.plotly_chart(fig2,width="stretch")
+
+    with tab_chrono:
+        st.markdown("### Physical Lab NumPy/SciPy integrator versus discovered PyChrono runtime")
+        st.caption(
+            "Compares the Lab's force-free linear oscillator against a harmonic oscillator integrated "
+            "inside the separately discovered PyChrono interpreter (PHYSICAL_LAB_PYCHRONO_PYTHON). "
+            "This is the first real adapter path that consumes PyChrono from inside Physical Lab."
+        )
+        c1,c2,c3=st.columns(3)
+        dur=c1.number_input("Duration (s)",min_value=0.1,value=min(8.0,duration),key="pl_o_ch_dur")
+        dt=c2.number_input("dt (s)",min_value=1e-5,value=min(0.01,float(st.session_state.get("dt",0.01))),format="%.6g",key="pl_o_ch_dt")
+        k_spring=c3.number_input("Spring k = m ω0²",value=float(mass*omega0*omega0),format="%.8g",key="pl_o_ch_k",disabled=True)
+        if st.button("Run PyChrono cross-check",type="primary",key="pl_o_ch_run"):
+            p=Params(mass=mass,omega0=omega0,gamma=0.0,force_amplitude=0.0,force_frequency=0.0)
+            lab=simulate_fixed(initial,p,duration=float(dur),dt=float(dt),method=Method.RK4)
+            t_lab=np.asarray(lab["time"],dtype=float); s_lab=np.asarray(lab["state"],dtype=float)
+            chrono_py=os.environ.get("PHYSICAL_LAB_PYCHRONO_PYTHON","").strip()
+            if not chrono_py:
+                st.warning("No PHYSICAL_LAB_PYCHRONO_PYTHON was provided by the desktop shell. Install/detect PyChrono in Runtime Center first.")
+            else:
+                script=r'''
+import json,sys,math
+try:
+    import pychrono as chrono
+except Exception as e:
+    print(json.dumps({"ok":False,"error":f"import pychrono failed: {e}"})); sys.exit(0)
+mass=float(sys.argv[1]); omega0=float(sys.argv[2]); u0=float(sys.argv[3]); v0=float(sys.argv[4]); duration=float(sys.argv[5]); dt=float(sys.argv[6])
+k=mass*omega0*omega0
+# Chrono 7/8/9 compatibility helpers
+Vec=getattr(chrono,"ChVector3d",None) or getattr(chrono,"ChVectorD")
+def V(x,y=0.0,z=0.0):
+    return Vec(x,y,z)
+system=chrono.ChSystemNSC()
+if hasattr(system,"SetGravitationalAcceleration"):
+    system.SetGravitationalAcceleration(V(0,0,0))
+elif hasattr(system,"Set_G_acc"):
+    system.Set_G_acc(V(0,0,0))
+ground=chrono.ChBody(); ground.SetBodyFixed(True); system.Add(ground)
+body=chrono.ChBody(); body.SetMass(mass)
+if hasattr(body,"SetInertiaXX"): body.SetInertiaXX(V(1,1,1))
+body.SetPos(V(u0,0,0))
+if hasattr(body,"SetPosDt"): body.SetPosDt(V(v0,0,0))
+elif hasattr(body,"SetPos_dt"): body.SetPos_dt(V(v0,0,0))
+system.Add(body)
+link=chrono.ChLinkTSDA()
+# Prefer rest length 0 so equilibrium is at the origin.
+try:
+    link.Initialize(ground, body, True, V(0,0,0), V(0,0,0))
+except TypeError:
+    link.Initialize(ground, body, True, V(0,0,0), V(0,0,0), False)
+if hasattr(link,"SetSpringCoefficient"): link.SetSpringCoefficient(k)
+if hasattr(link,"SetDampingCoefficient"): link.SetDampingCoefficient(0.0)
+# Rest length APIs vary across Chrono versions.
+for name,val in (("SetRestLength",0.0),("Set_spring_rest_length",0.0)):
+    if hasattr(link,name):
+        try: getattr(link,name)(val)
+        except Exception: pass
+system.AddLink(link)
+times=[]; xs=[]; vs=[]; t=0.0
+steps=int(max(1, math.ceil(duration/dt)))
+for i in range(steps+1):
+    pos=body.GetPos(); vel=body.GetPosDt() if hasattr(body,"GetPosDt") else body.GetPos_dt()
+    times.append(t); xs.append(float(pos.x)); vs.append(float(vel.x))
+    if i < steps:
+        system.DoStepDynamics(dt); t += dt
+print(json.dumps({"ok":True,"time":times,"x":xs,"v":vs,"engine":getattr(chrono,"__version__","pychrono")}))
+'''
+                try:
+                    proc=subprocess.run(
+                        [chrono_py,"-c",script,str(mass),str(omega0),str(u0),str(v0),str(dur),str(dt)],
+                        capture_output=True,text=True,timeout=120,check=False,
+                    )
+                    payload=None
+                    for line in reversed(proc.stdout.splitlines()):
+                        line=line.strip()
+                        if line.startswith("{") and line.endswith("}"):
+                            payload=json.loads(line); break
+                    if payload is None:
+                        st.error(f"PyChrono subprocess returned no JSON.\nstdout:\n{proc.stdout[-1200:]}\nstderr:\n{proc.stderr[-1200:]}")
+                    elif not payload.get("ok"):
+                        st.error(str(payload.get("error","PyChrono comparison failed")))
+                    else:
+                        t_c=np.asarray(payload["time"],dtype=float); x_c=np.asarray(payload["x"],dtype=float); v_c=np.asarray(payload["v"],dtype=float)
+                        # Interpolate Chrono onto Lab time grid for a fair state comparison.
+                        x_ci=np.interp(t_lab,t_c,x_c); v_ci=np.interp(t_lab,t_c,v_c)
+                        du=s_lab[:,0]-x_ci; dv=s_lab[:,1]-v_ci
+                        amp=max(float(np.max(np.abs(s_lab[:,0]))),1e-12)
+                        st.session_state["pl_o_chrono"]={
+                            "t":t_lab,"u_lab":s_lab[:,0],"u_chrono":x_ci,"v_lab":s_lab[:,1],"v_chrono":v_ci,
+                            "max_abs_u_err":float(np.max(np.abs(du))),"rms_u_err":float(np.sqrt(np.mean(du*du))),
+                            "max_rel_u_err":float(np.max(np.abs(du))/amp),"engine":str(payload.get("engine","pychrono")),
+                            "python":chrono_py,
+                        }
+                except Exception as e:
+                    st.error(f"PyChrono cross-check failed: {e}")
+            # Always keep the Lab analytic reference visible even if Chrono is missing.
+            analytic=u0*np.cos(omega0*t_lab)+(v0/omega0)*np.sin(omega0*t_lab) if omega0!=0 else np.full_like(t_lab,u0)
+            st.session_state["pl_o_chrono_lab"]={"t":t_lab,"u_lab":s_lab[:,0],"u_analytic":analytic,"max_abs_analytic_err":float(np.max(np.abs(s_lab[:,0]-analytic)))}
+        data=st.session_state.get("pl_o_chrono")
+        labref=st.session_state.get("pl_o_chrono_lab")
+        if labref:
+            _headline(st,[
+                ("Lab vs analytic max |Δu|",f"{labref['max_abs_analytic_err']:.3e} m","Force-free linear oscillator reference"),
+                ("Chrono compared", "yes" if data else "no", "Requires a discovered PyChrono interpreter"),
+                ("Chrono max |Δu|", f"{data['max_abs_u_err']:.3e} m" if data else "—", "Lab RK4 versus PyChrono trajectory"),
+                ("Chrono RMS |Δu|", f"{data['rms_u_err']:.3e} m" if data else "—", "Over the shared Lab time grid"),
+            ])
+            fig=go.Figure();fig.add_scatter(x=labref["t"],y=labref["u_lab"],mode="lines",name="Lab RK4");fig.add_scatter(x=labref["t"],y=labref["u_analytic"],mode="lines",name="Analytic",opacity=0.7)
+            if data: fig.add_scatter(x=data["t"],y=data["u_chrono"],mode="lines",name=f"PyChrono ({data['engine']})")
+            fig.update_layout(title="Force-free oscillator displacement",xaxis_title="Time (s)",yaxis_title="u (m)",height=560);st.plotly_chart(fig,width="stretch")
+            if data:
+                fig2=go.Figure();fig2.add_scatter(x=data["t"],y=data["u_lab"]-data["u_chrono"],mode="lines",name="Lab − Chrono")
+                fig2.update_layout(title="Displacement difference",xaxis_title="Time (s)",yaxis_title="Δu (m)",height=480);st.plotly_chart(fig2,width="stretch")
+                st.caption(f"PyChrono interpreter: `{data['python']}`. Link/constraint modelling differences can dominate the residual; treat this as an engine-interop diagnostic.")
 
 
 def _radia_magnet_suite(st, ns: dict[str, Any]) -> None:

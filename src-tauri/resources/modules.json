@@ -180,7 +180,7 @@
     "fragileDependencies": [],
     "safeBackend": "standard",
     "safeModeNote": "Uses the existing NumPy/SciPy oscillator and integration solvers; no fragile external engine is required.",
-    "fullModeNote": "Same validated solver today. PyChrono is not forced into this model until a real comparison adapter is implemented."
+    "fullModeNote": "Same validated NumPy/SciPy solvers. When a PyChrono runtime is discovered, the Advanced Suite can cross-check a force-free oscillator against it without making PyChrono a hard dependency."
   },
   {
     "id": "radia-magnet-studio",

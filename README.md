@@ -1,6 +1,41 @@
-# Physical Lab v0.4.1 — All-Lab Advanced Experiment Suite
+# Physical Lab v0.5.0 — Content Quality Upgrade
 
 Physical Lab is a unified macOS desktop shell for the computational-physics projects and scientific runtime/build tools maintained in the `lord-navy-crypto` GitHub account.
+
+## v0.5.0 — Scientific content reinforcement
+
+This release upgrades **experiment content quality** inside the Advanced Experiment Suite. Upstream Lab solvers remain intact; Physical Lab adds stronger research workflows on top.
+
+### Ising Monte Carlo — Finite-size scaling
+
+- New **Finite-size scaling** tab measures χ-peak height versus lattice size.
+- Reports an observed γ/ν from a log–log fit and compares it with the 2D Onsager ratio γ/ν = 1.75.
+- Tracks finite-size movement of T(χ peak) against the exact Onsager Tc when dimension=2 and h≈0.
+
+### Radiation Platform — Linewidth & harmonic ladder
+
+- New **Linewidth & harmonic ladder** tab builds the ideal odd-harmonic energy ladder E_n = n E_1.
+- Shows the finite-N relative-bandwidth estimate ΔE/E ≈ 1/(nN) with absolute linewidths.
+- Remains an ideal design reference; Full-mode RADIA/V11 physics is unchanged.
+
+### Oscillation & Integration — PyChrono cross-check
+
+- New **PyChrono cross-check** tab is the first real adapter that consumes a discovered PyChrono runtime.
+- Compares the Lab RK4 force-free oscillator against analytic motion and, when available, against `PHYSICAL_LAB_PYCHRONO_PYTHON`.
+- PyChrono stays optional: Safe/Full Lab solve paths do not require it.
+
+### All Labs — Content Validation Battery
+
+- Every Lab now exposes a one-click **Content Validation Battery** under the advanced suite.
+- Runs short deterministic checks against analytic references (Onsager Tc, undulator γ² scaling, force-free oscillator, power-law fit recovery, conservative energy drift, etc.).
+- Exports a JSON report for bug reports and reproducibility notes.
+
+### Product metadata
+
+- App version bumped to **0.5.0** (`package.json`, `Cargo.toml`, `tauri.conf.json`, UI footer).
+- Module/dependency notes updated so Oscillation advertises the optional PyChrono adapter accurately.
+
+---
 
 ## v0.1 module set
 

@@ -266,9 +266,10 @@
     "sourceUrl": "https://api.projectchrono.org/pychrono_installation.html",
     "description": "Python interface for Project Chrono.",
     "usedBy": [
-      "Dependency Center / future real adapters"
+      "Oscillation & Integration Advanced Suite (optional cross-check)",
+      "Dependency Center"
     ],
-    "notes": "Physical Lab scans Conda environments and reports optional module availability instead of assuming one global Python."
+    "notes": "Discovered via PHYSICAL_LAB_PYCHRONO_PYTHON / Conda chrono environments. The Oscillation advanced suite can cross-check a force-free oscillator against PyChrono without making it a hard Lab dependency."
   },
   {
     "id": "chrono-modal",
