@@ -1,5 +1,26 @@
 {
   "checks": {
+    "chaos_double_pendulum_energy_drift": {
+      "input": {
+        "dt": 0.001,
+        "method": "RK4",
+        "model": "simple double pendulum, small-angle IC",
+        "t_end": 10.0
+      },
+      "notes": "RK4 energy drift should be tiny for short integrations. Not a proof of long-time stability.",
+      "pass": true,
+      "relative_energy_drift": 2.748452369389343e-06
+    },
+    "chaos_simple_pendulum_period": {
+      "formula": "2\u03c0\u221a(l/g)",
+      "input": {
+        "g": 9.81,
+        "l": 1.0,
+        "model": "small-angle simple pendulum"
+      },
+      "period_s": 2.0060666807106475,
+      "status": "analytic-reference"
+    },
     "ideal_undulator_first_harmonic": {
       "formula": "lambda_u * (1 + K^2/2) / (2 gamma^2)",
       "input": {
@@ -132,6 +153,15 @@
       },
       "pass": true,
       "reference": 100.0
+    },
+    "random_walk_polya_d3": {
+      "P_infinity": 0.340537,
+      "input": {
+        "model": "simple cubic lattice d=3 random walk"
+      },
+      "notes": "d=1,2 are recurrent (P=1). d=3 is transient with P\u22480.3405.",
+      "source": "Watson 1939",
+      "status": "analytic-reference"
     }
   },
   "purpose": "Deterministic analytic/numerical references; not a substitute for experimental validation.",

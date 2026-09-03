@@ -91,7 +91,7 @@ for feature in [
     'Manufacturing seed ensemble','Driven bifurcation intelligence','Magnetization-distribution microscope',
     'Finite-size scaling','Linewidth & harmonic ladder','PyChrono cross-check','Content Validation Battery',
     'Order-parameter collapse guide','Research-note evidence checklist','Export Lyapunov time series CSV',
-    'content-validation',
+    'content-validation','Convergence order','Pólya recurrence','Poincaré section','Field-integral budget',
 ]:
     assert feature in advanced, feature
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:

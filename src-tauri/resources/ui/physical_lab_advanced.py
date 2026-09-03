@@ -957,7 +957,7 @@ def _chaos_suite(st, ns: dict[str, Any]) -> None:
     p=Params(mass1=float(st.session_state.get("m1",1.0)),mass2=float(st.session_state.get("m2",1.0)),length1=float(st.session_state.get("l1",1.0)),length2=float(st.session_state.get("l2",1.0)),gravity=float(st.session_state.get("gravity",9.81)),damping=0.0)
     base=np.asarray([float(st.session_state.get("theta1_0",math.pi/2)),float(st.session_state.get("omega1_0",0.0)),float(st.session_state.get("theta2_0",1.27)),float(st.session_state.get("omega2_0",0.0))])
     driven_scan=ns.get("driven_poincare_scan")
-    tab_pair,tab_lyap,tab_atlas,tab_drive=st.tabs(["Twin-trajectory divergence","Lyapunov + phase space","Stability atlas","Driven bifurcation intelligence"])
+    tab_pair,tab_lyap,tab_atlas,tab_drive,tab_poincare=st.tabs(["Twin-trajectory divergence","Lyapunov + phase space","Stability atlas","Driven bifurcation intelligence","Poincaré section"])
 
     with tab_pair:
         c1,c2,c3=st.columns(3);duration=c1.number_input("Duration (s)",min_value=0.1,value=min(30.0,float(st.session_state.get("trajectory_duration",20.0))),key="pl_c_pair_dur");dt=c2.number_input("dt (s)",min_value=1e-5,value=float(st.session_state.get("trajectory_dt",0.01)),format="%.6g",key="pl_c_pair_dt");pert_exp=c3.slider("log10 initial Δθ₁",-12,-2,-7,key="pl_c_pair_pert")
@@ -1044,6 +1044,72 @@ def _chaos_suite(st, ns: dict[str, Any]) -> None:
                 fig2=go.Figure();fig2.add_scatter(x=sdf["amplitude"],y=sdf["occupied theta bins"],mode="lines+markers",name="Occupied θ bins");fig2.update_layout(title="Descriptive response-complexity indicator",xaxis_title="Drive amplitude",yaxis_title="Occupied θ histogram bins",height=500);st.plotly_chart(fig2,width="stretch")
                 st.caption("The occupancy indicator summarizes finite stroboscopic spread; it is not a formal entropy, bifurcation order, or proof of chaos. Use it to identify amplitudes for deeper Poincaré/Lyapunov inspection.")
 
+    with tab_poincare:
+        st.markdown("### Poincaré section — fixed-amplitude driven pendulum")
+        st.caption(
+            "Stroboscopic Poincaré section: sample (θ, ω) at every drive period after discarding transients. "
+            "Periodic orbits appear as isolated dots; quasiperiodic orbits as closed curves; chaos as scattered points."
+        )
+        if driven_scan is None:
+            st.info("The upstream driven Poincaré API is not available in this version.")
+        else:
+            c1, c2, c3 = st.columns(3)
+            p_amp = c1.number_input("Drive amplitude A", min_value=0.01, value=1.2, step=0.05, key="pl_c_p_amp")
+            p_gamma = c2.number_input("Damping γ", min_value=0.0, value=0.05, step=0.01, key="pl_c_p_gamma")
+            p_freq = c3.number_input("Drive frequency ω_d", min_value=0.05, value=0.667, step=0.01, key="pl_c_p_freq")
+            c4, c5 = st.columns(2)
+            p_periods = c4.select_slider("Drive periods", options=[200, 400, 600, 1000, 1500, 2000], value=600, key="pl_c_p_periods")
+            p_ics = c5.number_input("Initial conditions (grid side)", min_value=1, max_value=10, value=3, key="pl_c_p_ics")
+            if st.button("Build Poincaré section", type="primary", key="pl_c_p_run"):
+                discard = max(80, int(p_periods * 0.6))
+                all_theta = []; all_omega = []
+                ics = [(float(t0), float(w0))
+                       for t0 in np.linspace(-2.0, 2.0, int(p_ics))
+                       for w0 in np.linspace(-1.5, 1.5, int(p_ics))]
+                bar = st.progress(0, text="Poincaré section")
+                for idx, (t0, w0) in enumerate(ics):
+                    rr = driven_scan(
+                        np.array([float(p_amp)]),
+                        gamma=float(p_gamma), omega0=1.0, drive_frequency=float(p_freq),
+                        theta0=t0, omega_initial=w0,
+                        periods=int(p_periods), discard_periods=discard,
+                        steps_per_period=80,
+                    )
+                    all_theta.extend(rr["theta"].tolist() if hasattr(rr["theta"], "tolist") else list(rr["theta"]))
+                    all_omega.extend(rr["omega"].tolist() if hasattr(rr["omega"], "tolist") else list(rr["omega"]))
+                    bar.progress((idx + 1) / len(ics), text=f"IC {idx+1}/{len(ics)}")
+                st.session_state["pl_c_poincare"] = (np.array(all_theta), np.array(all_omega), float(p_amp), float(p_gamma), float(p_freq))
+            pdata = st.session_state.get("pl_c_poincare")
+            if pdata:
+                th, om, amp_v, gam_v, freq_v = pdata
+                fig = go.Figure(go.Scattergl(
+                    x=th, y=om, mode="markers",
+                    marker={"size": 2.5, "opacity": 0.5, "color": om, "colorscale": "Viridis", "colorbar": {"title": "ω"}},
+                ))
+                fig.update_layout(
+                    title=f"Poincaré section  A={amp_v:.3g}, γ={gam_v:.3g}, ω_d={freq_v:.3g}",
+                    xaxis_title="θ (rad)", yaxis_title="ω (rad/s)", height=680,
+                )
+                st.plotly_chart(fig, width="stretch")
+                _headline(st, [
+                    ("Sampled points", str(len(th)), "Total stroboscopic intersections plotted"),
+                    ("Drive amplitude A", f"{amp_v:.4g}", ""),
+                    ("Damping γ", f"{gam_v:.4g}", ""),
+                    ("Drive frequency ω_d", f"{freq_v:.4g}", ""),
+                ])
+                poincare_df = pd.DataFrame({"theta": th, "omega": om})
+                st.download_button(
+                    "Export Poincaré section CSV",
+                    data=poincare_df.to_csv(index=False).encode("utf-8"),
+                    file_name="physical-lab-poincare-section.csv", mime="text/csv",
+                    key="pl_c_p_export",
+                )
+                st.caption(
+                    "The Poincaré section is a stroboscopic slice of the 3D extended phase space (θ, ω, t). "
+                    "Structure in this plot reveals the topology of the attractor: fixed points → periodic, "
+                    "invariant curves → quasiperiodic, space-filling scatter → chaotic."
+                )
+
 
 def _numerical_suite(st, ns: dict[str, Any]) -> None:
     np = _np(); pd = _pd(); go = _plotly()
@@ -1058,8 +1124,8 @@ def _numerical_suite(st, ns: dict[str, Any]) -> None:
         st.warning("Advanced numerical APIs were not found in this upstream version. The original lab remains available.")
         return
 
-    tab_frontier, tab_atlas, tab_micro = st.tabs([
-        "Reliability frontier", "Cancellation atlas", "Error microscope"
+    tab_frontier, tab_atlas, tab_micro, tab_order = st.tabs([
+        "Reliability frontier", "Cancellation atlas", "Error microscope", "Convergence order"
     ])
 
     with tab_frontier:
@@ -1155,6 +1221,65 @@ def _numerical_suite(st, ns: dict[str, Any]) -> None:
                 fig2.add_scatter(x=grp["terms"],y=np.maximum(grp["cancellation_ratio"],1.0),mode="lines",name=method)
             fig2.update_layout(title="Cancellation ratio versus term count",xaxis_title="Fixed terms",yaxis_title="Σ|term| / |sum|",yaxis_type="log",height=520)
             st.plotly_chart(fig2,width="stretch")
+
+    with tab_order:
+        st.markdown("### Empirical convergence-order verification")
+        st.caption(
+            "Uses Richardson-extrapolation logic: evaluate sin(x) with N and 2N Taylor terms, "
+            "measure how the error shrinks, and report the observed convergence order. "
+            "For the Taylor series of sin, the theoretical order is 2 (each new term adds two powers of x)."
+        )
+        c1, c2, c3 = st.columns(3)
+        xv = c1.number_input("Test x (rad)", value=1.0, format="%.8g", key="pl_n_ord_x")
+        dtype = c2.selectbox("Arithmetic", ["float64", "float32"], index=0, key="pl_n_ord_dtype")
+        method_label = c3.selectbox("Method", ["Range reduced", "Raw Taylor"], key="pl_n_ord_method")
+        nmax = st.slider("Maximum term count", 8, 100, 40, 2, key="pl_n_ord_nmax")
+        if st.button("Measure convergence order", type="primary", key="pl_n_ord_run"):
+            method = Method.RANGE_REDUCED if method_label.startswith("Range") else Method.RAW
+            rows = []
+            prev_err = None
+            for n in range(2, int(nmax) + 1):
+                r = sine_taylor(float(xv), method=method, dtype=dtype, max_terms=max(n, 1), fixed_terms=n,
+                                reference_backend=ReferenceBackend.MPMATH, reference_precision_digits=100)
+                err = max(float(r.absolute_error), np.finfo(float).tiny)
+                order = float("nan")
+                if prev_err is not None and prev_err > err > 0:
+                    order = math.log(prev_err / err) / math.log((n) / (n - 1))
+                rows.append({"terms": n, "absolute_error": err, "observed_order": order})
+                prev_err = err
+            st.session_state["pl_n_order"] = pd.DataFrame(rows)
+        odf = st.session_state.get("pl_n_order")
+        if odf is not None and len(odf):
+            finite = odf[np.isfinite(odf["observed_order"]) & (odf["observed_order"] > 0) & (odf["observed_order"] < 100)]
+            median_order = float(np.median(finite["observed_order"])) if len(finite) else float("nan")
+            _headline(st, [
+                ("Median observed order", f"{median_order:.3g}" if np.isfinite(median_order) else "n/a",
+                 "Median of log(e_{n-1}/e_n)/log(n/(n-1)) over the convergent regime"),
+                ("Theoretical", "2", "Each Taylor term adds x^2 suppression"),
+                ("Points measured", str(len(finite)), "Term counts where error was monotonically decreasing"),
+            ])
+            fig = go.Figure()
+            fig.add_scatter(x=odf["terms"], y=np.maximum(odf["absolute_error"], np.finfo(float).tiny),
+                            mode="lines+markers", name="Absolute error")
+            fig.update_layout(title="Error decay with Taylor terms",
+                              xaxis_title="Fixed terms", yaxis_title="Absolute error",
+                              yaxis_type="log", height=520)
+            st.plotly_chart(fig, width="stretch")
+            fig2 = go.Figure()
+            fig2.add_scatter(x=finite["terms"], y=finite["observed_order"], mode="lines+markers", name="Observed order")
+            fig2.add_hline(y=2.0, line_dash="dash", annotation_text="Theoretical order = 2")
+            fig2.update_layout(title="Empirical convergence order per term step",
+                               xaxis_title="Terms", yaxis_title="Order",
+                               height=500, yaxis_range=[0, max(8, float(np.nanmax(finite["observed_order"])) * 1.1) if len(finite) else 8])
+            st.plotly_chart(fig2, width="stretch")
+            st.download_button("Export convergence-order CSV",
+                               data=odf.to_csv(index=False).encode("utf-8"),
+                               file_name="physical-lab-convergence-order.csv", mime="text/csv",
+                               key="pl_n_ord_export")
+            st.caption(
+                "In the convergent regime |x| is small enough that adding terms improves accuracy. "
+                "Beyond the convergent regime, floating-point cancellation dominates and the order becomes meaningless."
+            )
 
 
 def _random_walk_suite(st, ns: dict[str, Any]) -> None:
@@ -1279,6 +1404,38 @@ def _random_walk_suite(st, ns: dict[str, Any]) -> None:
                     fig.add_scatter(x=grp["horizon"],y=grp["return probability"],mode="lines+markers",name=f"d={d}")
                 fig.update_layout(title="Finite-horizon probability of at least one return to the origin",xaxis_title="Observation horizon H (steps)",yaxis_title="P(return by H)",xaxis_type="log",height=590);st.plotly_chart(fig,width="stretch")
                 st.dataframe(rdf,width="stretch",hide_index=True)
+                # Pólya infinite-time reference lines
+                polya = {}
+                for d in sorted(int(x) for x in rdf["dimension"].unique()):
+                    if d == 1:
+                        polya[d] = 1.0
+                    elif d == 2:
+                        polya[d] = 1.0
+                    elif d == 3:
+                        # Pólya / Watson (1939): P(return, d=3) ≈ 0.340537...
+                        polya[d] = 0.340537
+                    else:
+                        polya[d] = None  # no simple closed form
+                if any(v is not None for v in polya.values()):
+                    st.markdown("#### Pólya recurrence reference (infinite-time limit)")
+                    ref_rows = []
+                    for d in sorted(polya.keys()):
+                        if polya[d] is not None:
+                            max_h = int(rdf[rdf["dimension"] == d]["horizon"].max()) if len(rdf[rdf["dimension"] == d]) else 0
+                            max_p = float(rdf[rdf["dimension"] == d]["return probability"].max()) if len(rdf[rdf["dimension"] == d]) else 0
+                            ref_rows.append({
+                                "dimension": d,
+                                "Pólya P∞": polya[d],
+                                "observed max P(H)": f"{max_p:.4f}",
+                                "largest H scanned": max_h,
+                                "note": "recurrent" if polya[d] >= 1.0 - 1e-9 else "transient",
+                            })
+                    st.dataframe(pd.DataFrame(ref_rows), width="stretch", hide_index=True)
+                    st.caption(
+                        "d=1,2 simple random walks are recurrent (P∞=1). d=3 is transient with "
+                        "P∞≈0.3405 (Watson 1939). Finite-horizon simulations approach but never reach P∞; "
+                        "disagreement at moderate H is expected, not a bug."
+                    )
                 st.caption("These are finite-horizon Monte Carlo probabilities with binomial confidence intervals. They are not the exact infinite-time Pólya recurrence probabilities.")
 
 
@@ -1513,7 +1670,7 @@ def _radia_magnet_suite(st, ns: dict[str, Any]) -> None:
         st.session_state["pl_m_last_params"]=dict(ns.get("params",current_params) if isinstance(ns.get("params",current_params),dict) else current_params)
         if ideal_metrics is not None:st.session_state["pl_m_last_ideal_metrics"]=dict(ideal_metrics)
     load_radia=ns.get("load_radia");build_device=ns.get("build_device");solve_model=ns.get("solve_model");sample_on_axis=ns.get("sample_on_axis");analyze=ns.get("analyze");union_field_range=ns.get("union_field_range")
-    tab_pre,tab_audit,tab_seed=st.tabs(["Engineering preflight","Last-solve audit","Manufacturing seed ensemble"])
+    tab_pre,tab_audit,tab_seed,tab_budget=st.tabs(["Engineering preflight","Last-solve audit","Manufacturing seed ensemble","Field-integral budget"])
 
     with tab_pre:
         p=current_params
@@ -1631,3 +1788,56 @@ def _radia_magnet_suite(st, ns: dict[str, Any]) -> None:
                 st.markdown("#### Ensemble summary")
                 st.dataframe(pd.DataFrame(summary),width="stretch",hide_index=True)
                 st.caption("This is a finite seed ensemble for the configured stochastic manufacturing-error model, not a manufacturing-process certification or tolerance guarantee.")
+
+    with tab_budget:
+        st.markdown("### Field-integral tolerance budget summary")
+        st.caption(
+            "Presents the first and second field integrals from the last solve (or ensemble) "
+            "alongside typical accelerator-facility tolerance specs for reference. "
+            "These thresholds are indicative; actual acceptance limits vary by facility and beamline."
+        )
+        m = st.session_state.get("pl_m_last_metrics")
+        if not m:
+            st.info("Run **Build + Solve + Analyze** first to populate field-integral data.")
+        else:
+            # Typical light-source specs (indicative, not universal)
+            i1_spec = 5e-6   # 5 µT·m first-integral tolerance
+            i2_spec = 5e-6   # 5 µT·m² second-integral tolerance
+            i1x = float(m.get("I1x_Tm", float("nan")))
+            i1y = float(m.get("I1y_Tm", float("nan")))
+            i2x = float(m.get("I2x_Tm2", float("nan")))
+            i2y = float(m.get("I2y_Tm2", float("nan")))
+            budget_rows = [
+                {"integral": "I₁ₓ (T·m)", "solved": f"{i1x:.4e}", "typical spec": f"±{i1_spec:.1e}",
+                 "margin": f"{(i1_spec - abs(i1x)):.3e}" if np.isfinite(i1x) else "—",
+                 "status": ("PASS" if abs(i1x) < i1_spec else "REVIEW") if np.isfinite(i1x) else "—"},
+                {"integral": "I₁ᵧ (T·m)", "solved": f"{i1y:.4e}", "typical spec": f"±{i1_spec:.1e}",
+                 "margin": f"{(i1_spec - abs(i1y)):.3e}" if np.isfinite(i1y) else "—",
+                 "status": ("PASS" if abs(i1y) < i1_spec else "REVIEW") if np.isfinite(i1y) else "—"},
+                {"integral": "I₂ₓ (T·m²)", "solved": f"{i2x:.4e}", "typical spec": f"±{i2_spec:.1e}",
+                 "margin": f"{(i2_spec - abs(i2x)):.3e}" if np.isfinite(i2x) else "—",
+                 "status": ("PASS" if abs(i2x) < i2_spec else "REVIEW") if np.isfinite(i2x) else "—"},
+                {"integral": "I₂ᵧ (T·m²)", "solved": f"{i2y:.4e}", "typical spec": f"±{i2_spec:.1e}",
+                 "margin": f"{(i2_spec - abs(i2y)):.3e}" if np.isfinite(i2y) else "—",
+                 "status": ("PASS" if abs(i2y) < i2_spec else "REVIEW") if np.isfinite(i2y) else "—"},
+            ]
+            st.dataframe(pd.DataFrame(budget_rows), width="stretch", hide_index=True)
+            _headline(st, [
+                ("|I₁ₓ|", f"{abs(i1x):.3e} T·m" if np.isfinite(i1x) else "—", "Solved first field integral x"),
+                ("|I₁ᵧ|", f"{abs(i1y):.3e} T·m" if np.isfinite(i1y) else "—", "Solved first field integral y"),
+                ("Phase RMS", f"{float(m.get('electron_phase_error_rms_deg', float('nan'))):.4g}°" if np.isfinite(m.get('electron_phase_error_rms_deg', float('nan'))) else "—", "From trajectory analysis"),
+            ])
+            # Ensemble spread if available
+            ens = st.session_state.get("pl_m_ensemble")
+            if ens:
+                edf, _ = ens
+                st.markdown("#### Ensemble field-integral spread")
+                for col, label in [("I1x_Tm", "I₁ₓ"), ("I1y_Tm", "I₁ᵧ")]:
+                    if col in edf.columns:
+                        vals = np.asarray(edf[col], dtype=float)
+                        st.write(f"**{label}**: mean={np.nanmean(vals):.3e}, σ={np.nanstd(vals, ddof=1):.3e}, max|·|={np.nanmax(np.abs(vals)):.3e} T·m")
+                st.caption(
+                    "Ensemble spread shows how manufacturing errors propagate to field integrals. "
+                    "The 'typical spec' values (5 µT·m) are representative of third-generation light sources; "
+                    "actual facility requirements may differ."
+                )
