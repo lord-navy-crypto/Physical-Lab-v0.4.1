@@ -6,6 +6,7 @@ on:
       - chatgpt/v063-parameter-guide-coverage
     paths:
       - 'scripts/apply_v063_parameter_guides.py'
+      - 'scripts/fix_v063_validation.py'
       - '.github/workflows/apply-v063-parameter-guides.yml'
 
 permissions:
@@ -24,7 +25,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Apply seven-Lab guide patch
-        run: python scripts/apply_v063_parameter_guides.py
+        run: |
+          python scripts/apply_v063_parameter_guides.py
+          python scripts/fix_v063_validation.py
       - name: Validate integrated source
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_local_ai.py scripts/local_ai_reference_validation.py
