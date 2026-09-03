@@ -103,6 +103,11 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
             render_radia_forward_workspace(st, namespace)
         except Exception as _pl_radia_adapter_error:
             st.warning(f"Physical Lab RADIA Measurement Adapter could not load: {_pl_radia_adapter_error}")
+        try:
+            from physical_lab_radia_tolerance import render_radia_tolerance_workspace
+            render_radia_tolerance_workspace(st, namespace)
+        except Exception as _pl_radia_tolerance_error:
+            st.warning(f"Physical Lab nonlinear RADIA tolerance workspace could not load: {_pl_radia_tolerance_error}")
     try:
         from physical_lab_local_ai import render_local_ai_assistant
         render_local_ai_assistant(st, profile, namespace)
