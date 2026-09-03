@@ -122,7 +122,7 @@ print('Responsive KPI/result-card system: configured')
 # v0.5.0 public/reproducibility hardening
 required_public = [
     'docs/ORIGINAL_CONTRIBUTIONS.md', 'docs/VALIDATION.md', 'docs/RESEARCH_NOTE_RADIATION.md',
-    'docs/source-integrity.example.yml'
+    'docs/source-integrity.example.yml', '.github/workflows/source-integrity.yml', 'scripts/reference_validation.py', 'docs/REFERENCE_VALIDATION.md', 'docs/reference-validation.json'
 ]
 for rel in required_public:
     assert (root/rel).is_file(), f'missing public/research file: {rel}'
@@ -134,3 +134,4 @@ print('Admissions/research README: configured')
 print('Original-contribution boundary: configured')
 print('Validation/research note: configured')
 print('Source Integrity CI: configured')
+print('Deterministic reference validation: configured')
