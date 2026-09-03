@@ -9,10 +9,12 @@ Supported loopback runtimes:
 - existing/external Ollama:   127.0.0.1:11434
 
 The bridge does not download models, execute model-provided code, change physics
-parameters, or contact a cloud endpoint.
+parameters, or contact a cloud endpoint. Vision input is optional and is sent
+only to a model that explicitly reports a local ``vision`` capability.
 """
 from __future__ import annotations
 
+import base64
 import json
 import math
 import os
@@ -26,6 +28,9 @@ LOCAL_ENGINES = {
 }
 MAX_CONTEXT_BYTES = 96 * 1024
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+MAX_VISION_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_VISION_IMAGES = 2
+_ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 _SYSTEM_PROMPT = """You are the read-only Physics Parameter Tutor inside Physical Lab.
 
@@ -33,11 +38,13 @@ Rules:
 1. Numerical solvers, imported measurements, project provenance, and validation checks are authoritative; you are not a replacement for them.
 2. Explain parameter meanings, units, model assumptions, diagnostics, and possible next experiments from the supplied context plus general physics knowledge.
 3. Never invent a unit, measured value, solver result, uncertainty, validation status, or hardware state. If context is missing, say exactly what is missing.
-4. Clearly distinguish MEASURED DATA, SIMULATED/MODEL DATA, FITTED QUANTITIES, and AI SUGGESTIONS.
+4. Clearly distinguish MEASURED DATA, SIMULATED/MODEL DATA, FITTED QUANTITIES, VISUAL OBSERVATIONS, and AI SUGGESTIONS.
 5. You may suggest parameter changes, but you cannot apply them and must not imply that you changed the application.
 6. A converged simulation or improved fit is not, by itself, experimental validation.
 7. When suggesting a change, name the exact parameter, explain the expected physical direction, identify the observable that should respond, and state what result would contradict the expectation.
-8. Prefer concise, technically precise explanations.
+8. A screenshot or plot image is supplementary visual evidence. Never read an approximate pixel position as a more authoritative number than the supplied structured solver context.
+9. If an image and structured context appear inconsistent, identify the inconsistency instead of silently choosing one.
+10. Prefer concise, technically precise explanations.
 """
 
 # Explicit metadata prevents a local model from guessing units merely from names.
@@ -143,6 +150,24 @@ def discover_local_ai_engines() -> list[dict[str, Any]]:
     return found
 
 
+def inspect_local_model(base: str, model: str) -> dict[str, Any]:
+    """Return only bounded model metadata needed to gate optional capabilities."""
+    try:
+        payload = _request_json(base, "/api/show", {"model": model}, timeout=4.0)
+    except Exception as exc:
+        return {"capabilities": [], "vision": False, "reported": False, "error": str(exc)}
+    capabilities = []
+    if isinstance(payload, Mapping):
+        raw = payload.get("capabilities")
+        if isinstance(raw, (list, tuple)):
+            capabilities = sorted({str(item).strip().lower() for item in raw if str(item).strip()})
+    return {
+        "capabilities": capabilities,
+        "vision": "vision" in capabilities,
+        "reported": bool(capabilities),
+    }
+
+
 def _plain(value: Any, *, depth: int = 0) -> Any:
     if depth > 4:
         return "<depth-limit>"
@@ -214,13 +239,14 @@ def _parameter_guide(profile: str, session_state: Mapping[str, Any] | None) -> d
 
 def build_physics_context(profile: str, namespace: Mapping[str, Any], session_state: Mapping[str, Any] | None = None) -> dict[str, Any]:
     context: dict[str, Any] = {
-        "schema": "physical-lab-local-ai-context-v2",
+        "schema": "physical-lab-local-ai-context-v3",
         "profile": profile,
         "engineMode": os.environ.get("PHYSICAL_LAB_ENGINE_MODE", "safe"),
         "provenanceRules": {
             "MEASURED DATA": "Only explicitly imported or acquired measurements may be called measured.",
             "SIMULATED/MODEL DATA": "Numerical and RADIA solver outputs are simulated/model data.",
             "FITTED QUANTITIES": "Calibration and inverse/profile outputs are fitted or inferred quantities with stated limits.",
+            "VISUAL OBSERVATIONS": "Screenshot/plot observations are qualitative unless a numeric value is independently present in structured context.",
             "AI SUGGESTIONS": "Suggested parameter changes are advisory and have not been applied.",
         },
         "boundary": "Local AI explains this state but does not modify it or replace scientific solvers.",
@@ -268,7 +294,31 @@ def build_physics_context(profile: str, namespace: Mapping[str, Any], session_st
     return context
 
 
-def ask_local_model(base: str, model: str, question: str, context: Mapping[str, Any], *, temperature: float = 0.2) -> str:
+def _prepare_vision_images(uploaded_files: Any) -> tuple[list[str], list[dict[str, Any]]]:
+    images: list[str] = []
+    metadata: list[dict[str, Any]] = []
+    for uploaded in list(uploaded_files or [])[:MAX_VISION_IMAGES]:
+        mime = str(getattr(uploaded, "type", "") or "").lower()
+        name = str(getattr(uploaded, "name", "image"))
+        if mime not in _ALLOWED_IMAGE_TYPES:
+            raise ValueError(f"Unsupported image type for {name}: {mime or 'unknown'}")
+        raw = uploaded.getvalue() if hasattr(uploaded, "getvalue") else uploaded.read()
+        if len(raw) > MAX_VISION_IMAGE_BYTES:
+            raise ValueError(f"Vision image {name} exceeds the {MAX_VISION_IMAGE_BYTES // (1024 * 1024)} MB limit")
+        images.append(base64.b64encode(raw).decode("ascii"))
+        metadata.append({"name": name, "mime": mime, "bytes": len(raw), "provenance": "USER-SUPPLIED VISUAL CONTEXT"})
+    return images, metadata
+
+
+def ask_local_model(
+    base: str,
+    model: str,
+    question: str,
+    context: Mapping[str, Any],
+    *,
+    temperature: float = 0.2,
+    images: list[str] | None = None,
+) -> str:
     model = model.strip()
     question = question.strip()
     if not model:
@@ -278,12 +328,18 @@ def ask_local_model(base: str, model: str, question: str, context: Mapping[str, 
     context_json = json.dumps(context, ensure_ascii=False, allow_nan=False, indent=2)
     if len(context_json.encode("utf-8")) > MAX_CONTEXT_BYTES:
         raise ValueError("Physical Lab context is too large for the local assistant bridge")
+    user_message: dict[str, Any] = {
+        "role": "user",
+        "content": f"Physical Lab structured context:\n{context_json}\n\nUser question:\n{question}",
+    }
+    if images:
+        user_message["images"] = list(images[:MAX_VISION_IMAGES])
     payload = {
         "model": model,
         "stream": False,
         "messages": [
             {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": f"Physical Lab structured context:\n{context_json}\n\nUser question:\n{question}"},
+            user_message,
         ],
         "options": {"temperature": float(temperature)},
     }
@@ -309,7 +365,7 @@ def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any
     with st.expander("Local AI Physics Tutor · OpenPenguin / Ollama", expanded=False):
         st.caption(
             "Optional, local-only explanation layer. Physical Lab sends a bounded structured snapshot of parameters, explicit units/meanings, assumptions and available result summaries to a model running on this Mac. "
-            "The tutor can explain and suggest; it cannot change parameters or replace a solver."
+            "Vision-capable local models may additionally inspect user-supplied screenshots or plots. The tutor can explain and suggest; it cannot change parameters or replace a solver."
         )
         engines = discover_local_ai_engines()
         running = [engine for engine in engines if engine["running"]]
@@ -330,6 +386,13 @@ def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any
         c1, c2 = st.columns([2, 1])
         model = c1.selectbox("Model", models, key=f"pl_local_ai_model_{profile}")
         temperature = c2.slider("Explanation creativity", 0.0, 0.8, 0.2, 0.05, key=f"pl_local_ai_temp_{profile}")
+        model_info = inspect_local_model(engine["base"], model)
+        if model_info["vision"]:
+            st.success("Vision capability detected locally. Structured physics context remains authoritative for numerical values.")
+        elif model_info["reported"]:
+            st.caption("This model does not report a vision capability; the tutor will use structured physics context only.")
+        else:
+            st.caption("The local runtime did not report model capabilities; vision input remains disabled rather than guessed.")
 
         st.markdown("#### Physics Tutor shortcuts")
         q1, q2, q3, q4 = st.columns(4)
@@ -344,6 +407,25 @@ def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any
             st.session_state[question_key] = "Suggest one controlled next parameter scan. Name the exact parameter, give a conservative direction/range based only on available context, identify the observable to monitor, and state what outcome would contradict the expectation. Do not claim the scan has been run."
 
         context = build_physics_context(profile, namespace, st.session_state)
+        uploaded_files = []
+        if model_info["vision"]:
+            with st.expander("Optional local vision context", expanded=False):
+                st.caption(
+                    "Upload up to two PNG/JPEG/WebP screenshots or plots from the current experiment. Images stay on this Mac and are sent only to the selected loopback model. "
+                    "Use structured solver values for exact numbers; vision is for geometry, plot shape, layout, annotations and qualitative anomalies."
+                )
+                uploaded_files = st.file_uploader(
+                    "Screenshots / plots",
+                    type=["png", "jpg", "jpeg", "webp"],
+                    accept_multiple_files=True,
+                    key=f"pl_local_ai_vision_{profile}",
+                )
+                if uploaded_files:
+                    for uploaded in uploaded_files[:MAX_VISION_IMAGES]:
+                        st.image(uploaded, caption=getattr(uploaded, "name", "visual context"), width="content")
+                    if len(uploaded_files) > MAX_VISION_IMAGES:
+                        st.warning(f"Only the first {MAX_VISION_IMAGES} images will be sent.")
+
         with st.expander("Physics context sent to the local model", expanded=False):
             st.json(context)
 
@@ -355,8 +437,21 @@ def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any
         )
         if st.button("Ask Local AI", type="primary", key=f"pl_local_ai_ask_{profile}"):
             try:
+                images: list[str] = []
+                visual_metadata: list[dict[str, Any]] = []
+                if uploaded_files:
+                    images, visual_metadata = _prepare_vision_images(uploaded_files)
+                    context = dict(context)
+                    context["visualContext"] = {
+                        "provenance": "USER-SUPPLIED VISUAL CONTEXT",
+                        "images": visual_metadata,
+                        "authority": "qualitative supplement; structured solver context is authoritative for exact numerical values",
+                    }
                 with st.spinner(f"Asking {model} locally…"):
-                    answer = ask_local_model(engine["base"], model, question, context, temperature=temperature)
+                    answer = ask_local_model(
+                        engine["base"], model, question, context,
+                        temperature=temperature, images=images,
+                    )
                 st.session_state[f"pl_local_ai_answer_{profile}"] = answer
             except Exception as exc:
                 st.error(f"Local AI request failed: {exc}")
