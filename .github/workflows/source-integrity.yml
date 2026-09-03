@@ -18,7 +18,7 @@ jobs:
           node-version: '22'
       - name: Python syntax
         run: |
-          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py src-tauri/resources/safe_engine_server.py
+          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py scripts/physical_lab_digital_twin_cli.py src-tauri/resources/safe_engine_server.py
           python -m py_compile src-tauri/resources/ui/*.py
       - name: JSON manifests
         run: |
