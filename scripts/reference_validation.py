@@ -61,11 +61,33 @@ def build_results() -> dict:
     rw_msd = exact_random_walk_msd(rw_steps)
 
     ising_tc = 2.0 / math.log(1.0 + math.sqrt(2.0))
+    # Exact 2-D Ising Onsager/Yang exponents (k_B=1, J=1 conventions).
+    ising_nu = 1.0
+    ising_beta = 1.0 / 8.0
+    ising_gamma = 7.0 / 4.0
+    ising_gamma_over_nu = ising_gamma / ising_nu
+    ising_beta_over_nu = ising_beta / ising_nu
 
     lambda_u = 0.05
     gamma = 1000.0
     k = 0.7
+    n_periods = 20
     lambda_1 = lambda_u * (1.0 + k * k / 2.0) / (2.0 * gamma * gamma)
+    # Photon energy from wavelength: E[eV] = hc[eV·m] / λ[m]
+    hc_ev_m = 1.2398419843320026e-6
+    e1_ev = hc_ev_m / lambda_1
+    harmonic_ladder = []
+    for n in (1, 3, 5, 7, 9):
+        en = n * e1_ev
+        rel_bw = 1.0 / (n * n_periods)
+        harmonic_ladder.append(
+            {
+                "harmonic": n,
+                "photon_energy_ev": en,
+                "relative_bandwidth_1_over_nN": rel_bw,
+                "absolute_bandwidth_ev": en * rel_bw,
+            }
+        )
 
     return {
         "schema": "physical-lab-reference-validation-v1",
@@ -98,12 +120,36 @@ def build_results() -> dict:
                 "formula": "2 / ln(1 + sqrt(2))",
                 "status": "analytic-reference",
             },
+            "ising_2d_exact_exponents": {
+                "input": {"model": "2-D square-lattice zero-field Ising"},
+                "nu": ising_nu,
+                "beta": ising_beta,
+                "gamma": ising_gamma,
+                "gamma_over_nu": ising_gamma_over_nu,
+                "beta_over_nu": ising_beta_over_nu,
+                "status": "analytic-reference",
+                "notes": "Used by Physical Lab Advanced Suite finite-size scaling diagnostics as exact thermodynamic-limit guides.",
+            },
             "ideal_undulator_first_harmonic": {
                 "input": {"lambda_u_m": lambda_u, "gamma": gamma, "K": k, "observation": "on-axis planar ideal-undulator reference"},
                 "reference_wavelength_m": lambda_1,
                 "reference_wavelength_nm": lambda_1 * 1e9,
                 "formula": "lambda_u * (1 + K^2/2) / (2 gamma^2)",
                 "status": "analytic-reference",
+            },
+            "ideal_undulator_linewidth_ladder": {
+                "input": {
+                    "lambda_u_m": lambda_u,
+                    "gamma": gamma,
+                    "K": k,
+                    "periods_N": n_periods,
+                    "harmonics": [1, 3, 5, 7, 9],
+                    "bandwidth_model": "ideal finite-N estimate ΔE/E ≈ 1/(nN)",
+                },
+                "fundamental_photon_energy_ev": e1_ev,
+                "ladder": harmonic_ladder,
+                "status": "analytic-reference",
+                "notes": "Design reference only; emittance, energy spread, tapering and field errors broaden realized spectra.",
             },
             "radia_full_mode": {
                 "status": "not-run-in-source-ci",
@@ -134,7 +180,9 @@ def markdown(results: dict) -> str:
         f"| Harmonic oscillator RK4, one period | state error {c['oscillation_rk4_harmonic_period']['state_l2_error']:.3e} | (x,v)=(1,0) | {'PASS' if c['oscillation_rk4_harmonic_period']['pass'] else 'FAIL'} |",
         f"| Symmetric random walk MSD, N=100 | {c['random_walk_exact_msd']['computed']:.12g} | 100 | {'PASS' if c['random_walk_exact_msd']['pass'] else 'FAIL'} |",
         f"| 2-D Ising exact critical temperature | {c['ising_2d_exact_critical_temperature']['reference']:.12g} | 2/ln(1+sqrt(2)) | ANALYTIC REFERENCE |",
+        f"| 2-D Ising exponents | γ/ν={c['ising_2d_exact_exponents']['gamma_over_nu']:.4g}, β/ν={c['ising_2d_exact_exponents']['beta_over_nu']:.4g} | Onsager/Yang | ANALYTIC REFERENCE |",
         f"| Ideal undulator first harmonic | {c['ideal_undulator_first_harmonic']['reference_wavelength_nm']:.9g} nm | ideal on-axis formula | ANALYTIC REFERENCE |",
+        f"| Ideal undulator linewidth ladder | E1={c['ideal_undulator_linewidth_ladder']['fundamental_photon_energy_ev']:.9g} eV | ΔE/E≈1/(nN) | ANALYTIC REFERENCE |",
         "| RADIA Full mode | — | native 3-D field solve | NOT RUN IN SOURCE CI |",
         "",
         "## Boundary",

@@ -69,9 +69,9 @@ assert len(deps) >= 17
 assert {'python-runtime','numpy','scipy','pandas','plotly','streamlit','matplotlib','h5py','mpmath','xcode-clt','native-toolchain','cmake','fftw','radia','pychrono','chrono-modal','vampire'} <= dep_ids
 
 conf=json.loads((root/'src-tauri/tauri.conf.json').read_text())
-assert conf['version']=='0.5.0'
-assert json.loads((root/'package.json').read_text())['version']=='0.5.0'
-assert 'version = "0.5.0"' in (root/'src-tauri/Cargo.toml').read_text()
+assert conf['version']=='0.5.1'
+assert json.loads((root/'package.json').read_text())['version']=='0.5.1'
+assert 'version = "0.5.1"' in (root/'src-tauri/Cargo.toml').read_text()
 assert 'resources/safe_engine_server.py' in conf['bundle']['resources']
 assert 'resources/ui/sitecustomize.py' in conf['bundle']['resources']
 assert 'resources/ui/physical_lab_advanced.py' in conf['bundle']['resources']
@@ -85,17 +85,25 @@ assert 'ensure_advanced_experiment_hook' in lib
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in lib, profile
 advanced=(root/'src-tauri/resources/ui/physical_lab_advanced.py').read_text()
-for feature in ['2D sensitivity atlas','Binder cumulant','Twin-trajectory divergence','Run adaptive critical scan','Run stability atlas','Reliability frontier','Diffusion scaling law','Damping × drive atlas','Manufacturing seed ensemble','Driven bifurcation intelligence','Magnetization-distribution microscope']:
+for feature in [
+    '2D sensitivity atlas','Binder cumulant','Twin-trajectory divergence','Run adaptive critical scan',
+    'Run stability atlas','Reliability frontier','Diffusion scaling law','Damping × drive atlas',
+    'Manufacturing seed ensemble','Driven bifurcation intelligence','Magnetization-distribution microscope',
+    'Finite-size scaling','Linewidth & harmonic ladder','PyChrono cross-check','Content Validation Battery',
+    'Order-parameter collapse guide','Research-note evidence checklist','Export Lyapunov time series CSV',
+    'content-validation',
+]:
     assert feature in advanced, feature
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in advanced, profile
 
-print('Physical Lab v0.5.0 Research Workspace self-check: PASS')
+print('Physical Lab v0.5.1 science-next self-check: PASS')
 print('Modules: 10 (7 labs + 3 runtime/builders)')
 print('Dependency health catalog:', len(deps), 'items')
 print('Persistent backend logs + data-folder access: configured')
 print('Per-model uninstall + per-task delete: configured')
 print('Old radiaition-study / Radiation Study: hard-excluded')
+print('Cursor science-next: Ising collapse guide, undulator/Ising reference extensions, research notes, persisted validation')
 
 research=(root/'src-tauri/src/research.rs').read_text()
 for needle2 in [
@@ -122,6 +130,7 @@ print('Responsive KPI/result-card system: configured')
 # v0.5.0 public/reproducibility hardening
 required_public = [
     'docs/ORIGINAL_CONTRIBUTIONS.md', 'docs/VALIDATION.md', 'docs/RESEARCH_NOTE_RADIATION.md',
+    'docs/RESEARCH_NOTE_ISING_FSS.md', 'docs/RESEARCH_NOTE_OSCILLATION_CHRONO.md',
     'docs/source-integrity.example.yml', '.github/workflows/source-integrity.yml', 'scripts/reference_validation.py', 'docs/REFERENCE_VALIDATION.md', 'docs/reference-validation.json'
 ]
 for rel in required_public:

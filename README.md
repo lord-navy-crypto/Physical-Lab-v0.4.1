@@ -1,3 +1,17 @@
+# Physical Lab v0.5.1 — Science-next (Cursor branch)
+
+Continuation of ChatGPT’s v0.5.0 research workspace with deeper scientific content:
+
+- Ising finite-size scaling + order-parameter collapse guide (β/ν = 1/8)
+- Extended deterministic references (`γ/ν`, undulator linewidth ladder)
+- Research notes for Ising FSS and Oscillation↔PyChrono
+- Content Validation Battery persists JSON under Application Support
+- Radiation research-note checklist + Lyapunov CSV export
+
+This branch is for review (`cursor/v0.5.1-science-next`). It is not automatically merged into `main`.
+
+---
+
 # Physical Lab v0.5.0 — Reproducible Computational Physics for macOS
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)

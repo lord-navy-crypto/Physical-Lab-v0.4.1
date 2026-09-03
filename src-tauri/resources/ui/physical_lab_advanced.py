@@ -392,8 +392,30 @@ def _render_content_validation(st, profile: str, ns: dict[str, Any]) -> None:
             ("Engine", os.environ.get("PHYSICAL_LAB_ENGINE_MODE", "standard"), "Safe/Full context"),
         ])
         st.dataframe(df, width="stretch", hide_index=True)
-        raw = json.dumps({"schema": "physical-lab-content-validation-v1", "profile": profile, "rows": df.to_dict(orient="records")}, indent=2).encode("utf-8")
+        payload = {
+            "schema": "physical-lab-content-validation-v1",
+            "profile": profile,
+            "created_utc": datetime.now(timezone.utc).isoformat(),
+            "engine_mode": os.environ.get("PHYSICAL_LAB_ENGINE_MODE", "standard"),
+            "source_commit": _source_commit(),
+            "packages": _package_versions(),
+            "rows": df.to_dict(orient="records"),
+        }
+        raw = json.dumps(payload, indent=2).encode("utf-8")
         st.download_button("Export validation JSON", data=raw, file_name=f"physical-lab-validation-{profile}.json", mime="application/json", key=f"pl_val_export_{profile}")
+        data_root = os.environ.get("PHYSICAL_LAB_DATA_DIR", "").strip()
+        if data_root:
+            out_dir = Path(data_root) / "content-validation" / profile
+            try:
+                out_dir.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                out_path = out_dir / f"{stamp}-content-validation.json"
+                out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+                st.caption(f"Also saved under Application Support: `{out_path}` (compatible with Research Workspace provenance folders).")
+            except Exception as exc:
+                st.caption(f"Could not persist validation JSON to Application Support: {exc}")
+        else:
+            st.caption("Set PHYSICAL_LAB_DATA_DIR from the desktop shell to auto-persist validation JSON beside Run Vault / research data.")
 
 
 def _radiation_suite(st, ns: dict[str, Any]) -> None:
@@ -403,6 +425,20 @@ def _radiation_suite(st, ns: dict[str, Any]) -> None:
         "Physical Lab · Advanced Radiation Analysis",
         "Adds sensitivity maps, derived-quantity inspection, scan-point intelligence, and model-comparison diagnostics without changing the original V11/RADIA experiment chain.",
     )
+    with st.expander("Research-note evidence checklist (magnet → trajectory → radiation)", expanded=False):
+        st.markdown(
+            """
+Follow the Physical Lab research note protocol without inventing Full-mode results:
+
+1. Record magnet geometry / material / target-field inputs.
+2. Run RADIA Magnet Studio Full mode and preserve on-axis metrics (never substitute Br for solved B0).
+3. If claiming tolerance sensitivity, run a bounded manufacturing-seed ensemble.
+4. Hand the realized field to Radiation Platform.
+5. Compare against the ideal undulator reference using matched units (see Analytic reference comparison + Linewidth ladder).
+6. Export Run Vault / Content Validation JSON and keep model-boundary notes.
+            """.strip()
+        )
+        st.caption("See docs/RESEARCH_NOTE_RADIATION.md in the Physical Lab source tree.")
     tab_sense, tab_scan, tab_compare, tab_line = st.tabs([
         "2D sensitivity atlas", "Representative scan intelligence", "Analytic reference comparison", "Linewidth & harmonic ladder"
     ])
@@ -798,6 +834,7 @@ def _ising_suite(st, ns: dict[str, Any]) -> None:
             if sizes:
                 temps = np.linspace(float(tmin), float(tmax), int(points))
                 rows = []
+                curves = []
                 total = len(sizes)
                 bar = st.progress(0, text="Finite-size χ-peak scan")
                 for i, L in enumerate(sizes):
@@ -824,8 +861,10 @@ def _ising_suite(st, ns: dict[str, Any]) -> None:
                         "Cv peak": float(np.nanmax(cv)),
                         "⟨|M|⟩/N at χ peak": float(mag[int(np.nanargmax(chi))]),
                     })
+                    curves.append({"L": int(L), "T": T, "chi": chi, "mag": mag})
                     bar.progress((i + 1) / total, text=f"Size {i + 1}/{total}")
                 st.session_state["pl_i_fss"] = pd.DataFrame(rows)
+                st.session_state["pl_i_fss_curves"] = curves
         fdf = st.session_state.get("pl_i_fss")
         if fdf is not None and len(fdf):
             L = fdf["L"].to_numpy(dtype=float)
@@ -867,6 +906,42 @@ def _ising_suite(st, ns: dict[str, Any]) -> None:
                 "Observed γ/ν depends on equilibration, measurement budget, temperature grid and lattice range. "
                 "Disagreement with 1.75 usually means the scan is still pre-asymptotic, not that the Onsager exponents are wrong."
             )
+            curves = st.session_state.get("pl_i_fss_curves")
+            if curves and np.isfinite(exact):
+                st.markdown("#### Order-parameter collapse guide (β/ν = 1/8)")
+                st.caption(
+                    "Plots m L^{β/ν} versus reduced temperature t = (T−Tc)/Tc using the exact Onsager Tc and β/ν = 1/8. "
+                    "This is a visual finite-size guide, not an optimized data-collapse fit."
+                )
+                beta_over_nu = 0.125
+                figc = go.Figure()
+                for curve in curves:
+                    Lv = float(curve["L"])
+                    T = np.asarray(curve["T"], dtype=float)
+                    mag = np.asarray(curve["mag"], dtype=float)
+                    tred = (T - exact) / max(abs(exact), np.finfo(float).tiny)
+                    figc.add_scatter(x=tred, y=mag * (Lv ** beta_over_nu), mode="lines+markers", name=f"L={int(Lv)}")
+                figc.update_layout(
+                    title="Guided magnetization collapse using Onsager Tc and β/ν=1/8",
+                    xaxis_title="Reduced temperature t=(T−Tc)/Tc",
+                    yaxis_title="m L^{β/ν}",
+                    height=560,
+                )
+                st.plotly_chart(figc, width="stretch")
+                # Also report mag-at-Tc-proxy scaling if available.
+                mag_peak = fdf["⟨|M|⟩/N at χ peak"].to_numpy(dtype=float)
+                mask_m = (L > 0) & np.isfinite(mag_peak) & (mag_peak > 0)
+                beta_obs = float("nan")
+                if np.count_nonzero(mask_m) >= 2:
+                    xm = np.log(L[mask_m]); ym = np.log(mag_peak[mask_m])
+                    Am = np.vstack([xm, np.ones_like(xm)]).T
+                    beta_obs, _ = np.linalg.lstsq(Am, ym, rcond=None)[0]
+                _headline(st, [
+                    ("Guide β/ν", f"{beta_over_nu:.4g}", "Exact 2D Ising β/ν = (1/8)/1"),
+                    ("Observed slope of m(χ-peak) vs L", f"{beta_obs:.4g}" if np.isfinite(beta_obs) else "n/a", "Log–log slope near the χ-peak temperatures; not a full collapse fit"),
+                    ("Exact Tc used", f"{exact:.6g}", "Onsager thermodynamic-limit reference"),
+                    ("Curves", str(len(curves)), "Finite-size magnetization scans retained for collapse"),
+                ])
 
 
 def _chaos_suite(st, ns: dict[str, Any]) -> None:
@@ -914,6 +989,14 @@ def _chaos_suite(st, ns: dict[str, Any]) -> None:
             label="chaotic tendency" if estimate>max(3*spread,1e-4) else ("near-neutral / unresolved" if abs(estimate)<=max(3*spread,1e-4) else "contracting tendency")
             _headline(st,[("λ largest",f"{estimate:.6g} s⁻¹","Finite-time Benettin estimate"),("Tail spread",f"{spread:.3g}","Std. dev. of cumulative exponent over second half"),("Interpretation",label,"Heuristic finite-time classification"),("Actual dt",f"{float(r['actual_dt']):.6g} s","Integrator step actually used")])
             fig=go.Figure();fig.add_scatter(x=tt,y=cum,mode="lines",name="Cumulative λ(t)");fig.add_scatter(x=tt,y=local,mode="lines",name="Local interval λ",opacity=.45);fig.update_layout(title="Finite-time Lyapunov evolution",xaxis_title="Time (s)",yaxis_title="Exponent (s⁻¹)",height=600);st.plotly_chart(fig,width="stretch")
+            export_df=pd.DataFrame({"time_s":tt,"local_exponent":local,"cumulative_exponent":cum})
+            st.download_button(
+                "Export Lyapunov time series CSV",
+                data=export_df.to_csv(index=False).encode("utf-8"),
+                file_name="physical-lab-lyapunov-series.csv",
+                mime="text/csv",
+                key="pl_c_ly_export",
+            )
             st.caption("A positive finite-time exponent is evidence of local exponential sensitivity for this trajectory and integration window; it is not by itself a proof of a global strange attractor.")
 
     with tab_atlas:
