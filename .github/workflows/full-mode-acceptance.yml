@@ -9,9 +9,17 @@ on:
     paths:
       - '.github/workflows/full-mode-acceptance.yml'
       - 'src-tauri/resources/ui/physical_lab_digital_twin.py'
+      - 'src-tauri/resources/ui/physical_lab_radia_radiation_propagation.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
       - 'src-tauri/resources/modules.json'
       - 'scripts/digital_twin_reference_validation.py'
       - 'docs/digital-twin-reference-validation.json'
+  pull_request:
+    paths:
+      - '.github/workflows/full-mode-acceptance.yml'
+      - 'src-tauri/resources/ui/physical_lab_radia_radiation_propagation.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
+      - 'src-tauri/resources/modules.json'
 
 permissions:
   contents: read
@@ -31,6 +39,13 @@ jobs:
           repository: lord-navy-crypto/lord-navy-crypto-radia-universal2-macos-installer
           ref: 7ff3b2dc26cbcccfcb0aaf3c4a290ebd83439698
           path: radia-builder
+
+      - name: Checkout pinned Radiation Platform
+        uses: actions/checkout@v4
+        with:
+          repository: lord-navy-crypto/simulator-radiation-planfotm
+          ref: 6d19b36304c9d30f9b608214f7cfb9fcbaf941d4
+          path: radiation-platform
 
       - name: Build RADIA Universal2
         env:
@@ -106,6 +121,78 @@ jobs:
               radia.UtiDelAll()
           PY
 
+      - name: Prepare isolated Radiation Platform acceptance environment
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/radiation-acceptance-venv"
+          "${RUNNER_TEMP}/radiation-acceptance-venv/bin/python" -m pip install --disable-pip-version-check --upgrade pip
+          "${RUNNER_TEMP}/radiation-acceptance-venv/bin/python" -m pip install --disable-pip-version-check numpy pandas scipy matplotlib
+
+      - name: Cross-engine 3-D field-map to trajectory/radiation acceptance
+        run: |
+          set -euo pipefail
+          PY="${RUNNER_TEMP}/radiation-acceptance-venv/bin/python"
+          WORK="${RUNNER_TEMP}/physical-lab-cross-engine"
+          mkdir -p "$WORK"
+          "$PY" - <<'PY'
+          import json
+          import numpy as np
+          from pathlib import Path
+          import os
+
+          work = Path(os.environ['RUNNER_TEMP']) / 'physical-lab-cross-engine'
+          x_mm = np.array([-1.0, 0.0, 1.0])
+          y_mm = np.array([-1.0, 0.0, 1.0])
+          z_mm = np.linspace(0.0, 80.0, 97)
+          B = np.zeros((len(z_mm), len(y_mm), len(x_mm), 3), dtype=float)
+          # Small regular sinusoidal map exercises the exact field-map interface
+          # without claiming this synthetic map is a manufactured magnet.
+          B[..., 1] = 0.05 * np.cos(2.0*np.pi*z_mm[:, None, None] / 20.0)
+          np.savez_compressed(work/'cross-engine-field.npz', x_mm=x_mm, y_mm=y_mm, z_mm=z_mm, B_T=B)
+          cfg = {
+              'radiationPlatformSource': str(Path('radiation-platform').resolve()),
+              'fieldMapNpz': str((work/'cross-engine-field.npz').resolve()),
+              'periodMm': 20.0,
+              'deviceName': 'cross-engine-acceptance-map',
+              'gamma': 80.0,
+              'nPeriods': 4,
+              'pointsPerPeriod': 32,
+              'observerDistanceM': 50.0,
+              'thetaXMrad': 0.0,
+              'thetaYMrad': 0.0,
+              'sourceLabel': 'Physical Lab CI synthetic regular field map',
+          }
+          (work/'worker-config.json').write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+          PY
+          "$PY" src-tauri/resources/ui/physical_lab_radiation_worker.py \
+            --config "$WORK/worker-config.json" \
+            --output "$WORK/cross-engine-worker.json"
+          "$PY" - <<'PY'
+          import json, math, os
+          from pathlib import Path
+
+          src = Path(os.environ['RUNNER_TEMP'])/'physical-lab-cross-engine'/'cross-engine-worker.json'
+          data = json.loads(src.read_text(encoding='utf-8'))
+          obs = data['observables']
+          required = ['f0', 'photon_energy_eV', 'P_larmor', 'relative_linewidth', 'max_transverse_excursion_m']
+          for key in required:
+              value = obs.get(key)
+              assert value is not None and math.isfinite(float(value)), (key, value)
+          assert float(obs['f0']) > 0.0
+          assert float(obs['photon_energy_eV']) > 0.0
+          assert float(obs['P_larmor']) >= 0.0
+          evidence = {
+              'schema': 'physical-lab-cross-engine-acceptance-v1',
+              'radiation_platform_revision': '6d19b36304c9d30f9b608214f7cfb9fcbaf941d4',
+              'test': 'regular 3-D field map -> FieldMapInsertionDevice -> run_sim_scalar',
+              'field_map': data['fieldMap'],
+              'observables': obs,
+              'status': 'PASS',
+              'boundary': 'This validates the clean-macOS cross-engine field-map interface using a synthetic regular map. It does not validate a specific RADIA manufacturing ensemble or experimental radiation measurement.'
+          }
+          Path('cross-engine-acceptance.json').write_text(json.dumps(evidence, indent=2, sort_keys=True), encoding='utf-8')
+          print(json.dumps(evidence, indent=2, sort_keys=True))
+          PY
+
       - name: Digital-twin deterministic core
         run: python3 scripts/digital_twin_reference_validation.py --check
 
@@ -113,5 +200,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: physical-lab-full-mode-acceptance
-          path: full-mode-acceptance.json
+          path: |
+            full-mode-acceptance.json
+            cross-engine-acceptance.json
           if-no-files-found: error
