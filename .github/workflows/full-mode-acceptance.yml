@@ -1,0 +1,109 @@
+name: Physical Lab Full-mode Acceptance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 8 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  radia-full-mode:
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout Physical Lab
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned RADIA Universal2 builder
+        uses: actions/checkout@v4
+        with:
+          repository: lord-navy-crypto/lord-navy-crypto-radia-universal2-macos-installer
+          ref: 7ff3b2dc26cbcccfcb0aaf3c4a290ebd83439698
+          path: radia-builder
+
+      - name: Build RADIA Universal2
+        env:
+          RADIA_DEST: ${{ runner.temp }}/Radia-full-ci
+          PYTHON_BIN: python3
+          JOBS: '3'
+          PIP_BREAK_SYSTEM_PACKAGES: '1'
+        run: |
+          chmod +x radia-builder/install_RADIA.command
+          cd radia-builder
+          ./install_RADIA.command
+
+      - name: Verify native extension architectures
+        env:
+          RADIA_DEST: ${{ runner.temp }}/Radia-full-ci
+        run: |
+          set -euo pipefail
+          EXT="$(find "$RADIA_DEST/cpp/gcc" -maxdepth 1 -type f -name 'radia*.so' -print -quit)"
+          test -n "$EXT"
+          ARCHS="$(lipo -archs "$EXT")"
+          echo "RADIA extension: $EXT"
+          echo "Architectures: $ARCHS"
+          echo " $ARCHS " | grep -q " arm64 "
+          echo " $ARCHS " | grep -q " x86_64 "
+
+      - name: Tiny Full-mode native field acceptance
+        env:
+          RADIA_DEST: ${{ runner.temp }}/Radia-full-ci
+        run: |
+          set -euo pipefail
+          export RADIA_PYTHONPATH="$RADIA_DEST/cpp/gcc"
+          export PYTHONPATH="$RADIA_PYTHONPATH:${PYTHONPATH:-}"
+          python3 - <<'PY'
+          import json, math, os
+          import radia
+
+          if hasattr(radia, 'UtiDelAll'):
+              radia.UtiDelAll()
+
+          obj = radia.ObjRecMag([0, 0, 0], [10, 10, 10], [0, 0, 1])
+          assert obj is not None
+
+          z = 20.0
+          bz_plus = float(radia.Fld(obj, 'bz', [0, 0, z]))
+          bz_minus = float(radia.Fld(obj, 'bz', [0, 0, -z]))
+          bx_plus = float(radia.Fld(obj, 'bx', [0, 0, z]))
+
+          assert all(math.isfinite(v) for v in (bz_plus, bz_minus, bx_plus))
+          assert abs(bz_plus) > 1e-12
+          symmetry_scale = max(abs(bz_plus), abs(bz_minus), 1e-15)
+          axial_symmetry_error = abs(bz_plus - bz_minus) / symmetry_scale
+          transverse_ratio = abs(bx_plus) / max(abs(bz_plus), 1e-15)
+          assert axial_symmetry_error < 1e-9
+          assert transverse_ratio < 1e-9
+
+          result = {
+              'schema': 'physical-lab-radia-full-mode-acceptance-v1',
+              'builder_revision': '7ff3b2dc26cbcccfcb0aaf3c4a290ebd83439698',
+              'test': 'native rectangular permanent-magnet field symmetry',
+              'bz_plus': bz_plus,
+              'bz_minus': bz_minus,
+              'bx_plus': bx_plus,
+              'axial_symmetry_relative_error': axial_symmetry_error,
+              'transverse_to_axial_ratio': transverse_ratio,
+              'status': 'PASS',
+              'boundary': 'This validates a tiny native RADIA field path on clean macOS. It is not a validation of a specific undulator geometry or experimental magnet.'
+          }
+          with open('full-mode-acceptance.json', 'w', encoding='utf-8') as f:
+              json.dump(result, f, indent=2, sort_keys=True)
+          print(json.dumps(result, indent=2, sort_keys=True))
+
+          if hasattr(radia, 'UtiDelAll'):
+              radia.UtiDelAll()
+          PY
+
+      - name: Digital-twin deterministic core
+        run: python3 scripts/digital_twin_reference_validation.py --check
+
+      - name: Upload Full-mode evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: physical-lab-full-mode-acceptance
+          path: full-mode-acceptance.json
+          if-no-files-found: error
