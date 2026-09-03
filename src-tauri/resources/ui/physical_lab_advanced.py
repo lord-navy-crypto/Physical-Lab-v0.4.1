@@ -76,6 +76,17 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
         render_digital_twin_workspace(st, profile)
     except Exception as _pl_digital_twin_error:
         st.warning(f"Physical Lab Measurement Digital Twin could not load: {_pl_digital_twin_error}")
+    if profile == "radia-magnet-studio":
+        try:
+            from physical_lab_radia_adapter import render_radia_forward_workspace
+            render_radia_forward_workspace(st, namespace)
+        except Exception as _pl_radia_adapter_error:
+            st.warning(f"Physical Lab RADIA Measurement Adapter could not load: {_pl_radia_adapter_error}")
+    try:
+        from physical_lab_local_ai import render_local_ai_assistant
+        render_local_ai_assistant(st, profile, namespace)
+    except Exception as _pl_local_ai_error:
+        st.warning(f"Physical Lab Local AI Assistant could not load: {_pl_local_ai_error}")
     _render_run_vault(st, profile)
 
 

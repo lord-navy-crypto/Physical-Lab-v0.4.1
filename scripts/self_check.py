@@ -152,3 +152,28 @@ assert (root/'scripts/physical_lab_digital_twin_cli.py').is_file()
 assert (root/'.github/workflows/full-mode-acceptance.yml').is_file()
 print('Measurement Digital Twin core + project UI: configured')
 print('RADIA Full-mode acceptance workflow: configured')
+
+# v0.6 phase 2: real RADIA measurement adapter + optional local AI explanation bridge
+radia_adapter=(root/'src-tauri/resources/ui/physical_lab_radia_adapter.py').read_text()
+local_ai=(root/'src-tauri/resources/ui/physical_lab_local_ai.py').read_text()
+advanced_text=(root/'src-tauri/resources/ui/physical_lab_advanced.py').read_text()
+conf=json.loads((root/'src-tauri/tauri.conf.json').read_text())
+mods=json.loads((root/'src-tauri/resources/modules.json').read_text())
+full_mode=(root/'.github/workflows/full-mode-acceptance.yml').read_text()
+assert 'run_current_radia_forward_model' in radia_adapter
+assert 'run_bounded_radia_parameter_profile' in radia_adapter
+assert 'PHYSICAL_LAB_ENGINE_MODE' in radia_adapter
+assert 'OpenPenguin private runtime' in local_ai and '127.0.0.1:11435' in local_ai
+assert 'External Ollama' in local_ai and '127.0.0.1:11434' in local_ai
+assert 'ask_local_model' in local_ai and '/api/chat' in local_ai
+assert 'render_radia_forward_workspace(st, namespace)' in advanced_text
+assert 'render_local_ai_assistant(st, profile, namespace)' in advanced_text
+assert 'resources/ui/physical_lab_radia_adapter.py' in conf['bundle']['resources']
+assert 'resources/ui/physical_lab_local_ai.py' in conf['bundle']['resources']
+managed_runtime=next(m for m in mods if m['id']=='radia-runtime')['revision']
+assert managed_runtime == '7ff3b2dc26cbcccfcb0aaf3c4a290ebd83439698'
+assert managed_runtime in radia_adapter
+assert managed_runtime in full_mode
+print('RADIA Measurement Adapter: configured')
+print('Managed RADIA runtime pin == Full-mode tested revision:', managed_runtime)
+print('Local AI Assistant: local-only read-only bridge configured')

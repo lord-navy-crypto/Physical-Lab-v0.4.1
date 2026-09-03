@@ -45,7 +45,9 @@
       "resources/ui/sitecustomize.py": "ui/sitecustomize.py",
       "resources/ui/physical_lab_advanced.py": "ui/physical_lab_advanced.py",
       "resources/ui/physical_lab_digital_twin.py": "ui/physical_lab_digital_twin.py",
-      "resources/ui/physical_lab_digital_twin_ui.py": "ui/physical_lab_digital_twin_ui.py"
+      "resources/ui/physical_lab_digital_twin_ui.py": "ui/physical_lab_digital_twin_ui.py",
+      "resources/ui/physical_lab_radia_adapter.py": "ui/physical_lab_radia_adapter.py",
+      "resources/ui/physical_lab_local_ai.py": "ui/physical_lab_local_ai.py"
     },
     "macOS": {
       "minimumSystemVersion": "11.0",

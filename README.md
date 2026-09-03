@@ -102,6 +102,13 @@ For numeric datasets, Physical Lab can report N, mean, sample standard deviation
 
 A reproducibility export packages project state with machine/runtime information, source revisions and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
 
+
+## Optional Local AI Assistant
+
+Physical Lab can use a **local-only, read-only AI explanation layer** without making AI part of the scientific solver. The assistant discovers either the private OpenPenguin/Ollama runtime at `127.0.0.1:11435` or an existing Ollama service at `127.0.0.1:11434`, sends a bounded structured snapshot of the current Lab state, and can explain parameters, units, assumptions, diagnostics and possible next experiments. It cannot modify parameters, download models, execute model-generated code, or contact a cloud endpoint. Physical Lab remains fully functional when no local model is running.
+
+For RADIA Magnet Studio Full mode, the **RADIA Measurement Adapter** can evaluate the current managed magnet model at explicit measurement coordinates and write lineage-tracked `Bx/By/Bz/Bperp` columns into a derived `.physlab` dataset. A bounded one-parameter profile can repeatedly run the real RADIA forward model over explicit `gap_mm`, `br_t`, or `z_offset_mm` candidates. The best result means only the lowest RMSE on that finite grid; it is not presented as a posterior distribution or global optimum.
+
 ## Measurement Digital Twin
 
 Physical Lab now has a shared **measurement → calibration → model → comparison → update** scientific core instead of treating sensor data as a generic file attachment. `physical_lab_digital_twin.py` provides deterministic definitions for linear sensor calibration, measured/model field residuals and field integrals, affine model-discrepancy fitting, transverse beam phase-space/RMS-emittance statistics, and transparent residual-guided remeasurement priorities.
