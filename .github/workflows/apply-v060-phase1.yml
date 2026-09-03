@@ -1,0 +1,44 @@
+name: Apply v0.6 Phase 1 Integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v060_phase1_patch.py'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply deterministic integration patch
+        run: python scripts/apply_v060_phase1_patch.py
+      - name: Validate patched source
+        run: |
+          python -m py_compile src-tauri/resources/ui/*.py scripts/*.py
+          python scripts/reference_validation.py --check
+          python scripts/digital_twin_reference_validation.py --check
+          python scripts/self_check.py
+      - name: Remove one-time patch machinery
+        run: |
+          rm -f scripts/apply_v060_phase1_patch.py
+          rm -f .github/workflows/apply-v060-phase1.yml
+      - name: Commit integrated source
+        run: |
+          git config user.name 'Physical Lab CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No patch changes to commit.'
+          else
+            git commit -m 'Integrate Measurement Digital Twin into Physical Lab'
+            git push origin HEAD:main
+          fi
