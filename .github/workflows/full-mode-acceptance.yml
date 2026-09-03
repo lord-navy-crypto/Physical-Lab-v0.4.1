@@ -4,6 +4,14 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '23 8 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/full-mode-acceptance.yml'
+      - 'src-tauri/resources/ui/physical_lab_digital_twin.py'
+      - 'src-tauri/resources/modules.json'
+      - 'scripts/digital_twin_reference_validation.py'
+      - 'docs/digital-twin-reference-validation.json'
 
 permissions:
   contents: read
@@ -56,7 +64,7 @@ jobs:
           export RADIA_PYTHONPATH="$RADIA_DEST/cpp/gcc"
           export PYTHONPATH="$RADIA_PYTHONPATH:${PYTHONPATH:-}"
           python3 - <<'PY'
-          import json, math, os
+          import json, math
           import radia
 
           if hasattr(radia, 'UtiDelAll'):
