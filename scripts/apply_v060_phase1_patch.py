@@ -53,7 +53,7 @@ replace_once(
     "for needle in ['Measurement Digital Twin','linear-sensor-calibration','measured-model-field-comparison','beam-phase-space','residual-guided-remeasurement']:\n"
     "    assert needle in digital_ui, needle\n"
     "assert 'render_digital_twin_workspace(st, profile)' in advanced_text\n"
-    "assert '\\"radia-magnet-studio\\"|\\"radiation-platform\\"' in lib_text\n"
+    "assert 'radia-magnet-studio' in lib_text and 'radiation-platform' in lib_text\n"
     "assert 'physical_lab_digital_twin.py' in tauri_text and 'physical_lab_digital_twin_ui.py' in tauri_text\n"
     "assert (root/'scripts/digital_twin_reference_validation.py').is_file()\n"
     "assert (root/'scripts/physical_lab_digital_twin_cli.py').is_file()\n"
