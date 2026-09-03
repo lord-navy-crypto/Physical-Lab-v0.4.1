@@ -99,3 +99,8 @@ The Tutor includes a read-only **Parameter Explorer** for documented controls th
 ## Opt-in AI research provenance
 
 After a successful Local AI response, Physical Lab may offer **Save this exchange to .physlab provenance** when managed workspaces are available. Saving is always an explicit user action. The JSON record is written to `<workspace>.physlab/provenance/ai-notes/` and includes the Lab profile, local runtime/model, question, answer, optional human research note, a bounded copy of the structured context, and a SHA-256 hash of that context. The record is classified as `AI ADVISORY NOTE` and explicitly states that it is not a measurement, solver result, fit, or validation record. Screenshot bytes are not written by this feature; only the structured context used by the Tutor is preserved.
+
+
+## AI Research Notes Browser
+
+When one or more managed `.physlab` workspaces exist, the Tutor can browse previously saved `AI ADVISORY NOTE` records in read-only mode. Notes are shown newest first with their timestamp, Lab profile, local model, human research note, saved question/answer, and structured context. Physical Lab recomputes the saved context SHA-256 when the note is opened; a mismatch is displayed prominently rather than silently trusted. The **Reuse saved question in Tutor** action only copies the question text into the current Tutor input and does not call the model, change parameters, or launch a solver.

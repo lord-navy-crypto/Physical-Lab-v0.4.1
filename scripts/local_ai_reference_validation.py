@@ -227,3 +227,60 @@ finally:
         _os.environ["PHYSICAL_LAB_DATA_DIR"] = _old_data_dir
 
 print("Opt-in .physlab AI provenance notes: PASS")
+
+
+# Read-only provenance browser verifies saved context hashes and ignores unrelated
+# or malformed JSON records without changing workspace state.
+import os as _os2
+import json as _json2
+import tempfile as _tempfile2
+from pathlib import Path as _Path2
+
+_old_data_dir2 = _os2.environ.get("PHYSICAL_LAB_DATA_DIR")
+try:
+    with _tempfile2.TemporaryDirectory() as _td2:
+        _os2.environ["PHYSICAL_LAB_DATA_DIR"] = _td2
+        _root2 = _Path2(_td2) / "workspaces"
+        _ws2 = _root2 / "browser-test.physlab"
+        _ws2.mkdir(parents=True)
+        (_ws2 / "project.json").write_text(_json2.dumps({"id": "browser-test", "name": "Browser Test"}), encoding="utf-8")
+        _saved2 = mod.save_ai_research_note(
+            str(_ws2),
+            profile="oscillation-integration",
+            runtime_label="External Ollama",
+            runtime_base="http://127.0.0.1:11434",
+            model="browser-test-model",
+            question="What does damping change?",
+            answer="Advisory only.",
+            context={"schema": "physical-lab-local-ai-context-v3", "gamma": 0.2},
+            user_note="browser validation",
+        )
+        _before2 = _Path2(_saved2).read_text(encoding="utf-8")
+        _notes2 = mod.list_ai_research_notes(str(_ws2))
+        _after2 = _Path2(_saved2).read_text(encoding="utf-8")
+        assert _before2 == _after2
+        assert len(_notes2) == 1
+        assert _notes2[0]["contextHashValid"] is True
+        assert _notes2[0]["classification"] == "AI ADVISORY NOTE"
+        assert _notes2[0]["question"] == "What does damping change?"
+
+        # Malformed/unrelated JSON is ignored rather than displayed as provenance.
+        _notes_dir2 = _ws2 / "provenance" / "ai-notes"
+        (_notes_dir2 / "junk.json").write_text("not json", encoding="utf-8")
+        (_notes_dir2 / "other.json").write_text(_json2.dumps({"schema": "other"}), encoding="utf-8")
+        assert len(mod.list_ai_research_notes(str(_ws2))) == 1
+
+        # Changing structured context makes the verification status fail visibly.
+        _record2 = _json2.loads(_Path2(_saved2).read_text(encoding="utf-8"))
+        _record2["context"]["gamma"] = 0.4
+        _Path2(_saved2).write_text(_json2.dumps(_record2), encoding="utf-8")
+        _tampered2 = mod.list_ai_research_notes(str(_ws2))
+        assert len(_tampered2) == 1
+        assert _tampered2[0]["contextHashValid"] is False
+finally:
+    if _old_data_dir2 is None:
+        _os2.environ.pop("PHYSICAL_LAB_DATA_DIR", None)
+    else:
+        _os2.environ["PHYSICAL_LAB_DATA_DIR"] = _old_data_dir2
+
+print("Read-only AI provenance browser: PASS")
