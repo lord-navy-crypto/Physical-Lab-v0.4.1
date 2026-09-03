@@ -151,3 +151,18 @@ assert merged_rad["cfg_gap_mm"]["unit"] == "mm"
 assert merged_rad["pl_m_seeds"]["unit"] == "independent RNG seeds"
 
 print("Seven-Lab advanced parameter guide coverage: PASS")
+
+
+# Parameter Explorer exposes only documented controls that actually exist in the
+# current session and preserves their source/units without mutating state.
+explorer_state = {"pl_o_force": 0.6, "pl_o_e_dt": 0.01, "unrelated": 123}
+explorer_before = dict(explorer_state)
+rows = mod._current_parameter_rows("oscillation-integration", explorer_state)
+assert explorer_state == explorer_before
+by_key = {row["parameter"]: row for row in rows}
+assert set(by_key) == {"pl_o_force", "pl_o_e_dt"}
+assert by_key["pl_o_force"]["unit"] == "N"
+assert by_key["pl_o_force"]["source"] == "Physical Lab advanced"
+assert by_key["pl_o_e_dt"]["unit"] == "s/step"
+assert all(row["meaning"].strip() for row in rows)
+print("Read-only Parameter Explorer: PASS")

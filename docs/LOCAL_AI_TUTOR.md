@@ -89,3 +89,8 @@ The validation is part of the repository's **Source Integrity** workflow.
 The Tutor carries explicit metadata not only for upstream/core controls but also for Physical Lab's advanced research-suite widgets. The advanced guide is keyed by the actual Streamlit control IDs used by the seven Labs, including numerical reliability/cancellation controls, Ising critical and Binder scans, random-walk scaling/QMC/recurrence controls, nonlinear-chaos Lyapunov and stability-atlas controls, oscillation solver/energy audits, RADIA manufacturing-seed ensembles, and radiation resonance/sensitivity controls.
 
 Metadata is merged only for controls that are present in the current session. Each documented advanced control has a non-empty `unit` and `meaning`; controls that are not explicitly documented remain visible as raw session state but are not assigned an invented unit.
+
+
+## Parameter Explorer
+
+The Tutor includes a read-only **Parameter Explorer** for documented controls that are actually present in the current Streamlit session. It displays the current value, unit/convention, meaning, and whether the control belongs to the upstream/core Lab or the Physical Lab advanced research suite. From the selected row, the user can prepare either a focused explanation question or a controlled-scan planning question. These actions only populate the Tutor question; they do not modify the parameter or launch a solver.

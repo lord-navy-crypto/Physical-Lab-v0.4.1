@@ -473,6 +473,26 @@ def ask_local_model(
     return text.strip()
 
 
+
+
+def _current_parameter_rows(profile: str, session_state: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return documented parameters that are actually present in this UI session."""
+    guide = _parameter_guide(profile, session_state)
+    rows: list[dict[str, Any]] = []
+    advanced = ADVANCED_PARAMETER_GUIDES.get(profile, {})
+    for key in sorted(guide):
+        if key not in session_state:
+            continue
+        meta = guide[key]
+        rows.append({
+            "parameter": key,
+            "value": _plain(session_state.get(key)),
+            "unit": str(meta.get("unit") or ""),
+            "meaning": str(meta.get("meaning") or ""),
+            "source": "Physical Lab advanced" if key in advanced else "Lab/core",
+        })
+    return rows
+
 def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any]) -> None:
     result_summary = _extract_result_summary(namespace)
     if result_summary:
@@ -511,9 +531,42 @@ def render_local_ai_assistant(st: Any, profile: str, namespace: Mapping[str, Any
         else:
             st.caption("The local runtime did not report model capabilities; vision input remains disabled rather than guessed.")
 
+        question_key = f"pl_local_ai_question_{profile}"
+
+
+        parameter_rows = _current_parameter_rows(profile, st.session_state)
+        if parameter_rows:
+            with st.expander("Parameter Explorer · current documented controls", expanded=False):
+                st.caption(
+                    "Read-only view of parameters that are both documented by Physical Lab and present in the current UI session. "
+                    "Selecting a parameter can prepare a focused Tutor question; it does not change the control."
+                )
+                st.dataframe(parameter_rows, width="stretch", hide_index=True)
+                parameter_keys = [row["parameter"] for row in parameter_rows]
+                selected_parameter = st.selectbox(
+                    "Parameter to inspect",
+                    parameter_keys,
+                    key=f"pl_local_ai_parameter_{profile}",
+                )
+                selected_row = next(row for row in parameter_rows if row["parameter"] == selected_parameter)
+                p1, p2, p3 = st.columns([1.3, 1, 2.7])
+                p1.metric("Current value", str(selected_row["value"]))
+                p2.metric("Unit / convention", selected_row["unit"] or "documented meaning only")
+                p3.info(selected_row["meaning"])
+                a1, a2 = st.columns(2)
+                if a1.button("Explain selected parameter", key=f"pl_ai_explain_parameter_{profile}", width="stretch"):
+                    st.session_state[question_key] = (
+                        f"Explain the current parameter `{selected_parameter}`. Its documented unit/convention is `{selected_row['unit']}` and its current value is `{selected_row['value']}`. "
+                        "Explain its physical or numerical role, what increasing and decreasing it would usually change in this specific Lab, which observable/result should respond, and which assumptions limit that expectation. Do not change the parameter."
+                    )
+                if a2.button("Plan a controlled scan of it", key=f"pl_ai_scan_parameter_{profile}", width="stretch"):
+                    st.session_state[question_key] = (
+                        f"Plan one conservative controlled scan of `{selected_parameter}` from its current value `{selected_row['value']}` using the supplied Physical Lab context. "
+                        "Give a bounded range or direction only when supported, say what must be held fixed, name the observable to monitor, and state what result would contradict the expected trend. Do not claim the scan has been run and do not modify the UI."
+                    )
+
         st.markdown("#### Physics Tutor shortcuts")
         q1, q2, q3, q4 = st.columns(4)
-        question_key = f"pl_local_ai_question_{profile}"
         if q1.button("Explain setup", key=f"pl_ai_seed_setup_{profile}", width="stretch"):
             st.session_state[question_key] = "Explain my current setup parameter by parameter. For each important parameter, state its unit/meaning, what increasing or decreasing it physically changes, and which result should respond."
         if q2.button("Check assumptions", key=f"pl_ai_seed_assumptions_{profile}", width="stretch"):
