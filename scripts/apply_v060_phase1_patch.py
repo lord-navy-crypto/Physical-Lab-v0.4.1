@@ -21,8 +21,7 @@ def replace_once(path: Path, old: str, new: str) -> None:
 advanced = ROOT / "src-tauri/resources/ui/physical_lab_advanced.py"
 replace_once(
     advanced,
-    "    _render_content_validation(st, profile, namespace)\n    _render_run_vault(st, profile)\n",
-    "    _render_content_validation(st, profile, namespace)\n"
+    "    _render_run_vault(st, profile)\n",
     "    try:\n"
     "        from physical_lab_digital_twin_ui import render_digital_twin_workspace\n"
     "        render_digital_twin_workspace(st, profile)\n"
