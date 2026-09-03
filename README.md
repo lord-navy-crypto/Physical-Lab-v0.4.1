@@ -1,5 +1,7 @@
 # Physical Lab v0.5.0 — Reproducible Computational Physics for macOS
 
+[![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
+
 **Physical Lab is a native macOS research workbench that turns seven computational-physics projects into one reproducible workflow: model → run → validate → compare → export.**
 
 It combines numerical-error analysis, Monte Carlo/statistical physics, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the research-software layer around those solvers: isolated environments, pinned source revisions, ABI-aware native-engine checks, Safe/Full execution, measurement provenance, scientific smoke tests, run comparison, uncertainty analysis, and reproducibility exports.
@@ -100,6 +102,12 @@ For numeric datasets, Physical Lab can report N, mean, sample standard deviation
 
 A reproducibility export packages project state with machine/runtime information, source revisions and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
 
+## Reproducible reference validation
+
+Source CI runs `scripts/reference_validation.py --check` against committed deterministic reference snapshots. The current snapshot includes Taylor-series error, harmonic-oscillator RK4 return error, exact random-walk MSD, the exact 2-D zero-field Ising critical-temperature reference, and an ideal-undulator first-harmonic reference. **RADIA Full mode is deliberately recorded as not run in source CI** until a native 3-D field solve is available.
+
+See [`docs/REFERENCE_VALIDATION.md`](docs/REFERENCE_VALIDATION.md) and [`docs/reference-validation.json`](docs/reference-validation.json).
+
 ## Validation philosophy
 
 Physical Lab follows a simple rule: **a simulation result is not automatically a physical result**.
@@ -127,7 +135,7 @@ The release builder targets a Universal2 macOS application (`arm64` + `x86_64`).
 
 ## Source integrity CI
 
-`docs/source-integrity.example.yml` checks the repository structure, JSON manifests, Python syntax, JavaScript syntax and the project's source self-check on every push/PR. This does **not** substitute for real-macOS runtime acceptance tests of RADIA or hardware/serial paths.
+`.github/workflows/source-integrity.yml` checks the repository structure, JSON manifests, Python syntax, JavaScript syntax, deterministic reference snapshots and the project's source self-check on every push/PR. This does **not** substitute for real-macOS runtime acceptance tests of RADIA or hardware/serial paths.
 
 ## Current scope
 
