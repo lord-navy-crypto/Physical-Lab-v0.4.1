@@ -39,14 +39,13 @@ if not radia_runtime:
 radia_runtime["revision"] = RADIA_RUNTIME_REVISION
 mods_path.write_text(json.dumps(mods, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
+# The Full-mode acceptance workflow already pins the tested RADIA builder revision.
+# Do not edit workflow files from this temporary Actions job because the workflow
+# token intentionally lacks workflows permission. Self-check asserts pin equality.
 workflow = ROOT / ".github/workflows/full-mode-acceptance.yml"
 workflow_text = workflow.read_text(encoding="utf-8")
-if "physical_lab_radia_adapter.py" not in workflow_text:
-    replace_once(
-        workflow,
-        "      - 'src-tauri/resources/ui/physical_lab_digital_twin.py'\n",
-        "      - 'src-tauri/resources/ui/physical_lab_digital_twin.py'\n      - 'src-tauri/resources/ui/physical_lab_radia_adapter.py'\n",
-    )
+if RADIA_RUNTIME_REVISION not in workflow_text:
+    raise SystemExit("Full-mode acceptance RADIA revision does not match the managed runtime revision")
 
 self_check = ROOT / "scripts/self_check.py"
 append = '''\n# v0.6 phase 2: real RADIA measurement adapter + optional local AI explanation bridge\nradia_adapter=(root/'src-tauri/resources/ui/physical_lab_radia_adapter.py').read_text()\nlocal_ai=(root/'src-tauri/resources/ui/physical_lab_local_ai.py').read_text()\nadvanced_text=(root/'src-tauri/resources/ui/physical_lab_advanced.py').read_text()\nconf=json.loads((root/'src-tauri/tauri.conf.json').read_text())\nmods=json.loads((root/'src-tauri/resources/modules.json').read_text())\nfull_mode=(root/'.github/workflows/full-mode-acceptance.yml').read_text()\nassert 'run_current_radia_forward_model' in radia_adapter\nassert 'run_bounded_radia_parameter_profile' in radia_adapter\nassert 'PHYSICAL_LAB_ENGINE_MODE' in radia_adapter\nassert 'OpenPenguin private runtime' in local_ai and '127.0.0.1:11435' in local_ai\nassert 'External Ollama' in local_ai and '127.0.0.1:11434' in local_ai\nassert 'ask_local_model' in local_ai and '/api/chat' in local_ai\nassert 'render_radia_forward_workspace(st, namespace)' in advanced_text\nassert 'render_local_ai_assistant(st, profile, namespace)' in advanced_text\nassert 'resources/ui/physical_lab_radia_adapter.py' in conf['bundle']['resources']\nassert 'resources/ui/physical_lab_local_ai.py' in conf['bundle']['resources']\nmanaged_runtime=next(m for m in mods if m['id']=='radia-runtime')['revision']\nassert managed_runtime == '7ff3b2dc26cbcccfcb0aaf3c4a290ebd83439698'\nassert managed_runtime in radia_adapter\nassert managed_runtime in full_mode\nprint('RADIA Measurement Adapter: configured')\nprint('Managed RADIA runtime pin == Full-mode tested revision:', managed_runtime)\nprint('Local AI Assistant: local-only read-only bridge configured')\n'''
