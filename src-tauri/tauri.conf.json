@@ -43,7 +43,8 @@
       "resources/safe_engine_server.py": "safe_engine_server.py",
       "resources/dependencies.json": "dependencies.json",
       "resources/ui/sitecustomize.py": "ui/sitecustomize.py",
-      "resources/ui/physical_lab_advanced.py": "ui/physical_lab_advanced.py"
+      "resources/ui/physical_lab_advanced.py": "ui/physical_lab_advanced.py",
+      "resources/ui/physical_lab_digital_twin.py": "ui/physical_lab_digital_twin.py"
     },
     "macOS": {
       "minimumSystemVersion": "11.0",
