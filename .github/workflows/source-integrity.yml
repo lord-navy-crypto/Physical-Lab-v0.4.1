@@ -18,7 +18,7 @@ jobs:
           node-version: '22'
       - name: Python syntax
         run: |
-          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/reference_validation.py src-tauri/resources/safe_engine_server.py
+          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py src-tauri/resources/safe_engine_server.py
           python -m py_compile src-tauri/resources/ui/*.py
       - name: JSON manifests
         run: |
@@ -26,11 +26,14 @@ jobs:
           python -m json.tool src-tauri/resources/dependencies.json >/dev/null
           python -m json.tool src-tauri/tauri.conf.json >/dev/null
           python -m json.tool docs/reference-validation.json >/dev/null
+          python -m json.tool docs/digital-twin-reference-validation.json >/dev/null
       - name: JavaScript syntax
         run: |
           node --check web/app.js
           node --check dist/app.js
       - name: Deterministic reference validation
-        run: python scripts/reference_validation.py --check
+        run: |
+          python scripts/reference_validation.py --check
+          python scripts/digital_twin_reference_validation.py --check
       - name: Physical Lab self-check
         run: python scripts/self_check.py
