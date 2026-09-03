@@ -94,7 +94,7 @@ Dependency presence and scientific readiness are deliberately separate:
 
 ### Results & validation
 
-For numeric datasets, Physical Lab can report N, mean, sample SD, 95% CI, min/max, and observed/reference metrics including MAE, RMSE, relative RMSE, maximum absolute error and R². Agreement labels are descriptive only; they do not prove which model is physically correct.
+For numeric datasets, Physical Lab can report N, mean, sample standard deviation, 95% CI, min/max, and observed/reference metrics including MAE, RMSE, relative RMSE, maximum absolute error and R². Agreement labels are descriptive only; they do not prove which model is physically correct.
 
 ### Reproducibility
 

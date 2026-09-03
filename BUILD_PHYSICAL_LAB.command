@@ -31,10 +31,11 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 
 python3 scripts/prepare.py
+python3 scripts/self_check.py
 npm install
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
 npm run desktop:build -- --target universal-apple-darwin
 
 echo ""
-echo "Physical Lab build complete."
+echo "Physical Lab v0.5.0 build complete."
 echo "App and DMG are under: src-tauri/target/universal-apple-darwin/release/bundle/"

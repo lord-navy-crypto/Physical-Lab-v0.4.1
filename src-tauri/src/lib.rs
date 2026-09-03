@@ -1,3 +1,4 @@
+mod research;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -23,6 +24,8 @@ struct ModuleSpec {
     kind: String,
     repo: String,
     branch: String,
+    #[serde(default)]
+    revision: Option<String>,
     entrypoint: Option<String>,
     requirements: Option<String>,
     launcher: Option<String>,
@@ -147,6 +150,7 @@ struct RunningServer {
 struct PhysicalLabState {
     servers: Mutex<HashMap<String, RunningServer>>,
     busy: Mutex<HashSet<String>>,
+    cancelled: Mutex<HashSet<String>>,
 }
 
 fn module_specs() -> Result<Vec<ModuleSpec>, String> {
@@ -315,7 +319,7 @@ fn python_for_spec(spec: &ModuleSpec) -> Option<String> {
 }
 
 fn python_info() -> (bool, String, Option<String>) {
-    let generic=ModuleSpec{id:"python-probe".into(),name:"Python".into(),category:"Runtime".into(),kind:"runtime".into(),repo:String::new(),branch:String::new(),entrypoint:None,requirements:None,launcher:None,runtime_requires:vec![],description:String::new(),tags:vec![],python_requires:Some(">=3.10".into()),verify_imports:vec![],supported_arches:vec![],system_requires:vec![],runtime_excludes:vec![],fragile_dependencies:vec![],safe_backend:"standard".into(),safe_mode_note:String::new(),full_mode_note:String::new()};
+    let generic=ModuleSpec{id:"python-probe".into(),name:"Python".into(),category:"Runtime".into(),kind:"runtime".into(),repo:String::new(),branch:String::new(),revision:None,entrypoint:None,requirements:None,launcher:None,runtime_requires:vec![],description:String::new(),tags:vec![],python_requires:Some(">=3.10".into()),verify_imports:vec![],supported_arches:vec![],system_requires:vec![],runtime_excludes:vec![],fragile_dependencies:vec![],safe_backend:"standard".into(),safe_mode_note:String::new(),full_mode_note:String::new()};
     if let Some(path)=python_for_spec(&generic) { let version=output(&path,&["--version"]).unwrap_or_else(||"Python 3".into()); return (true,version,Some(path)); }
     (false, "Compatible Python 3 not found".into(), None)
 }
@@ -467,6 +471,17 @@ fn task_id(module_id: &str) -> String {
     format!("{}-{}", module_id, chrono::Utc::now().timestamp_millis())
 }
 
+fn task_cancelled(app:&AppHandle, task:&str)->bool {
+    app.state::<PhysicalLabState>().cancelled.lock().map(|s|s.contains(task)).unwrap_or(false)
+}
+
+#[tauri::command]
+fn cancel_task(app:AppHandle, task_id:String)->Result<String,String>{
+    app.state::<PhysicalLabState>().cancelled.lock().map_err(|_|"Cancellation-state lock failed".to_string())?.insert(task_id.clone());
+    append_log(&app,&format!("CANCEL REQUEST | {task_id}"));
+    Ok(format!("Cancellation requested for {task_id}"))
+}
+
 fn run_streaming(app: &AppHandle, task: &str, spec: &ModuleSpec, stage: &str, percent: Option<f64>, mut command: Command) -> Result<(), String> {
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|e| format!("Could not start {stage}: {e}"))?;
@@ -490,7 +505,10 @@ fn run_streaming(app: &AppHandle, task: &str, spec: &ModuleSpec, stage: &str, pe
             }
         }));
     }
-    let status = child.wait().map_err(|e| e.to_string())?;
+    let status = loop {
+        if task_cancelled(app,task){ let _=child.kill(); let _=child.wait(); for reader in readers { let _=reader.join(); } return Err("Task cancelled by user".into()); }
+        match child.try_wait().map_err(|e|e.to_string())? { Some(status)=>break status, None=>thread::sleep(Duration::from_millis(180)) }
+    };
     for reader in readers { let _ = reader.join(); }
     if status.success() { Ok(()) } else { Err(format!("{stage} exited with status {status}")) }
 }
@@ -503,9 +521,15 @@ async fn download_source(app: &AppHandle, task: &str, spec: &ModuleSpec, start_p
     if source.exists() { fs::remove_dir_all(&source).map_err(|e| e.to_string())?; }
     fs::create_dir_all(&source).map_err(|e| e.to_string())?;
 
-    let url = format!("https://codeload.github.com/{}/tar.gz/refs/heads/{}", spec.repo, spec.branch);
-    emit_task(app, task, &spec.id, &spec.name, "Downloading module", "Running", Some(start_pct), format!("Fetching {}", spec.repo), false, None);
-    let response = reqwest::Client::builder().user_agent("Physical-Lab/0.1.7").build().map_err(|e| e.to_string())?
+    let requested_revision = spec.revision.as_deref().filter(|s| !s.trim().is_empty());
+    let url = if let Some(rev)=requested_revision {
+        format!("https://codeload.github.com/{}/tar.gz/{}", spec.repo, rev)
+    } else {
+        format!("https://codeload.github.com/{}/tar.gz/refs/heads/{}", spec.repo, spec.branch)
+    };
+    let source_label = requested_revision.map(|r| format!("{} @ {}", spec.repo, &r[..r.len().min(12)])).unwrap_or_else(|| format!("{} @ {}", spec.repo, spec.branch));
+    emit_task(app, task, &spec.id, &spec.name, "Downloading module", "Running", Some(start_pct), format!("Fetching {source_label}"), false, None);
+    let response = reqwest::Client::builder().user_agent("Physical-Lab/0.5.0").build().map_err(|e| e.to_string())?
         .get(url).send().await.map_err(|e| format!("GitHub download failed: {e}"))?;
     if !response.status().is_success() { return Err(format!("GitHub returned {} for {}", response.status(), spec.repo)); }
     let total = response.content_length();
@@ -513,6 +537,7 @@ async fn download_source(app: &AppHandle, task: &str, spec: &ModuleSpec, start_p
     let mut stream = response.bytes_stream();
     let mut received = 0u64;
     while let Some(chunk) = stream.next().await {
+        if task_cancelled(app,task){ let _=tokio::fs::remove_file(&archive).await; return Err("Task cancelled by user".into()); }
         let bytes = chunk.map_err(|e| e.to_string())?;
         received += bytes.len() as u64;
         file.write_all(&bytes).await.map_err(|e| e.to_string())?;
@@ -531,6 +556,15 @@ async fn download_source(app: &AppHandle, task: &str, spec: &ModuleSpec, start_p
         if status.success() { Ok::<(),String>(()) } else { Err(format!("Archive extraction failed with {status}")) }
     }).await.map_err(|e| e.to_string())??;
     let _ = fs::remove_file(&archive);
+    let provenance = serde_json::json!({
+        "schema":"physical-lab-source-v1",
+        "repository":spec.repo,
+        "branch":spec.branch,
+        "revision":spec.revision,
+        "downloadedAt":chrono::Utc::now().to_rfc3339(),
+        "policy": if spec.revision.is_some() { "pinned-commit" } else { "branch-fallback" }
+    });
+    let _ = fs::write(source.join("physical-lab-source.json"), serde_json::to_vec_pretty(&provenance).unwrap_or_default());
     Ok(source)
 }
 
@@ -930,8 +964,10 @@ async fn install_module(app: AppHandle, state: State<'_, PhysicalLabState>, modu
     emit_task(&app,&task,&spec.id,&spec.name,"Starting","Running",Some(1.0),"Physical Lab is preparing this module.",false,None);
     let result=install_inner(&app,&task,&spec).await;
     if let Ok(mut busy)=state.busy.lock(){busy.remove(&spec.id);}
+    if let Ok(mut cancelled)=state.cancelled.lock(){cancelled.remove(&task);}
     match result {
         Ok(())=>{emit_task(&app,&task,&spec.id,&spec.name,"Complete","Complete",Some(100.0),"Module is ready.",true,None);Ok(())},
+        Err(e) if e.to_ascii_lowercase().contains("cancelled")=>{emit_task(&app,&task,&spec.id,&spec.name,"Cancelled","Cancelled",None,"Task cancelled. Completed artifacts may remain and can be repaired or retried.",true,None);Err(e)},
         Err(e)=>{emit_task(&app,&task,&spec.id,&spec.name,"Failed","Failed",None,e.clone(),true,Some(e.clone()));Err(e)}
     }
 }
@@ -1101,7 +1137,12 @@ fn stop_module(state: State<'_, PhysicalLabState>, module_id: String) -> Result<
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(PhysicalLabState::default())
-        .invoke_handler(tauri::generate_handler![list_modules, list_dependencies, dependency_statuses, dependency_action, data_directory, open_data_directory, log_directory, open_log_directory, runtime_status, module_statuses, install_module, uninstall_module, launch_module, stop_module])
+        .invoke_handler(tauri::generate_handler![list_modules, list_dependencies, dependency_statuses, dependency_action, data_directory, open_data_directory, log_directory, open_log_directory, runtime_status, module_statuses, install_module, uninstall_module, launch_module, stop_module,
+            research::create_workspace, research::list_workspaces, research::open_workspace, research::record_run_snapshot,
+            research::import_measurement_dataset, research::list_datasets, research::list_serial_devices, research::capture_serial_measurement,
+            research::analyze_dataset, research::validate_dataset_columns, research::lab_compatibility_matrix, research::repair_lab_environment,
+            research::scientific_smoke_tests, research::pipeline_templates, research::save_pipeline, research::create_campaign,
+            research::adapter_statuses, research::export_reproducibility_package, research::list_run_snapshots, research::compare_run_snapshots, research::list_campaigns, research::campaign_action, cancel_task])
         .build(tauri::generate_context!())
         .expect("error while building Physical Lab");
 

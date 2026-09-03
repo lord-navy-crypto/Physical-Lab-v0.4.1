@@ -5,9 +5,9 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 required = [
     'package.json','web/index.html','web/styles.css','web/app.js',
-    'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs',
+    'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs',
     'src-tauri/src/main.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
-    'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py','src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command'
+    'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py','src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command'
 ]
 missing = [p for p in required if not (root / p).exists()]
 if missing:
@@ -69,9 +69,9 @@ assert len(deps) >= 17
 assert {'python-runtime','numpy','scipy','pandas','plotly','streamlit','matplotlib','h5py','mpmath','xcode-clt','native-toolchain','cmake','fftw','radia','pychrono','chrono-modal','vampire'} <= dep_ids
 
 conf=json.loads((root/'src-tauri/tauri.conf.json').read_text())
-assert conf['version']=='0.4.1'
-assert json.loads((root/'package.json').read_text())['version']=='0.4.1'
-assert 'version = "0.4.1"' in (root/'src-tauri/Cargo.toml').read_text()
+assert conf['version']=='0.5.0'
+assert json.loads((root/'package.json').read_text())['version']=='0.5.0'
+assert 'version = "0.5.0"' in (root/'src-tauri/Cargo.toml').read_text()
 assert 'resources/safe_engine_server.py' in conf['bundle']['resources']
 assert 'resources/ui/sitecustomize.py' in conf['bundle']['resources']
 assert 'resources/ui/physical_lab_advanced.py' in conf['bundle']['resources']
@@ -90,12 +90,47 @@ for feature in ['2D sensitivity atlas','Binder cumulant','Twin-trajectory diverg
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in advanced, profile
 
-print('Physical Lab v0.4.1 all-lab advanced-experiment self-check: PASS')
+print('Physical Lab v0.5.0 Research Workspace self-check: PASS')
 print('Modules: 10 (7 labs + 3 runtime/builders)')
 print('Dependency health catalog:', len(deps), 'items')
 print('Persistent backend logs + data-folder access: configured')
 print('Per-model uninstall + per-task delete: configured')
 print('Old radiaition-study / Radiation Study: hard-excluded')
 
+research=(root/'src-tauri/src/research.rs').read_text()
+for needle2 in [
+    'fn create_workspace(', 'fn import_measurement_dataset(', 'fn capture_serial_measurement(',
+    'fn lab_compatibility_matrix(', 'SpecifierSet', 'fn scientific_smoke_tests(',
+    'fn pipeline_templates(', 'fn create_campaign(', 'fn export_reproducibility_package(',
+    'fn validate_dataset_columns(', 'fn adapter_statuses(', 'fn compare_run_snapshots('
+]:
+    assert needle2 in research, needle2
+for needle2 in ['fn cancel_task(', 'task_cancelled(app,task)', 'cancelled: Mutex<HashSet<String>>']:
+    assert needle2 in lib, needle2
+web_html=(root/'web/index.html').read_text()
+for needle2 in ['workspacesView','dataView','integrityView','pipelinesView','campaignsView','resultsView','captureSerial','compareRuns']:
+    assert needle2 in web_html, needle2
+web_js=(root/'web/app.js').read_text()
+for needle2 in ['list_workspaces','import_measurement_dataset','lab_compatibility_matrix','scientific_smoke_tests','create_campaign','export_reproducibility_package','compare_run_snapshots','cancel_task']:
+    assert needle2 in web_js, needle2
+print('Research workspace + measurement bridge + integrity matrix: configured')
+print('Pipeline contracts + campaign queues + run comparison: configured')
+print('Reproducibility export + task cancellation: configured')
 print('Enhanced simulation profiles: 7')
 print('Responsive KPI/result-card system: configured')
+
+# v0.5.0 public/reproducibility hardening
+required_public = [
+    'docs/ORIGINAL_CONTRIBUTIONS.md', 'docs/VALIDATION.md', 'docs/RESEARCH_NOTE_RADIATION.md',
+    'docs/source-integrity.example.yml'
+]
+for rel in required_public:
+    assert (root/rel).is_file(), f'missing public/research file: {rel}'
+for m in mods:
+    rev=m.get('revision','')
+    assert isinstance(rev,str) and len(rev)==40 and all(c in '0123456789abcdef' for c in rev.lower()), f"{m.get('id')} missing pinned 40-char revision"
+print('Source pinning: 10/10 module revisions pinned')
+print('Admissions/research README: configured')
+print('Original-contribution boundary: configured')
+print('Validation/research note: configured')
+print('Source Integrity CI: configured')

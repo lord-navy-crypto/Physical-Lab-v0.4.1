@@ -33,7 +33,8 @@
     "fragileDependencies": [],
     "safeBackend": "standard",
     "safeModeNote": "Uses the normal NumPy/mpmath scientific implementation; no fragile external physics engine is required.",
-    "fullModeNote": "Same validated numerical solver today. Full mode is reserved for future external reference engines."
+    "fullModeNote": "Same validated numerical solver today. Full mode is reserved for future external reference engines.",
+    "revision": "37275bab5c1918b2dc991de12bfd03c8fd6286b1"
   },
   {
     "id": "ising-monte-carlo",
@@ -69,7 +70,8 @@
     "fragileDependencies": [],
     "safeBackend": "standard",
     "safeModeNote": "Uses NumPy/SciPy Monte Carlo directly; no fragile external physics engine is required.",
-    "fullModeNote": "Same validated Ising solver today. No native external engine is required."
+    "fullModeNote": "Same validated Ising solver today. No native external engine is required.",
+    "revision": "ebd79c89ce4d1d621b0ca0d06da9fc6072b9026d"
   },
   {
     "id": "random-walk-monte-carlo",
@@ -107,7 +109,8 @@
     "fragileDependencies": [],
     "safeBackend": "standard",
     "safeModeNote": "Uses the normal NumPy/SciPy/Matplotlib implementation; no fragile engine is required.",
-    "fullModeNote": "Same validated stochastic solver today. No native external engine is required."
+    "fullModeNote": "Same validated stochastic solver today. No native external engine is required.",
+    "revision": "fc7fb190520ca5588daa1b1260a55a040b7e95ea"
   },
   {
     "id": "nonlinear-chaos",
@@ -144,7 +147,8 @@
     "fragileDependencies": [],
     "safeBackend": "standard",
     "safeModeNote": "Uses NumPy/SciPy/mpmath directly; no fragile external physics engine is required.",
-    "fullModeNote": "Same validated nonlinear solver today. No native external engine is required."
+    "fullModeNote": "Same validated nonlinear solver today. No native external engine is required.",
+    "revision": "2ef9e4f0180aa0af31afa660e5e60899193fdd28"
   },
   {
     "id": "oscillation-integration",
@@ -180,7 +184,8 @@
     "fragileDependencies": [],
     "safeBackend": "standard",
     "safeModeNote": "Uses the existing NumPy/SciPy oscillator and integration solvers; no fragile external engine is required.",
-    "fullModeNote": "Same validated solver today. PyChrono is not forced into this model until a real comparison adapter is implemented."
+    "fullModeNote": "Same validated solver today. PyChrono is not forced into this model until a real comparison adapter is implemented.",
+    "revision": "4981df60353ae32639535c8e5d1bacf73c296f1e"
   },
   {
     "id": "radia-magnet-studio",
@@ -221,7 +226,8 @@
     ],
     "safeBackend": "radia-analytic",
     "safeModeNote": "Runs an analytical ideal-undulator fallback without importing RADIA. NumPy/SciPy/plotting packages remain allowed.",
-    "fullModeNote": "Runs the full RADIA 3-D magnet geometry and field solver."
+    "fullModeNote": "Runs the full RADIA 3-D magnet geometry and field solver.",
+    "revision": "3bceb02a5195a6eb14d01458cc44f7206ed6b40a"
   },
   {
     "id": "radiation-platform",
@@ -263,7 +269,8 @@
     ],
     "safeBackend": "radiation-analytic",
     "safeModeNote": "Runs analytical undulator/radiation estimates without importing RADIA. It is a fallback, not a replacement for 3-D field solving.",
-    "fullModeNote": "Runs the full magnet → trajectory → radiation workflow with RADIA."
+    "fullModeNote": "Runs the full magnet \u2192 trajectory \u2192 radiation workflow with RADIA.",
+    "revision": "6d19b36304c9d30f9b608214f7cfb9fcbaf941d4"
   },
   {
     "id": "radia-runtime",
@@ -301,7 +308,8 @@
       "Universal2",
       "RADIA",
       "FFTW"
-    ]
+    ],
+    "revision": "1f568d9547dc4b9956e0c19dc6c8ce961b2eab53"
   },
   {
     "id": "chrono-modal-runtime",
@@ -343,7 +351,8 @@
       "Chrono",
       "Modal",
       "Universal2"
-    ]
+    ],
+    "revision": "70b18916510216e818bfe3a5fb6077f89a824299"
   },
   {
     "id": "vampire-runtime",
@@ -375,6 +384,7 @@
       "VAMPIRE",
       "Atomistic",
       "Apple Silicon"
-    ]
+    ],
+    "revision": "19547e8bc76314c43ab0708e2d9794f958816eda"
   }
 ]

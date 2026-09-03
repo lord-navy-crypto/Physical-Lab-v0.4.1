@@ -96,3 +96,7 @@ Dependency knowledge is now part of the application UI. Users do not need to ins
 ## Fragile-dependency definition
 
 Physical Lab does **not** treat ordinary scientific Python packages as fragile dependencies. NumPy, SciPy, Matplotlib, pandas, Plotly, Streamlit, mpmath and h5py remain normal per-Lab packages and can be used in Safe mode. The Safe/Full split is reserved for external native engines with meaningful ABI, architecture, SDK or compiler risk (currently RADIA; PyChrono/Chrono::Modal/VAMPIRE remain optional until a real Lab adapter consumes them).
+
+## Module source pinning (v0.5.0)
+
+`modules.json` now records an exact Git commit revision for every Lab/runtime source. Physical Lab downloads the pinned codeload archive and writes `physical-lab-source.json` into the managed source tree. `branch` remains human-readable metadata/fallback only. Updating a module revision is therefore an explicit Physical Lab release decision rather than an implicit change whenever upstream `main` moves.
