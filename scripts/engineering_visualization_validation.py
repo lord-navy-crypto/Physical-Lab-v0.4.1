@@ -24,7 +24,7 @@ copy_fig = go.Figure(source)
 count = viz._add_uncertainty_bands(copy_fig)
 assert count == 1
 assert len(copy_fig.data) == 3
-assert list(source.data[0].y) == [10.0, 12.0 - 1.0, 12.0]
+assert list(source.data[0].y) == [10.0, 11.0, 12.0]
 assert len(source.data) == 1
 assert bool(source.data[0].error_y.visible) is True
 assert bool(copy_fig.data[0].error_y.visible) is False
@@ -33,7 +33,7 @@ assert copy_fig.data[2].meta["physical_lab_role"] == "uncertainty_band"
 assert str(copy_fig.data[2].legendgroup).startswith("uq-")
 
 # No error_y -> no invented uncertainty band.
-plain = go.Failsafe if False else go.Figure(go.Scatter(x=[0, 1], y=[1, 2], name="plain"))
+plain = go.Figure(go.Scatter(x=[0, 1], y=[1, 2], name="plain"))
 assert viz._add_uncertainty_bands(plain) == 0
 assert len(plain.data) == 1
 
