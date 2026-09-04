@@ -51,6 +51,8 @@
       "resources/ui/physical_lab_digital_twin_ui.py": "ui/physical_lab_digital_twin_ui.py",
       "resources/ui/physical_lab_radia_adapter.py": "ui/physical_lab_radia_adapter.py",
       "resources/ui/physical_lab_radia_tolerance.py": "ui/physical_lab_radia_tolerance.py",
+      "resources/ui/physical_lab_radia_radiation_propagation.py": "ui/physical_lab_radia_radiation_propagation.py",
+      "resources/ui/physical_lab_radiation_worker.py": "ui/physical_lab_radiation_worker.py",
       "resources/ui/physical_lab_local_ai.py": "ui/physical_lab_local_ai.py"
     },
     "macOS": {
