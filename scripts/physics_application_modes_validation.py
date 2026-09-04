@@ -15,9 +15,9 @@ from physical_lab_application_modes import (  # noqa: E402
     ISING_TC_SQUARE_2D,
     brownian_transport_study,
     ising_criticality_study,
-    padded_range,
     quantum_bound_state_verification,
 )
+from physical_lab_display_ranges import padded_range  # noqa: E402
 
 
 def main() -> int:
@@ -30,6 +30,7 @@ def main() -> int:
     assert yrange is not None
     assert yrange[0] > 999_999.0 and yrange[1] < 1_000_001.0
     assert yrange[0] < 1_000_000.001 < 1_000_000.007 < yrange[1]
+    assert (yrange[1] - yrange[0]) < 0.02
 
     # Quantum verification: centered second-order finite difference should converge near p=2.
     quantum = quantum_bound_state_verification(grid_points=160, width_nm=1.0, states=3)
