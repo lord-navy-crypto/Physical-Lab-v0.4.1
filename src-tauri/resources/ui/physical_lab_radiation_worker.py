@@ -48,7 +48,14 @@ def _extract_result(result: dict[str, Any]) -> dict[str, Any]:
         "frequency_relative_residual",
     ]
     out = {name: _finite(result.get(name)) for name in names}
-    out["photon_energy_eV"] = _finite(photon.get("eV"))
+    # The pinned V11 source contains both nested scalar-result and flattened
+    # reporting paths. Prefer the canonical nested photon-energy payload, but
+    # accept the flattened scalar key returned by the active run_sim_scalar
+    # definition so the adapter follows the pinned engine's runtime schema.
+    photon_energy_eV = _finite(photon.get("eV"))
+    if photon_energy_eV is None:
+        photon_energy_eV = _finite(result.get("photon_energy_eV"))
+    out["photon_energy_eV"] = photon_energy_eV
     for key in ("K0", "Kx", "Ky", "K_eff_rms"):
         out[f"K_{key}"] = _finite(kcomp.get(key))
     return out
