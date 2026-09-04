@@ -34,9 +34,9 @@ LATTICE_VARIANT = "multilayer-honeycomb-lattice"
 
 def _plain(value: Any) -> Any:
     if isinstance(value, np.ndarray):
-        return value.tolist()
+        return _plain(value.tolist())
     if isinstance(value, np.generic):
-        return value.item()
+        return _plain(value.item())
     if isinstance(value, Mapping):
         return {str(k): _plain(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
