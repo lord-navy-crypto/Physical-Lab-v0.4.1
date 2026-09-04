@@ -55,6 +55,7 @@
       "resources/ui/physical_lab_model_engineering.py": "ui/physical_lab_model_engineering.py",
       "resources/ui/physical_lab_model_campaigns.py": "ui/physical_lab_model_campaigns.py",
       "resources/ui/physical_lab_experiment_kernel.py": "ui/physical_lab_experiment_kernel.py",
+      "resources/ui/physical_lab_project_kernel.py": "ui/physical_lab_project_kernel.py",
       "resources/ui/physical_lab_compute_engine.py": "ui/physical_lab_compute_engine.py",
       "resources/ui/physical_lab_job_worker.py": "ui/physical_lab_job_worker.py",
       "resources/ui/physical_lab_digital_twin.py": "ui/physical_lab_digital_twin.py",

@@ -1,13 +1,14 @@
 """Compatibility facade for Physical Lab engineering tools.
 
 The original Engineering V&V/UQ implementation is retained verbatim in
-``physical_lab_engineering_legacy``. This facade inserts the dual-mode physics
-application layer, then an engineering decision lens for Physics Scenario mode,
-before delegating to the established engineering workflow. Existing public
-helpers and scientific behavior remain backward compatible.
+``physical_lab_engineering_legacy``. This facade inserts the project-level
+``.physlab`` workspace, the dual-mode physics application layer and the
+engineering decision lens before delegating to the established engineering
+workflow. Existing public helpers and scientific behavior remain backward
+compatible.
 
-The sibling modules are loadable both through the normal packaged UI import path
-and through path-based deterministic validation, which imports this file directly.
+Sibling modules are loadable both through the normal packaged UI import path and
+through path-based deterministic validation, which imports this file directly.
 """
 from __future__ import annotations
 
@@ -41,6 +42,16 @@ def _load_module_by_path(module_name: str, filename: str):
     return module
 
 
+def _load_project_kernel_module():
+    try:
+        import physical_lab_project_kernel as project_kernel
+        return project_kernel
+    except ModuleNotFoundError:
+        return _load_module_by_path(
+            "physical_lab_project_kernel", "physical_lab_project_kernel.py"
+        )
+
+
 def _load_application_modules():
     try:
         import physical_lab_application_modes as application_modes
@@ -67,6 +78,12 @@ def _load_engineering_scenario_module():
 
 
 def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> None:
+    try:
+        project_kernel = _load_project_kernel_module()
+        project_kernel.render_project_workspace(st, profile, namespace)
+    except Exception as exc:
+        st.warning(f"Physical Lab Project Kernel could not load: {exc}")
+
     try:
         application_modes, padded_range = _load_application_modules()
         application_modes.padded_range = padded_range
