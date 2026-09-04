@@ -56,9 +56,7 @@ def _load_project_kernel_module():
         import physical_lab_project_kernel as project_kernel
         return project_kernel
     except ModuleNotFoundError:
-        return _load_module_by_path(
-            "physical_lab_project_kernel", "physical_lab_project_kernel.py"
-        )
+        return _load_module_by_path("physical_lab_project_kernel", "physical_lab_project_kernel.py")
 
 
 def _load_measurement_registry_module():
@@ -66,9 +64,7 @@ def _load_measurement_registry_module():
         import physical_lab_measurement_registry as measurement_registry
         return measurement_registry
     except ModuleNotFoundError:
-        return _load_module_by_path(
-            "physical_lab_measurement_registry", "physical_lab_measurement_registry.py"
-        )
+        return _load_module_by_path("physical_lab_measurement_registry", "physical_lab_measurement_registry.py")
 
 
 def _load_diagnostics_module():
@@ -76,9 +72,7 @@ def _load_diagnostics_module():
         import physical_lab_diagnostics as diagnostics
         return diagnostics
     except ModuleNotFoundError:
-        return _load_module_by_path(
-            "physical_lab_diagnostics", "physical_lab_diagnostics.py"
-        )
+        return _load_module_by_path("physical_lab_diagnostics", "physical_lab_diagnostics.py")
 
 
 def _load_compute_engine_module():
@@ -86,9 +80,7 @@ def _load_compute_engine_module():
         import physical_lab_compute_engine as compute_engine
         return compute_engine
     except ModuleNotFoundError:
-        return _load_module_by_path(
-            "physical_lab_compute_engine", "physical_lab_compute_engine.py"
-        )
+        return _load_module_by_path("physical_lab_compute_engine", "physical_lab_compute_engine.py")
 
 
 def _load_kerr_ui_module():
@@ -99,12 +91,8 @@ def _load_kerr_ui_module():
         try:
             import physical_lab_kerr_geodesics  # noqa: F401
         except ModuleNotFoundError:
-            _load_module_by_path(
-                "physical_lab_kerr_geodesics", "physical_lab_kerr_geodesics.py"
-            )
-        return _load_module_by_path(
-            "physical_lab_kerr_ui", "physical_lab_kerr_ui.py"
-        )
+            _load_module_by_path("physical_lab_kerr_geodesics", "physical_lab_kerr_geodesics.py")
+        return _load_module_by_path("physical_lab_kerr_ui", "physical_lab_kerr_ui.py")
 
 
 def _load_kerr_platform_ui_module():
@@ -112,40 +100,42 @@ def _load_kerr_platform_ui_module():
         import physical_lab_kerr_platform_ui as kerr_platform_ui
         return kerr_platform_ui
     except ModuleNotFoundError:
-        try:
-            import physical_lab_kerr_geodesics  # noqa: F401
-        except ModuleNotFoundError:
-            _load_module_by_path(
-                "physical_lab_kerr_geodesics", "physical_lab_kerr_geodesics.py"
-            )
-        try:
-            import physical_lab_experiment_kernel  # noqa: F401
-        except ModuleNotFoundError:
-            _load_module_by_path(
-                "physical_lab_experiment_kernel", "physical_lab_experiment_kernel.py"
-            )
-        try:
-            import physical_lab_kerr_workflow  # noqa: F401
-        except ModuleNotFoundError:
-            _load_module_by_path(
-                "physical_lab_kerr_workflow", "physical_lab_kerr_workflow.py"
-            )
-        return _load_module_by_path(
-            "physical_lab_kerr_platform_ui", "physical_lab_kerr_platform_ui.py"
-        )
+        for module_name, filename in (
+            ("physical_lab_kerr_geodesics", "physical_lab_kerr_geodesics.py"),
+            ("physical_lab_experiment_kernel", "physical_lab_experiment_kernel.py"),
+            ("physical_lab_kerr_workflow", "physical_lab_kerr_workflow.py"),
+        ):
+            if module_name not in sys.modules:
+                try:
+                    __import__(module_name)
+                except ModuleNotFoundError:
+                    _load_module_by_path(module_name, filename)
+        return _load_module_by_path("physical_lab_kerr_platform_ui", "physical_lab_kerr_platform_ui.py")
+
+
+def _load_solar_system_ui_module():
+    try:
+        import physical_lab_solar_system_ui as solar_ui
+        return solar_ui
+    except ModuleNotFoundError:
+        for module_name, filename in (
+            ("physical_lab_solar_system_dynamics", "physical_lab_solar_system_dynamics.py"),
+            ("physical_lab_experiment_kernel", "physical_lab_experiment_kernel.py"),
+            ("physical_lab_solar_system_workflow", "physical_lab_solar_system_workflow.py"),
+        ):
+            if module_name not in sys.modules:
+                try:
+                    __import__(module_name)
+                except ModuleNotFoundError:
+                    _load_module_by_path(module_name, filename)
+        return _load_module_by_path("physical_lab_solar_system_ui", "physical_lab_solar_system_ui.py")
 
 
 def _record_module_exception(source: str, exc: Exception, profile: str) -> None:
     try:
         diagnostics = _load_diagnostics_module()
-        diagnostics.record_exception(
-            source,
-            exc,
-            profile=profile,
-            code="PLATFORM_MODULE_ERROR",
-        )
+        diagnostics.record_exception(source, exc, profile=profile, code="PLATFORM_MODULE_ERROR")
     except Exception:
-        # Logging must never create a second failure path.
         pass
 
 
@@ -155,12 +145,8 @@ def _load_application_modules():
         from physical_lab_display_ranges import padded_range
         return application_modes, padded_range
     except ModuleNotFoundError:
-        application_modes = _load_module_by_path(
-            "physical_lab_application_modes", "physical_lab_application_modes.py"
-        )
-        range_module = _load_module_by_path(
-            "physical_lab_display_ranges", "physical_lab_display_ranges.py"
-        )
+        application_modes = _load_module_by_path("physical_lab_application_modes", "physical_lab_application_modes.py")
+        range_module = _load_module_by_path("physical_lab_display_ranges", "physical_lab_display_ranges.py")
         return application_modes, range_module.padded_range
 
 
@@ -169,9 +155,7 @@ def _load_engineering_scenario_module():
         import physical_lab_engineering_scenarios as engineering_scenarios
         return engineering_scenarios
     except ModuleNotFoundError:
-        return _load_module_by_path(
-            "physical_lab_engineering_scenarios", "physical_lab_engineering_scenarios.py"
-        )
+        return _load_module_by_path("physical_lab_engineering_scenarios", "physical_lab_engineering_scenarios.py")
 
 
 def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> None:
@@ -189,6 +173,13 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         except Exception as exc:
             _record_module_exception("kerr-platform-workflow", exc, profile)
             st.warning(f"Physical Lab Kerr Experiment/Compute workflow could not load: {exc}")
+
+        try:
+            solar_ui = _load_solar_system_ui_module()
+            solar_ui.render_solar_system_workspace(st, profile)
+        except Exception as exc:
+            _record_module_exception("solar-system-dynamics", exc, profile)
+            st.warning(f"Physical Lab Sun–Jupiter–Saturn Dynamics could not load: {exc}")
 
     try:
         project_kernel = _load_project_kernel_module()
