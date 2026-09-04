@@ -9,21 +9,29 @@ on:
     paths:
       - '.github/workflows/full-mode-acceptance.yml'
       - 'src-tauri/resources/ui/physical_lab_digital_twin.py'
+      - 'src-tauri/resources/ui/physical_lab_engineering_workflow.py'
       - 'src-tauri/resources/ui/physical_lab_radia_radiation_propagation.py'
       - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
       - 'src-tauri/resources/modules.json'
       - 'scripts/digital_twin_reference_validation.py'
       - 'scripts/accelerator_reference_benchmark.py'
+      - 'scripts/engineering_workflow_reference_validation.py'
+      - 'scripts/measured_field_radiation_validation.py'
       - 'docs/digital-twin-reference-validation.json'
       - 'docs/accelerator-reference-benchmark.json'
+      - 'docs/engineering-workflow-reference-validation.json'
   pull_request:
     paths:
       - '.github/workflows/full-mode-acceptance.yml'
+      - 'src-tauri/resources/ui/physical_lab_engineering_workflow.py'
       - 'src-tauri/resources/ui/physical_lab_radia_radiation_propagation.py'
       - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
       - 'src-tauri/resources/modules.json'
       - 'scripts/accelerator_reference_benchmark.py'
+      - 'scripts/engineering_workflow_reference_validation.py'
+      - 'scripts/measured_field_radiation_validation.py'
       - 'docs/accelerator-reference-benchmark.json'
+      - 'docs/engineering-workflow-reference-validation.json'
 
 permissions:
   contents: read
@@ -131,7 +139,7 @@ jobs:
           "${RUNNER_TEMP}/radiation-acceptance-venv/bin/python" -m pip install --disable-pip-version-check --upgrade pip
           "${RUNNER_TEMP}/radiation-acceptance-venv/bin/python" -m pip install --disable-pip-version-check numpy pandas scipy matplotlib
 
-      - name: Cross-engine 3-D field-map to trajectory/radiation acceptance
+      - name: Cross-engine field-map, measurement residual and radiation acceptance
         run: |
           set -euo pipefail
           PY="${RUNNER_TEMP}/radiation-acceptance-venv/bin/python"
@@ -147,29 +155,42 @@ jobs:
           x_mm = np.array([-1.0, 0.0, 1.0])
           y_mm = np.array([-1.0, 0.0, 1.0])
           z_mm = np.linspace(0.0, 80.0, 97)
-          B = np.zeros((len(z_mm), len(y_mm), len(x_mm), 3), dtype=float)
-          # Small regular sinusoidal planar map exercises the exact field-map
-          # interface and has an independent analytic resonance reference.
-          B[..., 1] = 0.05 * np.cos(2.0*np.pi*z_mm[:, None, None] / 20.0)
-          np.savez_compressed(work/'cross-engine-field.npz', x_mm=x_mm, y_mm=y_mm, z_mm=z_mm, B_T=B)
-          cfg = {
+          phase = 2.0*np.pi*z_mm[:, None, None] / 20.0
+
+          nominal = np.zeros((len(z_mm), len(y_mm), len(x_mm), 3), dtype=float)
+          nominal[..., 1] = 0.05 * np.cos(phase)
+          np.savez_compressed(work/'cross-engine-field.npz', x_mm=x_mm, y_mm=y_mm, z_mm=z_mm, B_T=nominal)
+
+          # Deterministic measurement-like perturbation: a small amplitude offset
+          # plus a weak third harmonic. It is synthetic by design and exists to
+          # prove residuals propagate through the same trajectory/radiation path.
+          measured = np.zeros_like(nominal)
+          measured[..., 1] = 0.05 * 1.004 * np.cos(phase) + 0.00020 * np.cos(3.0*phase + 0.2)
+          np.savez_compressed(work/'measurement-like-field.npz', x_mm=x_mm, y_mm=y_mm, z_mm=z_mm, B_T=measured)
+
+          base = {
               'radiationPlatformSource': str(Path('radiation-platform').resolve()),
-              'fieldMapNpz': str((work/'cross-engine-field.npz').resolve()),
               'periodMm': 20.0,
-              'deviceName': 'cross-engine-acceptance-map',
               'gamma': 80.0,
               'nPeriods': 4,
               'pointsPerPeriod': 32,
               'observerDistanceM': 50.0,
               'thetaXMrad': 0.0,
               'thetaYMrad': 0.0,
-              'sourceLabel': 'Physical Lab CI synthetic regular planar field map',
           }
-          (work/'worker-config.json').write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+          nominal_cfg = dict(base, fieldMapNpz=str((work/'cross-engine-field.npz').resolve()), deviceName='cross-engine-acceptance-map', sourceLabel='Physical Lab CI synthetic regular planar field map')
+          measured_cfg = dict(base, fieldMapNpz=str((work/'measurement-like-field.npz').resolve()), deviceName='measurement-like-acceptance-map', sourceLabel='Physical Lab deterministic synthetic measurement-like planar field map')
+          (work/'worker-config.json').write_text(json.dumps(nominal_cfg, indent=2), encoding='utf-8')
+          (work/'measurement-worker-config.json').write_text(json.dumps(measured_cfg, indent=2), encoding='utf-8')
           PY
+
           "$PY" src-tauri/resources/ui/physical_lab_radiation_worker.py \
             --config "$WORK/worker-config.json" \
             --output "$WORK/cross-engine-worker.json"
+          "$PY" src-tauri/resources/ui/physical_lab_radiation_worker.py \
+            --config "$WORK/measurement-worker-config.json" \
+            --output "$WORK/measurement-worker.json"
+
           "$PY" - <<'PY'
           import json, math, os
           from pathlib import Path
@@ -197,8 +218,6 @@ jobs:
           print(json.dumps(evidence, indent=2, sort_keys=True))
           PY
 
-          # Independent physics invariant: the same 0.05 T, 20 mm planar
-          # sinusoidal map has a closed-form on-axis undulator resonance.
           "$PY" scripts/accelerator_reference_benchmark.py \
             --worker-output "$WORK/cross-engine-worker.json" \
             --peak-field-t 0.05 \
@@ -207,11 +226,24 @@ jobs:
             --max-relative-error 5e-4 \
             --evidence-out cross-engine-physics-benchmark.json
 
+          "$PY" scripts/measured_field_radiation_validation.py \
+            --nominal-field "$WORK/cross-engine-field.npz" \
+            --measured-field "$WORK/measurement-like-field.npz" \
+            --nominal-worker "$WORK/cross-engine-worker.json" \
+            --measured-worker "$WORK/measurement-worker.json" \
+            --measurement-standard-uncertainty-t 0.00030 \
+            --source-type synthetic-benchmark \
+            --source-label "Physical Lab deterministic measurement-like CI field" \
+            --evidence-out measured-field-radiation-validation.json
+
       - name: Accelerator analytic reference snapshot
         run: python3 scripts/accelerator_reference_benchmark.py --check
 
       - name: Digital-twin deterministic core
         run: python3 scripts/digital_twin_reference_validation.py --check
+
+      - name: Engineering workflow deterministic core
+        run: python3 scripts/engineering_workflow_reference_validation.py --check
 
       - name: Upload Full-mode evidence
         uses: actions/upload-artifact@v4
@@ -221,4 +253,5 @@ jobs:
             full-mode-acceptance.json
             cross-engine-acceptance.json
             cross-engine-physics-benchmark.json
+            measured-field-radiation-validation.json
           if-no-files-found: error
