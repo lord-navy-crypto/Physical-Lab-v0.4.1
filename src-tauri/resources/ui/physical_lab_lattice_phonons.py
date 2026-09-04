@@ -2,7 +2,7 @@
 
 Scientific boundary
 -------------------
-This module analyzes the *periodic harmonic bulk reference* associated with the
+This module analyzes the periodic *harmonic bulk reference* associated with the
 reduced-unit Multilayer Honeycomb Lattice Dynamics model.  It is intentionally
 separate from the time-domain DOP853/Langevin solver.
 
@@ -10,11 +10,11 @@ The implementation provides a primitive-cell Bloch dynamical matrix, a
 Gamma-K-M-Gamma reference path, harmonic dispersion, a Brillouin-zone sampled
 phonon density of states, and mode polarization/participation diagnostics.
 
-It is not an ab-initio graphene phonon calculation.  Localized defects,
-damping, driving, stochastic forcing, and cubic anharmonic coefficients are not
-part of the harmonic Bloch eigenproblem.  When affine strain is non-zero, the
-fractional K/M points are inherited reference points of the strained reciprocal
-basis and need not remain exact crystal-symmetry points.
+It is not an ab-initio graphene phonon calculation. Localized defects, damping,
+driving, stochastic forcing, and cubic anharmonic coefficients are not part of
+the harmonic Bloch eigenproblem. When affine strain is non-zero, the fractional
+K/M points are inherited reference points of the strained reciprocal basis and
+need not remain exact crystal-symmetry points.
 """
 from __future__ import annotations
 
@@ -31,12 +31,7 @@ DISPERSION_PATH = ("Γ", "K", "M", "Γ")
 
 
 def bulk_reference_config(config: LatticeConfig) -> LatticeConfig:
-    """Return the pristine harmonic bulk reference for Bloch analysis.
-
-    Bulk harmonic analysis deliberately excludes localized defects and all
-    time-domain non-conservative controls.  Geometry, masses, stacking, strain,
-    and harmonic spring constants remain authoritative.
-    """
+    """Return the pristine harmonic periodic reference for Bloch analysis."""
     return replace(
         config,
         defect_mode="none",
@@ -52,14 +47,14 @@ def bulk_reference_config(config: LatticeConfig) -> LatticeConfig:
 
 
 def _primitive_vectors(config: LatticeConfig) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    b = float(config.bond_length)
-    a1 = np.array([math.sqrt(3.0) * b, 0.0], dtype=float)
-    a2 = np.array([math.sqrt(3.0) * b / 2.0, 1.5 * b], dtype=float)
+    bond = float(config.bond_length)
+    a1_unstrained = np.array([math.sqrt(3.0) * bond, 0.0], dtype=float)
+    a2_unstrained = np.array([math.sqrt(3.0) * bond / 2.0, 1.5 * bond], dtype=float)
     affine = np.array([[1.0 + float(config.strain_x), 0.0], [0.0, 1.0]], dtype=float)
-    a1 = affine @ a1
-    a2 = affine @ a2
-    basis = np.asarray([[0.0, 0.0], [0.0, b]], dtype=float) @ affine.T
-    delta = affine @ ((np.array([math.sqrt(3.0) * b, 0.0]) + np.array([math.sqrt(3.0) * b / 2.0, 1.5 * b])) / 3.0)
+    a1 = affine @ a1_unstrained
+    a2 = affine @ a2_unstrained
+    basis = np.asarray([[0.0, 0.0], [0.0, bond]], dtype=float) @ affine.T
+    delta = affine @ ((a1_unstrained + a2_unstrained) / 3.0)
     return a1, a2, basis, delta
 
 
@@ -79,12 +74,13 @@ def _stack_shift(layer: int, stacking: str, delta: np.ndarray) -> np.ndarray:
 
 
 def _inplane_bonds(config: LatticeConfig) -> list[tuple[int, int, np.ndarray, np.ndarray]]:
-    """Primitive-cell A->B nearest-neighbor bonds.
+    """Primitive-cell A-to-B nearest-neighbor springs.
 
-    Returns (sub_i, sub_j, lattice_translation_R, unit_bond_vector).
+    Each row is (sub_i, sub_j, lattice_translation_R, unit_bond_vector).
+    The Bloch phase uses R; the spring direction uses the full geometric bond.
     """
     a1, a2, basis, _ = _primitive_vectors(config)
-    translations = (np.zeros(2), -a2, a1 - a2)
+    translations = (np.zeros(2, dtype=float), -a2, a1 - a2)
     out: list[tuple[int, int, np.ndarray, np.ndarray]] = []
     for rcell in translations:
         dr = basis[1] + rcell - basis[0]
@@ -96,35 +92,30 @@ def _inplane_bonds(config: LatticeConfig) -> list[tuple[int, int, np.ndarray, np
 
 
 def _interlayer_bonds(config: LatticeConfig) -> list[tuple[int, int, int, int, np.ndarray]]:
-    """Match each lower-layer basis site to its nearest upper-layer basis site.
+    """Primitive representation of the registry-matched interlayer shear proxy.
 
-    This mirrors the reduced model's registry-matched shear proxy.  The returned
-    lattice translation determines the Bloch phase; the harmonic shear block is
-    isotropic in x/y and therefore does not use a bond direction.
+    For each lower-layer basis site, choose the nearest upper-layer basis image.
+    This intentionally mirrors the finite-cell reduced model. It is not a
+    microscopic van-der-Waals force-constant construction.
     """
     a1, a2, basis, delta = _primitive_vectors(config)
-    candidates = [(i, j, i * a1 + j * a2) for i in range(-1, 2) for j in range(-1, 2)]
+    candidates = [(n1, n2, n1 * a1 + n2 * a2) for n1 in range(-1, 2) for n2 in range(-1, 2)]
     bonds: list[tuple[int, int, int, int, np.ndarray]] = []
     for layer in range(int(config.layers) - 1):
         lower_shift = _stack_shift(layer, config.stacking, delta)
         upper_shift = _stack_shift(layer + 1, config.stacking, delta)
-        chosen_upper: set[tuple[int, int, int]] = set()
         for sub_i in range(2):
-            best: tuple[float, int, int, int, np.ndarray] | None = None
             p_i = lower_shift + basis[sub_i]
+            best: tuple[float, int, np.ndarray] | None = None
             for sub_j in range(2):
-                for n1, n2, rcell in candidates:
+                for _n1, _n2, rcell in candidates:
                     dr = upper_shift + basis[sub_j] + rcell - p_i
-                    d2 = float(np.dot(dr, dr))
-                    key = (sub_j, n1, n2)
-                    penalty = 1e-12 if key in chosen_upper else 0.0
-                    item = (d2 + penalty, sub_j, n1, n2, rcell)
-                    if best is None or item[0] < best[0]:
-                        best = item
+                    candidate = (float(np.dot(dr, dr)), sub_j, np.asarray(rcell, dtype=float))
+                    if best is None or candidate[0] < best[0]:
+                        best = candidate
             assert best is not None
-            _, sub_j, n1, n2, rcell = best
-            chosen_upper.add((sub_j, n1, n2))
-            bonds.append((layer, sub_i, layer + 1, sub_j, np.asarray(rcell, dtype=float)))
+            _, sub_j, rcell = best
+            bonds.append((layer, sub_i, layer + 1, sub_j, rcell))
     return bonds
 
 
@@ -167,7 +158,8 @@ def bloch_dynamical_matrix(config: LatticeConfig, q_cart: np.ndarray) -> np.ndar
 def bloch_eigensystem(config: LatticeConfig, q_cart: np.ndarray) -> dict[str, Any]:
     dmat = bloch_dynamical_matrix(config, q_cart)
     hermitian_residual = float(np.max(np.abs(dmat - dmat.conj().T)))
-    eigvals, eigvecs = np.linalg.eigh(0.5 * (dmat + dmat.conj().T))
+    hermitian = 0.5 * (dmat + dmat.conj().T)
+    eigvals, eigvecs = np.linalg.eigh(hermitian)
     order = np.argsort(eigvals)
     eigvals = np.asarray(eigvals[order], dtype=float)
     eigvecs = np.asarray(eigvecs[:, order], dtype=np.complex128)
@@ -193,30 +185,38 @@ def _fractional_special_points(config: LatticeConfig) -> dict[str, np.ndarray]:
 
 
 def high_symmetry_path(config: LatticeConfig, points_per_segment: int = 40) -> dict[str, Any]:
-    if int(points_per_segment) < 4 or int(points_per_segment) > 400:
+    """Return an exact Γ-K-M-Γ polyline with no duplicated boundary points."""
+    count = int(points_per_segment)
+    if count < 4 or count > 400:
         raise ValueError("points_per_segment must be between 4 and 400")
     pts = _fractional_special_points(config)
     labels = list(DISPERSION_PATH)
     q_rows: list[np.ndarray] = []
     x_rows: list[float] = []
     ticks: list[float] = [0.0]
+    special_indices: list[int] = [0]
     cumulative = 0.0
+
     for segment in range(len(labels) - 1):
         qa, qb = pts[labels[segment]], pts[labels[segment + 1]]
-        count = int(points_per_segment)
-        ts = np.linspace(0.0, 1.0, count, endpoint=(segment == len(labels) - 2))
-        for idx, t in enumerate(ts):
-            q = (1.0 - t) * qa + t * qb
+        segment_q = np.linspace(qa, qb, count)
+        if segment > 0:
+            segment_q = segment_q[1:]
+        for q in segment_q:
+            q = np.asarray(q, dtype=float)
             if q_rows:
                 cumulative += float(np.linalg.norm(q - q_rows[-1]))
             q_rows.append(q)
             x_rows.append(cumulative)
         ticks.append(cumulative)
+        special_indices.append(len(q_rows) - 1)
+
     return {
         "q_cart": np.asarray(q_rows, dtype=float),
         "path_coordinate": np.asarray(x_rows, dtype=float),
         "tick_positions": np.asarray(ticks, dtype=float),
         "tick_labels": labels,
+        "special_point_indices": special_indices,
         "special_points": pts,
     }
 
@@ -252,6 +252,7 @@ def phonon_dispersion(config: LatticeConfig, points_per_segment: int = 40) -> di
         "eigenvalues": np.asarray(eigenvalues, dtype=float),
         "tick_positions": path["tick_positions"],
         "tick_labels": path["tick_labels"],
+        "special_point_indices": path["special_point_indices"],
         "special_points": special,
         "branch_count": int(4 * cfg.layers),
         "gamma_zero_mode_count": int(np.count_nonzero(np.abs(gamma_eig) <= 1e-8)),
@@ -264,24 +265,26 @@ def phonon_dispersion(config: LatticeConfig, points_per_segment: int = 40) -> di
 
 def phonon_dos(config: LatticeConfig, q_grid: int = 18, bins: int = 80) -> dict[str, Any]:
     cfg = bulk_reference_config(config)
-    if not (4 <= int(q_grid) <= 80):
+    qn = int(q_grid)
+    nbins = int(bins)
+    if not (4 <= qn <= 80):
         raise ValueError("q_grid must be between 4 and 80")
-    if not (16 <= int(bins) <= 240):
+    if not (16 <= nbins <= 240):
         raise ValueError("bins must be between 16 and 240")
     b1, b2 = reciprocal_vectors(cfg)
     values: list[float] = []
     negative_max = 0.0
     hermitian_max = 0.0
-    for i in range(int(q_grid)):
-        for j in range(int(q_grid)):
-            q = (i / int(q_grid)) * b1 + (j / int(q_grid)) * b2
+    for i in range(qn):
+        for j in range(qn):
+            q = (i / qn) * b1 + (j / qn) * b2
             eig = bloch_eigensystem(cfg, q)
             values.extend(float(x) for x in eig["frequencies_cycles_per_time"])
             negative_max = max(negative_max, max(0.0, -float(eig["most_negative_eigenvalue"])))
             hermitian_max = max(hermitian_max, float(eig["hermiticity_residual"]))
     arr = np.asarray(values, dtype=float)
     upper = max(float(np.max(arr)) * 1.001, 1e-9)
-    counts, edges = np.histogram(arr, bins=int(bins), range=(0.0, upper), density=False)
+    counts, edges = np.histogram(arr, bins=nbins, range=(0.0, upper), density=False)
     widths = np.diff(edges)
     density = counts.astype(float) / max(float(np.sum(counts)), 1.0) / widths
     centers = 0.5 * (edges[:-1] + edges[1:])
@@ -292,7 +295,7 @@ def phonon_dos(config: LatticeConfig, q_grid: int = 18, bins: int = 80) -> dict[
         "density": density,
         "bin_edges": edges,
         "sample_count": int(arr.size),
-        "q_grid": int(q_grid),
+        "q_grid": qn,
         "branch_count": int(4 * cfg.layers),
         "normalization_integral": integral,
         "normalization_error": abs(integral - 1.0),
@@ -316,13 +319,13 @@ def mode_character(config: LatticeConfig, q_cart: np.ndarray, branch_index: int)
     amp2 = np.sum(np.abs(vec) ** 2, axis=2)
     layer_participation = np.sum(amp2, axis=1)
     sublattice_participation = np.sum(amp2, axis=0)
-    q = np.asarray(q_cart, dtype=float)
+    q = np.asarray(q_cart, dtype=float).reshape(2)
     qnorm = float(np.linalg.norm(q))
     longitudinal = None
     if qnorm > 1e-12:
         qhat = q / qnorm
         flat = vec.reshape(-1, 2)
-        longitudinal = float(np.sum(np.abs(flat @ qhat) ** 2) / max(np.sum(np.abs(flat) ** 2), 1e-15))
+        longitudinal = float(np.sum(np.abs(flat @ qhat) ** 2) / max(float(np.sum(np.abs(flat) ** 2)), 1e-15))
     return {
         "branch_index": branch,
         "frequency_cycles_per_time": float(eig["frequencies_cycles_per_time"][branch]),
