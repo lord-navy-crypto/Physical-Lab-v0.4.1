@@ -1,0 +1,16 @@
+{
+  "schema": "physical-lab-planar-undulator-reference-v1",
+  "inputs": {
+    "peak_field_T": 0.05,
+    "period_m": 0.02,
+    "gamma": 80.0
+  },
+  "reference": {
+    "K": 0.09337289543897974,
+    "resonance_denominator": 1.0043592512268057,
+    "fundamental_wavelength_m": 1.5693113262520772e-06,
+    "f0_Hz": 191034406611964.12,
+    "photon_energy_eV": 0.7900548244261177
+  },
+  "boundary": "Analytic on-axis single-electron planar-undulator resonance for a sinusoidal field. It does not include bunch emittance, beam energy spread, coherent effects, beamline optics, detector response, manufacturing statistics, or experimental uncertainty."
+}
