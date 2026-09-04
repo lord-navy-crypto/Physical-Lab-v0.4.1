@@ -74,7 +74,7 @@ PROFILE_REQUIREMENTS: dict[str, list[dict[str, Any]]] = {
     ],
     "nonlinear-chaos": [
         {"metric": "indicator_timestep_relative_change", "upper": 0.05, "label": "Indicator timestep sensitivity"},
-        {"metric": "lyapunov_relative_spread", "upper": 0.10, "upper": 0.10, "label": "Lyapunov replicate spread"},
+        {"metric": "lyapunov_relative_spread", "upper": 0.10, "label": "Lyapunov replicate spread"},
         {"metric": "energy_balance_relative_error", "upper": 0.01, "label": "Energy/work-balance relative error"},
     ],
     "oscillation-integration": [
@@ -212,7 +212,9 @@ def cost_accuracy_front(cases: list[dict[str, Any]], *, error_key: str = "error"
         for j, err_j, cost_j in prepared:
             if i == j:
                 continue
-            if err_j <= err_i and cost_j <= cost_i and (err_j < err_i or err_j == err_i and cost_j < cost_i):
+            no_worse = err_j <= err_i and cost_j <= cost_i
+            strictly_better = err_j < err_i or cost_j < cost_i
+            if no_worse and strictly_better:
                 dominated = True
                 break
         if not dominated:
@@ -233,7 +235,7 @@ def _assessment(value: float, lower: float | None, upper: float | None, uncertai
     if lo is not None and hi is not None and lo > hi:
         raise ValueError("lower requirement exceeds upper requirement")
     nominal_ok = (lo is None or y >= lo) and (hi is None or y <= hi)
-    interval_ok = (lo is None or y - u >= lo) and (hi is None or y + u <= 0 + hi)
+    interval_ok = (lo is None or y - u >= lo) and (hi is None or y + u <= hi)
     status = "FAIL" if not nominal_ok else ("PASS" if interval_ok else "REVIEW")
     margins: list[float] = []
     if lo is not None:
@@ -259,7 +261,7 @@ def profile_scorecard(
 ) -> dict[str, Any]:
     """Evaluate one Lab's domain-specific engineering scorecard."""
     if profile not in SUPPORTED_PROFILES:
-        raise Value64Error(f"unsupported engineering profile: {profile}")
+        raise ValueError(f"unsupported engineering profile: {profile}")
     uncertainties = uncertainties or {}
     reqs = requirements or PROFILE_REQUIREMENTS[profile]
     rows: list[dict[str, Any]] = []
@@ -485,7 +487,6 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
                 "upper": st.column_config.NumberColumn("Upper target", format="%.8g"),
             },
         )
-        # Persist only editable state; auto values are refreshed again on the next render.
         st.session_state[state_key] = edited
         metrics: dict[str, float] = {}
         uncertainties: dict[str, float] = {}
