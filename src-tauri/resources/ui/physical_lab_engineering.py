@@ -107,6 +107,34 @@ def _load_kerr_ui_module():
         )
 
 
+def _load_kerr_platform_ui_module():
+    try:
+        import physical_lab_kerr_platform_ui as kerr_platform_ui
+        return kerr_platform_ui
+    except ModuleNotFoundError:
+        try:
+            import physical_lab_kerr_geodesics  # noqa: F401
+        except ModuleNotFoundError:
+            _load_module_by_path(
+                "physical_lab_kerr_geodesics", "physical_lab_kerr_geodesics.py"
+            )
+        try:
+            import physical_lab_experiment_kernel  # noqa: F401
+        except ModuleNotFoundError:
+            _load_module_by_path(
+                "physical_lab_experiment_kernel", "physical_lab_experiment_kernel.py"
+            )
+        try:
+            import physical_lab_kerr_workflow  # noqa: F401
+        except ModuleNotFoundError:
+            _load_module_by_path(
+                "physical_lab_kerr_workflow", "physical_lab_kerr_workflow.py"
+            )
+        return _load_module_by_path(
+            "physical_lab_kerr_platform_ui", "physical_lab_kerr_platform_ui.py"
+        )
+
+
 def _record_module_exception(source: str, exc: Exception, profile: str) -> None:
     try:
         diagnostics = _load_diagnostics_module()
@@ -154,6 +182,13 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         except Exception as exc:
             _record_module_exception("kerr-geodesic-model", exc, profile)
             st.warning(f"Physical Lab Kerr Geodesic Dynamics could not load: {exc}")
+
+        try:
+            kerr_platform_ui = _load_kerr_platform_ui_module()
+            kerr_platform_ui.render_kerr_platform_workspace(st, profile)
+        except Exception as exc:
+            _record_module_exception("kerr-platform-workflow", exc, profile)
+            st.warning(f"Physical Lab Kerr Experiment/Compute workflow could not load: {exc}")
 
     try:
         project_kernel = _load_project_kernel_module()
