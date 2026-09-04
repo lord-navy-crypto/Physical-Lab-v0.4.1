@@ -1,6 +1,6 @@
 # Changelog
 
-All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAUL.MINOR.PATCH`).
+All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAJOR.MINOR.PATCH`).
 
 ## [0.9.0] - 2026-09-04
 
@@ -123,8 +123,8 @@ The v0.7.0 tolerance pipeline reports finite solver-ensemble behavior. It does n
 - Universal2 macOS packaging and public v0.4.1-era release infrastructure migrated toward the research-workbench architecture.
 
 [0.9.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
-[0.8.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lv0.4.1...HEAD
+[0.8.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.8.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.7.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
-[0.7.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lv0.4.1...HEAD
+[0.7.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.5.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/releases/tag/Physical-Lab-v0.4.1
