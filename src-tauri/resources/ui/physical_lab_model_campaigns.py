@@ -33,7 +33,7 @@ PRESETS = {
         "numerical-methods": {"grid": 321, "orders": [3, 5, 7, 9, 11, 13, 15, 17], "tol": 1e-11},
         "ising-monte-carlo": {"L": 12, "temperature": 2.35, "chains": 4, "burn": 500, "samples": 1200, "thin": 2, "exact_samples": 3000},
         "random-walk-monte-carlo": {"replicates": 12, "walkers": 2400, "steps": [100, 200, 400, 800, 1600]},
-        "nonlinear-chaos": {"dts": [0.03, 0.015, 0.0075], "duration": 120.0, "lyapunov_replicates": 5},
+        "nonlinear-chaos": {"dts": [0.03, 0.015, 0.0075], "duration": 80.0, "lyapunov_replicates": 5},
         "oscillation-integration": {"dts": [0.06, 0.03, 0.015], "duration": 45.0},
     },
 }
