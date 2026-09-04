@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 import math
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "src-tauri" / "resources" / "ui"
@@ -25,6 +26,8 @@ def load(name: str, path: Path):
 
 
 campaigns = load("physical_lab_model_campaigns", UI / "physical_lab_model_campaigns.py")
+sys.modules["physical_lab_model_campaigns"] = campaigns
+campaign_ui = load("physical_lab_campaign_ui", UI / "physical_lab_campaign_ui.py")
 engineering = load("physical_lab_model_engineering", UI / "physical_lab_model_engineering.py")
 
 
@@ -45,8 +48,38 @@ def assert_scorecard_pass(profile: str, result: dict) -> dict:
     return score
 
 
+def assert_campaign_ui_contract() -> None:
+    same = campaign_ui.campaign_result_state("compact", {"preset": "compact"})
+    assert same == {
+        "selected_preset": "compact",
+        "result_preset": "compact",
+        "has_result": True,
+        "selection_matches_result": True,
+    }
+    stale = campaign_ui.campaign_result_state("standard", {"preset": "compact"})
+    assert stale["has_result"] is True
+    assert stale["selected_preset"] == "standard"
+    assert stale["result_preset"] == "compact"
+    assert stale["selection_matches_result"] is False
+    empty = campaign_ui.campaign_result_state("standard", None)
+    assert empty["has_result"] is False and empty["selection_matches_result"] is False
+
+    ui_text = (UI / "physical_lab_campaign_ui.py").read_text(encoding="utf-8")
+    assert 'st.tabs(["Summary", "Cases", "Provenance"])' in ui_text
+    assert "The existing result is unchanged until you run the campaign again." in ui_text
+    assert "pl_model_campaign_metrics_" in ui_text
+
+    engineering_text = (UI / "physical_lab_engineering.py").read_text(encoding="utf-8")
+    assert "from physical_lab_campaign_ui import render_model_campaign" in engineering_text
+
+    tauri_text = (ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8")
+    assert '"resources/ui/physical_lab_campaign_ui.py": "ui/physical_lab_campaign_ui.py"' in tauri_text
+
+
 def main() -> int:
     print("Physical Lab v0.9 automated model-campaign validation")
+    assert_campaign_ui_contract()
+    print("PASS campaign results UI state + bundle contract")
     observed = {}
 
     for profile in campaigns.SUPPORTED_PROFILES:
@@ -54,7 +87,7 @@ def main() -> int:
         assert_finite_metrics(profile, result)
         score = assert_scorecard_pass(profile, result)
         observed[profile] = result
-        metrics = ", ".join(f"{k}={float(v):.8g}" for k, v in result["metrics"].items())
+        metrics = ", ".join(f"{k}={float(v):.6g}" for k, v in result["metrics"].items())
         print(f"PASS compact {profile}: {metrics}; requirements={len(score['requirements'])}")
 
     numerical = observed["numerical-methods"]
@@ -101,12 +134,12 @@ def main() -> int:
     assert fine_error < coarse_error, "oscillation-integration: RK4 timestep refinement did not reduce final-state error"
 
     # The standard chaos preset is explicitly checked because chaotic finite-time
-    # diagnostics can change with the observation window even when the integrator
+    # diagnostics can change with the observation window even as the integrator
     # is behaving correctly. v0.9 keeps this preset in a tested screening window.
     standard_chaos = campaigns.run_campaign("nonlinear-chaos", "standard")
     assert_finite_metrics("nonlinear-chaos/standard", standard_chaos)
     assert_scorecard_pass("nonlinear-chaos", standard_chaos)
-    print("PASS standard nonlinear-chaos:", ", ".join(f"{k}={float(v):.8g}" for k, v in standard_chaos["metrics"].items()))
+    print("PASS standard nonlinear-chaos:", ", ".join(f"{k}={float(v):.6g}" for k, v in standard_chaos["metrics"].items()))
 
     # Session-export helper must preserve exactly the canonical metrics.
     for profile, result in observed.items():
