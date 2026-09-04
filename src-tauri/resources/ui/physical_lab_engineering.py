@@ -262,7 +262,11 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
         upper = c3.number_input("Upper limit", value=1.0, format="%.8g", disabled=not use_hi, key=f"pl_eng_req_hi_{profile}")
         basis = c4.selectbox("Uncertainty basis", ["Expanded U (k=2)", "RSS tolerance", "Worst-case tolerance"], key=f"pl_eng_req_basis_{profile}")
         stack = tolerance_stack(rows)
-        half = budget["expanded_uncertainty_k2"] if basis.startswith("Expanded") else (stack["rss_half_width"] if basis.startswith("RSS") else stack["worst_case_half_width"])
+        half = budget["expanded_standard_uncertainty"] if "expanded_standard_uncertainty" in budget else budget["expanded_uncertainty_k2"]
+        if basis.startswith("RSS"):
+            half = stack["rss_half_width"]
+        elif basis.startswith("Worst"):
+            half = stack["worst_case_half_width"]
         try:
             result = requirement_assessment(float(nominal), float(lower) if use_lo else None, float(upper) if use_hi else None, float(half))
             st.metric("Engineering screening status", result["status"])
@@ -293,3 +297,9 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
         render_engineering_workflow(st, profile, namespace)
     except Exception as exc:
         st.warning(f"Physical Lab Engineering Design Workflow could not load: {exc}")
+
+    try:
+        from physical_lab_model_engineering import render_model_engineering
+        render_model_engineering(st, profile, namespace)
+    except Exception as exc:
+        st.warning(f"Physical Lab model-specific engineering profile could not load: {exc}")
