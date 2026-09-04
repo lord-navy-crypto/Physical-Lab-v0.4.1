@@ -1,10 +1,10 @@
-# Physical Lab v0.8.1 — Reproducible Computational Physics & Engineering for macOS
+# Physical Lab v0.9.0 — Reproducible Computational Physics & Engineering for macOS
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
 
-**Physical Lab is a native macOS research workbench that turns seven computational-physics projects into one reproducible engineering workflow: requirement → model → run → validate → compare → optimize → measure → calibrate → decide.**
+**Physical Lab is a native macOS research workbench that turns seven computational-physics projects into one reproducible engineering workflow: requirement → model → automated campaign → verify → validate → compare → optimize → measure → calibrate → decide.**
 
-It combines numerical-error analysis, Monte Carlo/statistical physics, stochastic simulation, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the engineering and research-software layer around those solvers: isolated environments, pinned source revisions, Safe/Full execution, scientific smoke tests, measurement provenance, V&V/UQ, model-specific requirement scorecards, convergence/cost analysis, robust-design summaries, measured/model comparison, batch planning, run provenance, and reproducibility exports.
+It combines numerical-error analysis, Monte Carlo/statistical physics, stochastic simulation, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the engineering and research-software layer around those solvers: isolated environments, pinned source revisions, Safe/Full execution, scientific smoke tests, measurement provenance, V&V/UQ, model-specific requirement scorecards, automated refinement/replicate campaigns, convergence/cost analysis, robust-design summaries, measured/model comparison, batch planning, run provenance, and reproducibility exports.
 
 ## 30-second overview
 
@@ -12,12 +12,12 @@ It combines numerical-error analysis, Monte Carlo/statistical physics, stochasti
 |---|---|
 | What physics does it cover? | Numerical error, Ising/Monte Carlo, random walk/QMC, chaos/Lyapunov analysis, oscillators/integration, RADIA magnetics, undulator radiation |
 | What is the representative deep workflow? | **RADIA Magnet Studio → realized magnetic field → measured/model residual → electron trajectory → Radiation Platform → analytic/reference comparison** |
-| Are the other Labs engineered too? | **Yes in v0.8.1.** Numerical, Ising, Random Walk, Chaos, and Oscillation now receive domain-specific engineering scorecards, convergence/cost analysis, and finite-replicate robustness tools |
+| Are the other Labs engineered too? | **Yes. v0.9.0 adds one-click automated engineering campaigns for Numerical Error, Ising, Random Walk, Chaos, and Oscillation, with canonical metrics fed directly into their v0.8.1 engineering scorecards** |
 | What engineering questions can it answer? | Requirement margin, uncertainty budget, sensitivity, convergence, cost↔accuracy tradeoff, finite-ensemble robustness, measured/model discrepancy, Pareto design comparison, bounded calibration, batch planning |
-| How is correctness treated? | Analytic/reference comparisons, scientific smoke tests, explicit model limitations, deterministic reference snapshots, Safe/Full separation |
+| How is correctness treated? | Analytic/reference comparisons, deterministic automated campaigns, scientific smoke tests, explicit model limitations, Safe/Full separation |
 | How is software reliability handled? | Per-Lab `.venv`, PEP 440 checks, `pip check`, import tests, CPython ABI checks, pinned revisions, cancellable tasks, Universal2 builds |
 | Can experiment data enter the platform? | Yes. CSV/TSV/JSON/HDF5 provenance plus bounded Arduino-style serial numeric capture |
-| Can results be reproduced? | Projects preserve parameters, source revision, Python/package state, measurements, runs and exportable provenance |
+| Can results be reproduced? | Projects preserve parameters, source revision, Python/package state, measurements, runs, campaign fingerprints and exportable provenance |
 
 ## Seven validated Lab interfaces
 
@@ -30,6 +30,77 @@ It combines numerical-error analysis, Monte Carlo/statistical physics, stochasti
 7. **Radiation Platform** — magnet-to-trajectory-to-radiation workflow, scan-centric analysis and ideal/reference comparisons.
 
 All managed module downloads are pinned to explicit Git commit revisions in `src-tauri/resources/modules.json`; `physical-lab-source.json` records the revision actually requested for each managed checkout.
+
+## v0.9.0 — automated engineering campaigns for all five non-accelerator Labs
+
+v0.8.1 gave the five non-accelerator Labs domain-specific engineering scorecards. v0.9.0 closes the next gap: the scorecard quantities can now be generated by a **bounded automated campaign**, not only entered or assembled manually.
+
+The UI chain is now:
+
+```text
+native Lab model
+    ↓
+automated engineering campaign
+    ↓
+canonical campaign metrics + deterministic fingerprint
+    ↓
+Engineering V&V / UQ
+    ↓
+Engineering Design Workflow
+    ↓
+model-specific PASS / REVIEW / FAIL scorecard
+```
+
+Each campaign has **Compact** and **Standard** presets. Compact is intended for interactive engineering checks. Standard performs a deeper but still bounded study. Campaign output includes the exact configuration, cases, canonical metrics, a deterministic SHA-256 campaign fingerprint, scientific boundary notes, and exportable JSON.
+
+### Numerical Error — automated accuracy / cost refinement
+
+The v0.9 campaign automatically runs multiple Taylor orders over a fixed `[-π, π]` grid and records maximum/RMS error, pass fraction, evaluation count and descriptive runtime. It also runs an independent centered finite-difference refinement to estimate an observed convergence order near two.
+
+The canonical scorecard receives:
+
+- `max_normalized_error`;
+- `pass_fraction`;
+- `convergence_order`.
+
+Evaluation count is treated as a work proxy and wall-clock runtime remains explicitly machine-dependent.
+
+### Ising Monte Carlo — automated multi-chain diagnostics
+
+The Ising campaign executes independent periodic 2-D Metropolis chains and derives:
+
+- classical between/within-chain R-hat for energy and `|M|`;
+- autocorrelation-based effective sample size;
+- burn/equilibration drift in sigma units;
+- an **exact 4×4 checkpoint** produced by enumerating all `2^16` periodic zero-field states and comparing the Monte Carlo energy per spin at `T = 3.0`.
+
+The canonical scorecard receives `rhat_max`, `effective_samples_min`, `exact_reference_relative_error`, and `equilibration_drift_sigma`. These are finite-sample convergence diagnostics, not proof that a Markov chain has reached the exact target distribution.
+
+### Random Walk / Monte Carlo — automated multi-seed estimator campaign
+
+Independent deterministic seeds run a 2-D unbiased nearest-neighbor walk at multiple step counts. The campaign estimates the log-log MSD exponent, the final `MSD/N` diffusion-scale estimator, and seed-to-seed coefficient of variation.
+
+The theoretical reference is explicit: for this walk, `E[r²] = N`, so the MSD exponent and `MSD/N` targets are both one. The campaign does not generalize that target to arbitrary stochastic processes.
+
+### Nonlinear Dynamics / Chaos — automated finite-window robustness
+
+The Chaos campaign uses the driven Duffing reference
+
+```text
+x'' + 0.2 x' - x + x^3 = 0.3 cos(1.2 t)
+```
+
+and performs timestep refinement, a finite Poincaré-response indicator, tangent-dynamics finite-time Lyapunov estimation with periodic renormalization, small initial-condition perturbation replicates, and energy/work-balance closure.
+
+It deliberately **does not require long-time trajectories to remain pointwise equal**. The engineering decision is based on convergence of finite-window indicators, Lyapunov-statistic stability, and balance diagnostics rather than treating physical sensitivity to initial conditions as solver failure.
+
+### Oscillation / Integration — automated analytic-reference convergence
+
+The Oscillation campaign integrates a damped linear oscillator with RK4 and compares directly with its closed-form underdamped solution. It automatically derives frequency, amplitude and phase error, viscous energy/work closure, and response change under timestep refinement.
+
+This provides a real analytic-reference V&V path for the numerical solver while preserving the distinction between computational verification and validation of a real mechanical apparatus.
+
+See [`docs/AUTOMATED_MODEL_CAMPAIGNS_V090.md`](docs/AUTOMATED_MODEL_CAMPAIGNS_V090.md).
 
 ## v0.8.1 — model-specific engineering across the other five Labs
 
@@ -164,7 +235,7 @@ Dependency presence and scientific readiness are deliberately separate. Requirem
 
 ### Run Vault and exports
 
-The advanced experiment layer preserves parameter fingerprints, package versions, source revision and bounded result snapshots. Reproducibility exports package project state with machine/runtime information and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
+The advanced experiment layer preserves parameter fingerprints, package versions, source revision and bounded result snapshots. v0.9 campaign results additionally preserve their resolved preset/configuration and deterministic campaign fingerprint. Reproducibility exports package project state with machine/runtime information and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
 
 ## Measurement Digital Twin
 
@@ -182,9 +253,11 @@ Physical Lab can use a **local-only, read-only explanation layer** through OpenP
 
 ### Deterministic source validation
 
-Source Integrity validates syntax, manifests, release-version coherence and committed deterministic reference snapshots. Current reference evidence includes numerical-error behavior, oscillator integration, random-walk MSD, exact 2-D Ising critical temperature, ideal-undulator resonance, the Measurement Digital Twin core, the accelerator resonance benchmark, the v0.8 Engineering Design Workflow, and the v0.8.1 five-profile model-engineering layer.
+Source Integrity validates syntax, manifests, release-version coherence and deterministic numerical/reference behavior. Current reference evidence includes numerical-error behavior, oscillator integration, random-walk MSD, exact 2-D Ising critical temperature, ideal-undulator resonance, the Measurement Digital Twin core, the accelerator resonance benchmark, the v0.8 Engineering Design Workflow, the v0.8.1 five-profile model-engineering layer, and the v0.9 automated five-model campaigns.
 
 `docs/model-engineering-reference-validation.json` and `scripts/model_engineering_reference_validation.py --check` cover all five non-accelerator scorecards plus convergence-order math, finite-replicate statistics, symmetric relative change and cost/error non-dominated filtering.
+
+`scripts/model_campaign_reference_validation.py` actually executes all five Compact campaigns, routes their canonical metrics through the same engineering scorecards used by the UI, and requires every profile to PASS with 100% metric completeness. It additionally exercises the Standard nonlinear-chaos preset because finite-time chaotic diagnostics are especially sensitive to an inappropriate observation window.
 
 ### Native Full-mode acceptance
 
@@ -201,6 +274,7 @@ Physical Lab follows a simple rule: **a simulation result is not automatically a
 The project distinguishes:
 
 - numerical convergence from physical validity;
+- automated campaign PASS from experimental validation or certification;
 - editable engineering screening thresholds from external standards or certification;
 - finite seed/chain/ensemble statistics from population failure probabilities or manufacturing yield;
 - finite Ising lattices from the thermodynamic limit;
@@ -218,7 +292,7 @@ See [`docs/VALIDATION.md`](docs/VALIDATION.md).
 
 Physical Lab does **not** claim that every upstream scientific engine was authored here. Its contribution boundary has three layers:
 
-1. **Original physics projects and analysis layers** — seven linked Lab repositories plus Physical Lab's advanced experiment, V&V/UQ, digital-twin and engineering-decision layers.
+1. **Original physics projects and analysis layers** — seven linked Lab repositories plus Physical Lab's advanced experiment, V&V/UQ, digital-twin, automated campaign and engineering-decision layers.
 2. **Research-software engineering** — Tauri/Rust macOS shell, Module/Runtime/Dependency/Task/Integrity centers, isolated environments, Safe/Full policy, source pinning, ABI/runtime discovery, scientific smoke tests, cancellation, workspaces, provenance and reproducibility export.
 3. **Third-party scientific engines** — RADIA, Project Chrono/Chrono::Modal and VAMPIRE retain their own authorship/licenses. RADIA is currently consumed by real Labs; Chrono::Modal and VAMPIRE remain optional adapter boundaries rather than advertised active solvers.
 
@@ -241,13 +315,15 @@ A packaged public DMG should still be treated separately from source correctness
 - Native macOS desktop application built with Tauri 2 / Rust.
 - Seven computational-physics Labs.
 - Shared Engineering V&V/UQ and Engineering Design Workflow.
-- Five domain-specific non-accelerator engineering profiles in v0.8.1.
+- Five domain-specific non-accelerator engineering profiles from v0.8.1.
+- Five one-click automated non-accelerator engineering campaigns in v0.9.0.
 - RADIA is the only fragile native physics engine currently consumed by a real Lab.
 - Chrono::Modal and VAMPIRE remain optional future adapter boundaries.
 - The old `radiaition-study` / Radiation Study project is intentionally excluded.
 
 ## Documentation
 
+- [`docs/AUTOMATED_MODEL_CAMPAIGNS_V090.md`](docs/AUTOMATED_MODEL_CAMPAIGNS_V090.md) — v0.9.0 automated solver/refinement/replicate campaigns.
 - [`docs/MULTI_LAB_ENGINEERING_V081.md`](docs/MULTI_LAB_ENGINEERING_V081.md) — v0.8.1 model-specific engineering profiles.
 - [`docs/ENGINEERING_WORKFLOW_V080.md`](docs/ENGINEERING_WORKFLOW_V080.md) — shared requirement → design → robustness → measurement → decision workflow.
 - [`docs/ENGINEERING_SIMULATION.md`](docs/ENGINEERING_SIMULATION.md) — V&V/UQ terminology and engineering-screening layer.
