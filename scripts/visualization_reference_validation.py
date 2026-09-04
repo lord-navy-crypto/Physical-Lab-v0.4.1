@@ -20,7 +20,7 @@ from physical_lab_visualization import (  # noqa: E402
 
 
 def close(a: float, b: float, tol: float = 1e-10) -> bool:
-    return abs(float(a) - float(b)) <= 1e-10
+    return abs(float(a) - float(b)) <= tol
 
 
 def base_settings() -> dict:
@@ -122,7 +122,7 @@ def main() -> int:
     )
     uq_view, uq_labels = apply_visualization_settings(authored_uq, settings, "oscillation-integration")
     assert list(uq_view.data[0].y) == [10.0, 20.0, 30.0]
-    assert any("authored uncertainty" in item for label in uq_labels for item in [label.lower()])
+    assert any("authored uncertainty" in item.lower() for item in uq_labels)
 
     # Generated engineering overlays must keep current/baseline/band traces on one authored physical scale.
     overlay = go.Figure()
@@ -142,7 +142,6 @@ def main() -> int:
     advanced = (UI / "physical_lab_advanced.py").read_text(encoding="utf-8")
     viz_text = (UI / "physical_lab_visualization.py").read_text(encoding="utf-8")
     assert 'data-view="settings"' in index and 'id="settingsView"' in index
-    assert "physicalLab.uiSettings" in shell_app if False else True
     assert "physicalLab.uiSettings" in app and "applyUiSettings" in app
     assert "visualization_context" in advanced
     assert "Visualization workspace" in viz_text and "Axes & scale" in viz_text and "Rendering" in viz_text
