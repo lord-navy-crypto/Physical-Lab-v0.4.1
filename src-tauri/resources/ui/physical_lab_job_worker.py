@@ -17,6 +17,10 @@ from physical_lab_experiment_kernel import plain, utc_now, validate_manifest
 _CANCELLED = False
 
 
+def _log(level: str, message: str) -> None:
+    print(f"[{str(level).upper()}] {utc_now()} {message}", flush=True)
+
+
 def _signal_cancel(_signum, _frame):
     global _CANCELLED
     _CANCELLED = True
@@ -64,12 +68,13 @@ def _checkpoint(job_dir: Path, stage: str, progress: float, payload: Mapping[str
         "payload": plain(dict(payload or {})),
     }
     _atomic_json(job_dir / "checkpoint.json", value)
-    _update(job_dir, stage=stage, progress=float(progress), checkpoint=value)
+    record = _update(job_dir, stage=stage, progress=float(progress), checkpoint=value)
+    _log("INFO", f"job={record.get('id')} checkpoint={stage} progress={float(progress):.3f}")
 
 
 def _fail_if_cancelled(job_dir: Path) -> None:
     if _cancel_requested(job_dir):
-        _update(
+        record = _update(
             job_dir,
             status="cancelled",
             stage="cancelled",
@@ -77,6 +82,7 @@ def _fail_if_cancelled(job_dir: Path) -> None:
             pid=None,
             error=None,
         )
+        _log("WARNING", f"job={record.get('id')} cancelled")
         raise SystemExit(130)
 
 
@@ -108,6 +114,10 @@ def execute_job(job_dir: Path, *, require_parent_handshake: bool = False) -> dic
     runner = str(record.get("runner") or "")
     config = record.get("runner_config") or {}
 
+    _log(
+        "INFO",
+        f"job={record.get('id')} profile={record.get('profile')} runner={runner} worker-start pid={os.getpid()}",
+    )
     _update(
         job_dir,
         status="running",
@@ -173,7 +183,7 @@ def execute_job(job_dir: Path, *, require_parent_handshake: bool = False) -> dic
         error=None,
         result_path=str(result_path),
     )
-    print(f"Physical Lab job {final.get('id')} succeeded: {runner}", flush=True)
+    _log("INFO", f"job={final.get('id')} succeeded runner={runner}")
     return output
 
 
@@ -188,8 +198,9 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code or 1)
     except Exception as exc:
+        job_id = None
         try:
-            _update(
+            record = _update(
                 job_dir,
                 status="failed",
                 stage="failed",
@@ -197,8 +208,10 @@ def main(argv: list[str] | None = None) -> int:
                 pid=None,
                 error=f"{type(exc).__name__}: {exc}",
             )
+            job_id = record.get("id")
         except Exception:
             pass
+        _log("ERROR", f"job={job_id or job_dir.name} {type(exc).__name__}: {exc}")
         traceback.print_exc()
         return 1
 
