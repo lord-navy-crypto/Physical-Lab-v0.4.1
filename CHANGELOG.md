@@ -2,6 +2,27 @@
 
 All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAJOR.MINOR.PATCH`).
 
+## [0.8.1] - 2026-09-04
+
+### Added
+- Model-specific engineering profiles for all five non-accelerator Labs, layered on top of the shared Engineering V&V/UQ and v0.8 design workflow rather than adding another disconnected Lab.
+- A domain scorecard with editable PASS / REVIEW / FAIL screening targets; missing metrics remain REVIEW instead of silently passing.
+- Shared observed-convergence-order, computational cost ↔ error non-dominated frontier, and finite replicate/seed stability tools.
+- Numerical Error engineering quantities for normalized error, scan pass fraction, convergence order, and accuracy-versus-cost tradeoffs.
+- Ising engineering quantities for multi-chain R-hat, effective sample size, exact/reference discrepancy, equilibration drift, and sampling/work quality.
+- Random Walk / Monte Carlo engineering quantities for diffusion/MSD scaling, estimator error, finite replicate stability, and cost-versus-precision comparisons.
+- Nonlinear Dynamics engineering quantities for timestep sensitivity of finite-window indicators, Lyapunov-statistic replicate spread, and energy/work-balance error. Long-time pointwise trajectory agreement is deliberately not used as a generic chaos requirement.
+- Oscillation / Integration engineering quantities for frequency, amplitude, phase, energy/work balance, and timestep sensitivity.
+- `src-tauri/resources/ui/physical_lab_model_engineering.py`, `docs/MULTI_LAB_ENGINEERING_V081.md`, and a committed deterministic model-engineering reference snapshot.
+
+### Validation
+- Source Integrity now compiles the model-specific engineering module, validates `docs/model-engineering-reference-validation.json`, and runs `scripts/model_engineering_reference_validation.py --check`.
+- Deterministic reference evidence covers all five scorecards plus convergence-order math, finite-replicate statistics, symmetric relative-change calculation, and cost/error non-dominated filtering.
+- The Tauri resource bundle now includes the model-specific engineering module so the same UI is packaged in the macOS application.
+
+### Scientific boundary
+v0.8.1 converts existing research diagnostics into explicit engineering decision quantities; it does not turn editable thresholds into standards or certification. Finite seed/chain/replicate summaries are descriptive rather than automatic failure probabilities or confidence claims, finite Ising lattices still require finite-size reasoning, stochastic scaling references depend on the selected model, chaotic long-time coordinate divergence is not itself a solver failure, and real oscillator/apparatus validation still requires measurements and model-form assessment.
+
 ## [0.8.0] - 2026-09-04
 
 ### Added
@@ -75,6 +96,7 @@ The v0.7.0 tolerance pipeline reports finite solver-ensemble behavior. It does n
 - Measurement/provenance bridge, isolated Lab environments, scientific smoke tests, run comparison, and reproducibility export.
 - Universal2 macOS packaging and public v0.4.1-era release infrastructure migrated toward the research-workbench architecture.
 
+[0.8.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.8.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.7.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.7.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
