@@ -50,6 +50,7 @@
       "resources/ui/physical_lab_engineering_legacy.py": "ui/physical_lab_engineering_legacy.py",
       "resources/ui/physical_lab_application_modes.py": "ui/physical_lab_application_modes.py",
       "resources/ui/physical_lab_display_ranges.py": "ui/physical_lab_display_ranges.py",
+      "resources/ui/physical_lab_engineering_scenarios.py": "ui/physical_lab_engineering_scenarios.py",
       "resources/ui/physical_lab_engineering_workflow.py": "ui/physical_lab_engineering_workflow.py",
       "resources/ui/physical_lab_model_engineering.py": "ui/physical_lab_model_engineering.py",
       "resources/ui/physical_lab_model_campaigns.py": "ui/physical_lab_model_campaigns.py",
