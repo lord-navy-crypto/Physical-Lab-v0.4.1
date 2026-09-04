@@ -30,7 +30,7 @@ def build_payload() -> dict:
         }
 
     convergence_order = eng.estimate_convergence_order(0.04, 0.01, 2.0)
-    stability = eng.replicate_stability([0.99, 1.0, 1.01, 1.0])
+    stability = eng.replicate_stability([0.99, 1.0]) if False else eng.replicate_stability([0.99, 1.0, 1.01, 1.0])
     frontier = eng.cost_accuracy_front([
         {"design": "cheap", "cost": 1.0, "error": 0.10},
         {"design": "balanced", "cost": 2.0, "error": 0.05},
@@ -58,9 +58,6 @@ def build_payload() -> dict:
 
 def check_state_synchronization() -> None:
     """Regression checks for the v0.8.1 stale-scorecard failure mode."""
-    # DataFrame-like to_dict() nesting keeps the semantic column name one level
-    # above the numeric row index; discovery must inspect the full path, not only
-    # the final leaf component.
     nested_table = {"result_table": {"relative_error": {0: 0.0125}}}
     discovered = eng.discover_metrics_with_provenance("random-walk-monte-carlo", [nested_table])
     assert math.isclose(discovered["estimator_relative_error"]["value"], 0.0125, abs_tol=1e-15)
@@ -71,7 +68,7 @@ def check_state_synchronization() -> None:
         existing_rows=None,
         discovered={
             "max_normalized_error": {"value": 0.8, "path": "run.max_normalized_error"},
-            "pass_fraction": {"value": 0.995, "path": "run.pass_fraction"},
+            "pass_fraction": {"value": 0.995, "value_source": "auto", "path": "run.pass_fraction"},
         },
     )
     by_metric = {row["metric"]: row for row in first}
@@ -79,9 +76,6 @@ def check_state_synchronization() -> None:
     assert by_metric["max_normalized_error"]["auto_source"] == "run.max_normalized_error"
     assert by_metric["convergence_order"]["auto_value"] is None
 
-    # A later solver result must replace the automatic value even though the
-    # scorecard already exists, while user-entered limits/uncertainty/override
-    # remain intact.
     existing = [dict(row) for row in first]
     existing_by_metric = {row["metric"]: row for row in existing}
     existing_by_metric["max_normalized_error"]["manual_override"] = 0.61
@@ -107,7 +101,7 @@ def check_state_synchronization() -> None:
 
 def check_release_packager_guard() -> None:
     script = (ROOT / "PACKAGE_RELEASE_DMG.command").read_text(encoding="utf-8")
-    assert '$DOWNLOADS/Physical-Lab-v0.4.1' not in script, "stale v0.4.1 folder must never receive special priority"
+    assert '$DOWNLOADS/Physical-Lab-v0.4.1' not in script, "stale v0.01 folder must never receive special priority"
     assert 'version_file = path / "VERSION"' in script, "directory selection must inspect actual source VERSION"
     assert "zip_version(path)" in script, "source ZIP selection must be version-aware"
     assert 'src-tauri" / "tauri.conf.json' in script, "candidate source trees must be structurally validated"
@@ -139,7 +133,6 @@ def main() -> int:
     args = parser.parse_args()
     payload = build_payload()
 
-    # Hard invariants independent of the committed snapshot.
     assert set(payload["scorecards"]) == set(eng.SUPPORTED_PROFILES)
     assert all(item["overall_status"] == "PASS" for item in payload["scorecards"].values())
     assert all(item["metric_completeness"] == 1.0 for item in payload["scorecards"].values())
@@ -162,4 +155,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise System64Exit(main())
+    raise SystemExit(main())
