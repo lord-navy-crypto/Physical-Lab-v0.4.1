@@ -3,9 +3,9 @@
 The original Engineering V&V/UQ implementation is retained verbatim in
 ``physical_lab_engineering_legacy``. This facade inserts the project-level
 ``.physlab`` workspace, project-bound measurement/calibration evidence, the
-dual-mode physics application layer and the engineering decision lens before
-delegating to the established engineering workflow. Existing public helpers and
-scientific behavior remain backward compatible.
+dual-mode physics application layer, engineering decision lens and unified
+Run & Diagnostics Log before delegating to the established engineering workflow.
+Existing public helpers and scientific behavior remain backward compatible.
 
 Sibling modules are loadable both through the normal packaged UI import path and
 through path-based deterministic validation, which imports this file directly.
@@ -62,6 +62,40 @@ def _load_measurement_registry_module():
         )
 
 
+def _load_diagnostics_module():
+    try:
+        import physical_lab_diagnostics as diagnostics
+        return diagnostics
+    except ModuleNotFoundError:
+        return _load_module_by_path(
+            "physical_lab_diagnostics", "physical_lab_diagnostics.py"
+        )
+
+
+def _load_compute_engine_module():
+    try:
+        import physical_lab_compute_engine as compute_engine
+        return compute_engine
+    except ModuleNotFoundError:
+        return _load_module_by_path(
+            "physical_lab_compute_engine", "physical_lab_compute_engine.py"
+        )
+
+
+def _record_module_exception(source: str, exc: Exception, profile: str) -> None:
+    try:
+        diagnostics = _load_diagnostics_module()
+        diagnostics.record_exception(
+            source,
+            exc,
+            profile=profile,
+            code="PLATFORM_MODULE_ERROR",
+        )
+    except Exception:
+        # Logging must never create a second failure path.
+        pass
+
+
 def _load_application_modules():
     try:
         import physical_lab_application_modes as application_modes
@@ -92,12 +126,14 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         project_kernel = _load_project_kernel_module()
         project_kernel.render_project_workspace(st, profile, namespace)
     except Exception as exc:
+        _record_module_exception("project-kernel", exc, profile)
         st.warning(f"Physical Lab Project Kernel could not load: {exc}")
 
     try:
         measurement_registry = _load_measurement_registry_module()
         measurement_registry.render_measurement_workspace(st, profile)
     except Exception as exc:
+        _record_module_exception("measurement-calibration", exc, profile)
         st.warning(f"Physical Lab Measurement/Calibration Evidence could not load: {exc}")
 
     try:
@@ -105,12 +141,22 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         application_modes.padded_range = padded_range
         application_modes.render_application_mode(st, profile, namespace)
     except Exception as exc:
+        _record_module_exception("application-mode", exc, profile)
         st.warning(f"Physical Lab Application Mode could not load: {exc}")
 
     try:
         engineering_scenarios = _load_engineering_scenario_module()
         engineering_scenarios.render_engineering_scenario_review(st, profile)
     except Exception as exc:
+        _record_module_exception("engineering-scenario", exc, profile)
         st.warning(f"Physical Lab Engineering Scenario Review could not load: {exc}")
+
+    try:
+        diagnostics = _load_diagnostics_module()
+        compute_engine = _load_compute_engine_module()
+        diagnostics.render_diagnostics_workspace(st, profile, compute_engine)
+    except Exception as exc:
+        _record_module_exception("diagnostics-workspace", exc, profile)
+        st.warning(f"Physical Lab Run & Diagnostics Log could not load: {exc}")
 
     _render_engineering_vvuq_legacy(st, profile, namespace)
