@@ -201,6 +201,12 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
     import pandas as pd
     import plotly.graph_objects as go
 
+    try:
+        from physical_lab_model_campaigns import render_model_campaign
+        render_model_campaign(st, profile, namespace)
+    except Exception as exc:
+        st.warning(f"Physical Lab automated model campaign could not load: {exc}")
+
     st.markdown("---")
     st.markdown("## Physical Lab · Engineering V&V / Uncertainty")
     st.caption(
