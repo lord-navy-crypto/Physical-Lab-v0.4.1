@@ -1,0 +1,75 @@
+{
+  "boundary": "Synthetic deterministic math validation only; not experimental or product certification evidence.",
+  "convergence_order": 2.0,
+  "cost_accuracy_front_indices": [
+    0,
+    1
+  ],
+  "relative_change": 0.047619047619047616,
+  "replicate_stability": {
+    "coefficient_of_variation": 0.008164965809277268,
+    "mean": 1.0,
+    "median": 1.0,
+    "n": 4,
+    "p05": 0.9915,
+    "p95": 1.0085,
+    "range": 0.020000000000000018,
+    "sample_std": 0.008164965809277268
+  },
+  "schema": "physical-lab-model-engineering-reference-v1",
+  "scorecards": {
+    "ising-monte-carlo": {
+      "metric_completeness": 1.0,
+      "overall_status": "PASS",
+      "requirement_count": 4,
+      "statuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "nonlinear-chaos": {
+      "metric_completeness": 1.0,
+      "overall_status": "PASS",
+      "requirement_count": 3,
+      "statuses": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "numerical-methods": {
+      "metric_completeness": 1.0,
+      "overall_status": "PASS",
+      "requirement_count": 3,
+      "statuses": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "oscillation-integration": {
+      "metric_completeness": 1.0,
+      "overall_status": "PASS",
+      "requirement_count": 5,
+      "statuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "random-walk-monte-carlo": {
+      "metric_completeness": 1.0,
+      "overall_status": "PASS",
+      "requirement_count": 3,
+      "statuses": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    }
+  }
+}
