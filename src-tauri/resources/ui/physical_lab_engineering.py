@@ -57,7 +57,11 @@ def _load_solar_system_ui_module():
 
 
 def _load_lattice_ui_module():
-    _load("physical_lab_lattice_dynamics","physical_lab_lattice_dynamics.py"); _load("physical_lab_experiment_kernel","physical_lab_experiment_kernel.py"); _load("physical_lab_lattice_workflow","physical_lab_lattice_workflow.py"); return _load("physical_lab_lattice_ui","physical_lab_lattice_ui.py")
+    _load("physical_lab_lattice_dynamics","physical_lab_lattice_dynamics.py"); _load("physical_lab_lattice_phonons","physical_lab_lattice_phonons.py"); _load("physical_lab_experiment_kernel","physical_lab_experiment_kernel.py"); _load("physical_lab_lattice_workflow","physical_lab_lattice_workflow.py"); return _load("physical_lab_lattice_ui","physical_lab_lattice_ui.py")
+
+
+def _load_new_model_refinement_ui_module():
+    _load("physical_lab_new_model_refinements","physical_lab_new_model_refinements.py"); return _load("physical_lab_new_model_refinement_ui","physical_lab_new_model_refinement_ui.py")
 
 
 def _record_module_exception(source:str,exc:Exception,profile:str)->None:
@@ -84,6 +88,9 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile=="oscillation-integration":
         try: _load_lattice_ui_module().render_lattice_workspace(st,profile)
         except Exception as exc: _record_module_exception("multilayer-honeycomb-lattice",exc,profile); st.warning(f"Physical Lab Multilayer Honeycomb Lattice Dynamics could not load: {exc}")
+    if profile in {"nonlinear-chaos","oscillation-integration"}:
+        try: _load_new_model_refinement_ui_module().render_new_model_refinement_workspace(st,profile)
+        except Exception as exc: _record_module_exception("new-model-refinement-studio",exc,profile); st.warning(f"Physical Lab New Model Refinement Studio could not load: {exc}")
     try: _load_project_kernel_module().render_project_workspace(st,profile,namespace)
     except Exception as exc: _record_module_exception("project-kernel",exc,profile); st.warning(f"Physical Lab Project Kernel could not load: {exc}")
     try: _load_measurement_registry_module().render_measurement_workspace(st,profile)
