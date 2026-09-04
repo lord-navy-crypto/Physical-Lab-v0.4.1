@@ -17,6 +17,8 @@ DEG_RAD = math.pi / 180.0
 
 # normalized unit -> (dimension, factor_to_canonical, canonical_unit)
 _UNITS: dict[str, tuple[str, float, str]] = {
+    "1": ("dimensionless", 1.0, "1"),
+    "%": ("dimensionless", 1e-2, "1"),
     "m": ("length", 1.0, "m"),
     "cm": ("length", 1e-2, "m"),
     "mm": ("length", 1e-3, "m"),
@@ -46,6 +48,13 @@ _UNITS: dict[str, tuple[str, float, str]] = {
     "mv": ("voltage", 1e-3, "V"),
     "kg": ("mass", 1.0, "kg"),
     "g_mass": ("mass", 1e-3, "kg"),
+    "k": ("temperature", 1.0, "K"),
+    "n": ("force", 1.0, "N"),
+    "mn": ("force", 1e-3, "N"),
+    "pa": ("pressure", 1.0, "Pa"),
+    "kpa": ("pressure", 1e3, "Pa"),
+    "mpa": ("pressure", 1e6, "Pa"),
+    "gpa": ("pressure", 1e9, "Pa"),
     "m/s": ("velocity", 1.0, "m/s"),
     "um/s": ("velocity", 1e-6, "m/s"),
     "m2/s": ("diffusion", 1.0, "m^2/s"),
@@ -53,6 +62,8 @@ _UNITS: dict[str, tuple[str, float, str]] = {
 }
 
 _ALIASES = {
+    "": "1",
+    "dimensionless": "1",
     "µm": "um",
     "μm": "um",
     "µs": "us",
@@ -65,6 +76,11 @@ _ALIASES = {
     "m²/s": "m2/s",
     "gauss": "g",
     "tesla": "t",
+    "kelvin": "k",
+    "newton": "n",
+    "newtons": "n",
+    "pascal": "pa",
+    "pascals": "pa",
     "degree": "deg",
     "degrees": "deg",
 }
@@ -78,7 +94,7 @@ def normalize_unit(unit: str) -> str:
     if lowered in _ALIASES:
         return _ALIASES[lowered]
     if lowered == "g" and raw == "g":
-        # In Physical Lab the bare symbol G is Gauss; gram is exposed as g_mass
+        # In Physical Lab the bare symbol G is Gauss; gram is exposed as g_mass.
         return "g"
     return lowered
 
