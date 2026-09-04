@@ -13,8 +13,10 @@ from physical_lab_engineering_legacy import render_engineering_vvuq as _render_e
 
 def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> None:
     try:
-        from physical_lab_application_modes import render_application_mode
-        render_application_mode(st, profile, namespace)
+        import physical_lab_application_modes as application_modes
+        from physical_lab_display_ranges import padded_range
+        application_modes.padded_range = padded_range
+        application_modes.render_application_mode(st, profile, namespace)
     except Exception as exc:
         st.warning(f"Physical Lab Application Mode could not load: {exc}")
     _render_engineering_vvuq_legacy(st, profile, namespace)
