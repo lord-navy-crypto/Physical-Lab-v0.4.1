@@ -20,7 +20,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check numpy plotly
       - name: Python syntax
         run: |
-          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/version_consistency.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py scripts/accelerator_reference_benchmark.py scripts/physical_lab_digital_twin_cli.py scripts/local_ai_reference_validation.py scripts/engineering_reference_validation.py scripts/engineering_visualization_validation.py scripts/nonlinear_tolerance_validation.py scripts/radia_radiation_propagation_validation.py src-tauri/resources/safe_engine_server.py
+          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/version_consistency.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py scripts/accelerator_reference_benchmark.py scripts/engineering_workflow_reference_validation.py scripts/measured_field_radiation_validation.py scripts/physical_lab_digital_twin_cli.py scripts/local_ai_reference_validation.py scripts/engineering_reference_validation.py scripts/engineering_visualization_validation.py scripts/nonlinear_tolerance_validation.py scripts/radia_radiation_propagation_validation.py src-tauri/resources/safe_engine_server.py
           python -m py_compile src-tauri/resources/ui/*.py
       - name: JSON manifests
         run: |
@@ -30,6 +30,7 @@ jobs:
           python -m json.tool docs/reference-validation.json >/dev/null
           python -m json.tool docs/digital-twin-reference-validation.json >/dev/null
           python -m json.tool docs/accelerator-reference-benchmark.json >/dev/null
+          python -m json.tool docs/engineering-workflow-reference-validation.json >/dev/null
       - name: JavaScript syntax
         run: |
           node --check web/app.js
@@ -41,6 +42,7 @@ jobs:
           python scripts/reference_validation.py --check
           python scripts/digital_twin_reference_validation.py --check
           python scripts/accelerator_reference_benchmark.py --check
+          python scripts/engineering_workflow_reference_validation.py --check
           python scripts/local_ai_reference_validation.py
           python scripts/engineering_reference_validation.py
           python scripts/engineering_visualization_validation.py

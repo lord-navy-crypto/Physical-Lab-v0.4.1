@@ -1,24 +1,16 @@
 """Engineering verification, tolerance and uncertainty tools for Physical Lab.
 
-The module is deliberately explicit about what is known and what is assumed.
-It separates measurement, manufacturing, model-input, numerical and model-form
-uncertainties instead of collapsing every error into one number. Linearized
-propagation and tolerance stacks are engineering screening tools, not substitutes
-for nonlinear solver ensembles or physical validation experiments.
+The module keeps measurement, manufacturing, model-input, numerical, model-form
+and sampling uncertainties distinct. Linearized propagation and tolerance stacks
+are engineering screening tools, not substitutes for nonlinear solver ensembles
+or physical validation experiments.
 """
 from __future__ import annotations
 
 import math
 from typing import Any
 
-CATEGORIES = [
-    "measurement",
-    "manufacturing",
-    "model input",
-    "numerical",
-    "model-form",
-    "sampling",
-]
+CATEGORIES = ["measurement", "manufacturing", "model input", "numerical", "model-form", "sampling"]
 
 PROFILE_COMPONENTS = {
     "numerical-methods": [
@@ -98,21 +90,13 @@ def _finite(value: Any, default: float = 0.0) -> float:
 
 
 def linear_uncertainty_budget(rows: list[dict[str, Any]], correlation: list[list[float]] | None = None) -> dict[str, Any]:
-    """First-order propagation y≈y0+Σ c_i δx_i.
-
-    `standard_uncertainty` is the standard uncertainty of input x_i and
-    `sensitivity` is dy/dx_i. Correlation, when supplied, is a dimensionless
-    correlation matrix. The function does not infer distributions or units.
-    """
     active = []
     for row in rows:
         u = abs(_finite(row.get("standard_uncertainty")))
         c = _finite(row.get("sensitivity"))
         active.append((row, c * u))
     n = len(active)
-    corr = correlation
-    if corr is None:
-        corr = [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+    corr = correlation or [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
     if len(corr) != n or any(len(r) != n for r in corr):
         raise ValueError("correlation matrix must match the number of budget rows")
     variance = 0.0
@@ -124,15 +108,16 @@ def linear_uncertainty_budget(rows: list[dict[str, Any]], correlation: list[list
             variance += active[i][1] * active[j][1] * rho
     variance = max(0.0, variance)
     uc = math.sqrt(variance)
-    contributions = []
     independent_denom = sum(v * v for _, v in active)
-    for row, effect in active:
-        contributions.append({
+    contributions = [
+        {
             "component": str(row.get("component", "component")),
             "category": str(row.get("category", "unspecified")),
             "standard_effect": effect,
             "independent_variance_share": (effect * effect / independent_denom) if independent_denom > 0 else 0.0,
-        })
+        }
+        for row, effect in active
+    ]
     return {
         "combined_standard_uncertainty": uc,
         "expanded_uncertainty_k2": 2.0 * uc,
@@ -144,10 +129,7 @@ def linear_uncertainty_budget(rows: list[dict[str, Any]], correlation: list[list
 
 def tolerance_stack(rows: list[dict[str, Any]]) -> dict[str, float]:
     effects = [abs(_finite(r.get("sensitivity")) * _finite(r.get("tolerance_half_width"))) for r in rows]
-    return {
-        "rss_half_width": math.sqrt(sum(x * x for x in effects)),
-        "worst_case_half_width": sum(effects),
-    }
+    return {"rss_half_width": math.sqrt(sum(x * x for x in effects)), "worst_case_half_width": sum(effects)}
 
 
 def requirement_assessment(nominal: float, lower: float | None, upper: float | None, expanded_uncertainty: float) -> dict[str, Any]:
@@ -160,12 +142,7 @@ def requirement_assessment(nominal: float, lower: float | None, upper: float | N
     interval_lo, interval_hi = y - u, y + u
     nominal_in = (lo is None or y >= lo) and (hi is None or y <= hi)
     interval_in = (lo is None or interval_lo >= lo) and (hi is None or interval_hi <= hi)
-    if not nominal_in:
-        status = "FAIL"
-    elif interval_in:
-        status = "PASS"
-    else:
-        status = "REVIEW"
+    status = "FAIL" if not nominal_in else ("PASS" if interval_in else "REVIEW")
     margins = []
     if lo is not None:
         margins.append(interval_lo - lo)
@@ -198,12 +175,6 @@ def validation_comparison(simulated: float, measured: float, u_sim: float, u_mea
 
 
 def linearized_monte_carlo(rows: list[dict[str, Any]], nominal: float, samples: int = 10000, seed: int = 2026) -> dict[str, Any]:
-    """Monte Carlo propagation through the same local linear surrogate.
-
-    This samples independent normal input perturbations. It is useful for
-    checking the linear budget numerically; it is not a nonlinear solver
-    ensemble and is labeled as such in the UI.
-    """
     import numpy as np
     n = max(100, min(int(samples), 200000))
     rng = np.random.default_rng(int(seed))
@@ -237,7 +208,6 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
         "It separates uncertainty sources and does not convert a model into a validated product by itself."
     )
     tab_budget, tab_req, tab_val = st.tabs(["Error budget & propagation", "Tolerance / requirement margin", "Simulation ↔ measurement"])
-
     key = f"pl_eng_budget_{profile}"
     if key not in st.session_state:
         st.session_state[key] = pd.DataFrame(default_budget(profile))
@@ -245,10 +215,7 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
     with tab_budget:
         st.caption("Enter standard uncertainties and local sensitivities in mutually consistent units. Zero means 'not quantified yet', not 'known to be zero'.")
         edited = st.data_editor(
-            st.session_state[key],
-            num_rows="dynamic",
-            width="stretch",
-            key=f"pl_eng_editor_{profile}",
+            st.session_state[key], num_rows="dynamic", width="stretch", key=f"pl_eng_editor_{profile}",
             column_config={
                 "standard_uncertainty": st.column_config.NumberColumn("u(x)", min_value=0.0, format="%.6g"),
                 "sensitivity": st.column_config.NumberColumn("dy/dx", format="%.6g"),
@@ -297,10 +264,10 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
         stack = tolerance_stack(rows)
         half = budget["expanded_uncertainty_k2"] if basis.startswith("Expanded") else (stack["rss_half_width"] if basis.startswith("RSS") else stack["worst_case_half_width"])
         try:
-            r = requirement_assessment(float(nominal), float(lower) if use_lo else None, float(upper) if use_hi else None, float(half))
-            st.metric("Engineering screening status", r["status"])
-            st.write(r)
-            st.caption("PASS means the entered uncertainty/tolerance interval stays inside the entered limits. REVIEW means the nominal is inside but the interval crosses a limit. This is a screening rule, not a certification standard.")
+            result = requirement_assessment(float(nominal), float(lower) if use_lo else None, float(upper) if use_hi else None, float(half))
+            st.metric("Engineering screening status", result["status"])
+            st.write(result)
+            st.caption("PASS means the entered uncertainty/tolerance interval stays inside the entered limits. REVIEW means the nominal is inside but the interval crosses a limit. This is screening, not certification.")
         except Exception as exc:
             st.error(str(exc))
 
@@ -313,10 +280,16 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
         us = c3.number_input("Simulation standard uncertainty", min_value=0.0, value=0.0, format="%.8g", key=f"pl_eng_val_us_{profile}")
         um = c4.number_input("Measurement standard uncertainty", min_value=0.0, value=0.0, format="%.8g", key=f"pl_eng_val_um_{profile}")
         uf = c5.number_input("Model-form standard uncertainty", min_value=0.0, value=0.0, format="%.8g", key=f"pl_eng_val_uf_{profile}")
-        r = validation_comparison(sim, meas, us, um, uf)
+        result = validation_comparison(sim, meas, us, um, uf)
         a, b, c = st.columns(3)
-        a.metric("|Simulation − measurement|", f"{r['absolute_discrepancy']:.6g}")
-        b.metric("Combined standard uncertainty", f"{r['combined_standard_uncertainty']:.6g}")
-        c.metric("Normalized discrepancy", "—" if r["normalized_discrepancy"] is None else f"{r['normalized_discrepancy']:.6g}")
-        st.info(str(r["interpretation"]))
+        a.metric("|Simulation − measurement|", f"{result['absolute_discrepancy']:.6g}")
+        b.metric("Combined standard uncertainty", f"{result['combined_standard_uncertainty']:.6g}")
+        c.metric("Normalized discrepancy", "—" if result["normalized_discrepancy"] is None else f"{result['normalized_discrepancy']:.6g}")
+        st.info(str(result["interpretation"]))
         st.caption("This is a transparent comparison metric. It does not claim ASME/NIST certification and does not infer uncertainty values that you did not enter or compute.")
+
+    try:
+        from physical_lab_engineering_workflow import render_engineering_workflow
+        render_engineering_workflow(st, profile, namespace)
+    except Exception as exc:
+        st.warning(f"Physical Lab Engineering Design Workflow could not load: {exc}")
