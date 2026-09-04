@@ -47,6 +47,8 @@
       "resources/ui/physical_lab_visualization.py": "ui/physical_lab_visualization.py",
       "resources/ui/physical_lab_visualization_engineering.py": "ui/physical_lab_visualization_engineering.py",
       "resources/ui/physical_lab_engineering.py": "ui/physical_lab_engineering.py",
+      "resources/ui/physical_lab_engineering_legacy.py": "ui/physical_lab_engineering_legacy.py",
+      "resources/ui/physical_lab_application_modes.py": "ui/physical_lab_application_modes.py",
       "resources/ui/physical_lab_engineering_workflow.py": "ui/physical_lab_engineering_workflow.py",
       "resources/ui/physical_lab_model_engineering.py": "ui/physical_lab_model_engineering.py",
       "resources/ui/physical_lab_model_campaigns.py": "ui/physical_lab_model_campaigns.py",
