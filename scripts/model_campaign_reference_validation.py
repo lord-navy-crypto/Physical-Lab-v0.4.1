@@ -70,7 +70,6 @@ def assert_campaign_ui_contract() -> None:
     assert "pl_model_campaign_metrics_" in ui_text
 
     engineering_text = (UI / "physical_lab_engineering.py").read_text(encoding="utf-8")
-    assert "from physical_lab_campaign_ui import render_model_campaign" in ui_text if False else True
     assert "from physical_lab_campaign_ui import render_model_campaign" in engineering_text
 
     tauri_text = (ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8")
@@ -88,7 +87,7 @@ def main() -> int:
         assert_finite_metrics(profile, result)
         score = assert_scorecard_pass(profile, result)
         observed[profile] = result
-        metrics = ", ".join(f"{k}={float(v):.8g}" for k, v in result["metrics"].items())
+        metrics = ", ".join(f"{k}={float(v):.6g}" for k, v in result["metrics"].items())
         print(f"PASS compact {profile}: {metrics}; requirements={len(score['requirements'])}")
 
     numerical = observed["numerical-methods"]
@@ -140,14 +139,14 @@ def main() -> int:
     standard_chaos = campaigns.run_campaign("nonlinear-chaos", "standard")
     assert_finite_metrics("nonlinear-chaos/standard", standard_chaos)
     assert_scorecard_pass("nonlinear-chaos", standard_chaos)
-    print("PASS standard nonlinear-chaos:", ", ".join(f"{k}={float(v):.8g}" for k, v in standard_chaos["metrics"].items()))
+    print("PASS standard nonlinear-chaos:", ", ".join(f"{k}={float(v):.6g}" for k, v in standard_chaos["metrics"].items()))
 
     # Session-export helper must preserve exactly the canonical metrics.
     for profile, result in observed.items():
         exported = campaigns.canonical_session_metrics(result)
         assert exported == {k: float(v) for k, v in result["metrics"].items()}, f"{profile}: session metric export drift"
 
-    print("PASS all v0.10? automated model campaigns and engineering scorecards")
+    print("PASS all v0.9 automated model campaigns and engineering scorecards")
     print("Boundary: deterministic numerical/stochastic acceptance only; no experimental-validation or certification claim.")
     return 0
 
