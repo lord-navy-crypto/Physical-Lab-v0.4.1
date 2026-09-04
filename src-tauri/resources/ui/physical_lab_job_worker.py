@@ -87,12 +87,7 @@ def _fail_if_cancelled(job_dir: Path) -> None:
 
 
 def _wait_for_parent_registration(job_dir: Path, timeout_s: float = 3.0) -> None:
-    """Avoid a fast-worker race that could let the parent overwrite a terminal state.
-
-    The scheduler owns the first transition from queued -> running and records the
-    child PID. The worker does not begin scientific work until that registration is
-    visible. This makes state ownership deterministic even for sub-second jobs.
-    """
+    """Avoid a fast-worker race that could let the parent overwrite a terminal state."""
     deadline = time.monotonic() + max(0.25, float(timeout_s))
     pid = os.getpid()
     while time.monotonic() < deadline:
@@ -157,6 +152,7 @@ def execute_job(job_dir: Path, *, require_parent_handshake: bool = False) -> dic
         _fail_if_cancelled(job_dir)
 
         from physical_lab_kerr_workflow import is_kerr_manifest
+        from physical_lab_solar_system_workflow import is_solar_system_manifest
 
         if is_kerr_manifest(manifest, config):
             from physical_lab_kerr_workflow import execute_kerr_manifest
@@ -187,6 +183,35 @@ def execute_job(job_dir: Path, *, require_parent_handshake: bool = False) -> dic
                 },
             )
             model_variant = "kerr-geodesic"
+        elif is_solar_system_manifest(manifest, config):
+            from physical_lab_solar_system_workflow import execute_solar_system_manifest
+
+            def solar_progress(stage: str, fraction: float, payload: Mapping[str, Any]) -> None:
+                _fail_if_cancelled(job_dir)
+                mapped = 0.25 + 0.65 * max(0.0, min(float(fraction), 1.0))
+                _checkpoint(job_dir, f"solar-system-{stage}", mapped, payload)
+
+            try:
+                campaign = execute_solar_system_manifest(
+                    manifest,
+                    runner_config={**dict(config), "preset": preset},
+                    cancel_check=lambda: _cancel_requested(job_dir),
+                    progress_callback=solar_progress,
+                )
+            except InterruptedError:
+                _fail_if_cancelled(job_dir)
+                raise
+            _fail_if_cancelled(job_dir)
+            _checkpoint(
+                job_dir,
+                "campaign-computed",
+                0.90,
+                {
+                    "model_variant": "sun-jupiter-saturn-dynamics",
+                    "screening_status": (campaign.get("screening") or {}).get("status"),
+                },
+            )
+            model_variant = "sun-jupiter-saturn-dynamics"
         else:
             from physical_lab_model_campaigns import run_campaign
             campaign = run_campaign(profile, preset)
