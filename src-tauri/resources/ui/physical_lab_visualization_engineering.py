@@ -286,9 +286,11 @@ def render_engineering_visual_controls(st: Any, profile: str) -> dict[str, Any]:
                 f"Capture previous render ({len(last)} comparable charts)",
                 disabled=not bool(last), key=f"pl_viz2_capture_{profile}", width="stretch",
             ):
-                st.session_state[f"__pl_viz2_baseline_{profile}"] = copy.deepcopy(last)
+                baseline = copy.deepcopy(last)
+                st.session_state[f"__pl_viz2_baseline_{profile}"] = baseline
                 st.success("Previous rendered state captured as the session baseline.")
             if b2.button("Clear baseline", disabled=not bool(baseline), key=f"pl_viz2_clear_{profile}", width="stretch"):
+                baseline = []
                 st.session_state.pop(f"__pl_viz2_baseline_{profile}", None)
                 st.success("Cross-run baseline cleared.")
             if overlay and not baseline:
