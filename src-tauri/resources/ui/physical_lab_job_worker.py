@@ -7,6 +7,7 @@ import json
 import os
 import signal
 import sys
+import time
 import traceback
 from pathlib import Path
 from typing import Any, Mapping
@@ -79,8 +80,29 @@ def _fail_if_cancelled(job_dir: Path) -> None:
         raise SystemExit(130)
 
 
-def execute_job(job_dir: Path) -> dict[str, Any]:
+def _wait_for_parent_registration(job_dir: Path, timeout_s: float = 3.0) -> None:
+    """Avoid a fast-worker race that could let the parent overwrite a terminal state.
+
+    The scheduler owns the first transition from queued -> running and records the
+    child PID. The worker does not begin scientific work until that registration is
+    visible. This makes state ownership deterministic even for sub-second jobs.
+    """
+    deadline = time.monotonic() + max(0.25, float(timeout_s))
+    pid = os.getpid()
+    while time.monotonic() < deadline:
+        record = _read_json(job_dir / "job.json")
+        if record.get("status") in {"cancelled", "failed"}:
+            raise SystemExit(130 if record.get("status") == "cancelled" else 1)
+        if record.get("status") == "running" and int(record.get("pid") or 0) == pid:
+            return
+        time.sleep(0.01)
+    raise RuntimeError("worker launch handshake timed out before parent PID registration")
+
+
+def execute_job(job_dir: Path, *, require_parent_handshake: bool = False) -> dict[str, Any]:
     job_dir = job_dir.resolve()
+    if require_parent_handshake:
+        _wait_for_parent_registration(job_dir)
     record = _read_json(job_dir / "job.json")
     manifest = _read_json(job_dir / "manifest.json")
     runner = str(record.get("runner") or "")
@@ -161,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     job_dir = Path(args.job).resolve()
     try:
-        execute_job(job_dir)
+        execute_job(job_dir, require_parent_handshake=True)
         return 0
     except SystemExit as exc:
         return int(exc.code or 1)
