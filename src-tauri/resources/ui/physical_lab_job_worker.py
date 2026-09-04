@@ -155,14 +155,50 @@ def execute_job(job_dir: Path, *, require_parent_handshake: bool = False) -> dic
         preset = str(config.get("preset") or "compact")
         _checkpoint(job_dir, "campaign-starting", 0.25, {"profile": profile, "preset": preset})
         _fail_if_cancelled(job_dir)
-        from physical_lab_model_campaigns import run_campaign
-        campaign = run_campaign(profile, preset)
-        _fail_if_cancelled(job_dir)
-        _checkpoint(job_dir, "campaign-computed", 0.90, {"campaign_sha256": campaign.get("campaign_sha256")})
+
+        from physical_lab_kerr_workflow import is_kerr_manifest
+
+        if is_kerr_manifest(manifest, config):
+            from physical_lab_kerr_workflow import execute_kerr_manifest
+
+            def kerr_progress(stage: str, fraction: float, payload: Mapping[str, Any]) -> None:
+                _fail_if_cancelled(job_dir)
+                mapped = 0.25 + 0.65 * max(0.0, min(float(fraction), 1.0))
+                _checkpoint(job_dir, f"kerr-{stage}", mapped, payload)
+
+            try:
+                campaign = execute_kerr_manifest(
+                    manifest,
+                    preset=preset,
+                    cancel_check=lambda: _cancel_requested(job_dir),
+                    progress_callback=kerr_progress,
+                )
+            except InterruptedError:
+                _fail_if_cancelled(job_dir)
+                raise
+            _fail_if_cancelled(job_dir)
+            _checkpoint(
+                job_dir,
+                "campaign-computed",
+                0.90,
+                {
+                    "model_variant": "kerr-geodesic",
+                    "screening_status": (campaign.get("screening") or {}).get("status"),
+                },
+            )
+            model_variant = "kerr-geodesic"
+        else:
+            from physical_lab_model_campaigns import run_campaign
+            campaign = run_campaign(profile, preset)
+            _fail_if_cancelled(job_dir)
+            _checkpoint(job_dir, "campaign-computed", 0.90, {"campaign_sha256": campaign.get("campaign_sha256")})
+            model_variant = None
+
         output = {
             "schema": "physical-lab-job-result-v1",
             "runner": runner,
             "profile": profile,
+            "model_variant": model_variant,
             "experiment_sha256": manifest.get("experiment_sha256"),
             "result": campaign,
             "completed_at": utc_now(),
