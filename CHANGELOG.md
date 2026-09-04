@@ -2,6 +2,22 @@
 
 All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAJOR.MINOR.PATCH`).
 
+## [0.7.1] - 2026-09-04
+
+### Added
+- Independent analytic planar-undulator resonance benchmark for the accelerator-physics path.
+- Committed reference snapshot for `B0 = 0.05 T`, `lambda_u = 20 mm`, `gamma = 80`.
+- Clean-macOS cross-engine comparison of Radiation Platform fundamental frequency and photon energy against the analytic reference.
+- Consistency check between reported photon energy and `E = h f`, plus comparison against the solver-reported frequency residual.
+
+### Validation
+- Source Integrity now regenerates/checks the accelerator analytic reference snapshot.
+- Full-mode Acceptance now requires the synthetic planar field-map result to agree with the analytic resonance within a declared `5e-4` relative-error bound.
+- Full-mode evidence now includes a separate `cross-engine-physics-benchmark.json` artifact.
+
+### Scientific boundary
+The new benchmark validates one deliberately simple resonance invariant and the associated field-map/unit/runtime path. It does not validate a manufactured undulator, beam distribution, detector, manufacturing yield, or experimental measurement.
+
 ## [0.7.0] - 2026-09-04
 
 ### Added
@@ -31,5 +47,6 @@ The v0.7.0 tolerance pipeline reports finite solver-ensemble behavior. It does n
 - Measurement/provenance bridge, isolated Lab environments, scientific smoke tests, run comparison, and reproducibility export.
 - Universal2 macOS packaging and public v0.4.1-era release infrastructure migrated toward the research-workbench architecture.
 
+[0.7.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.7.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.5.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/releases/tag/Physical-Lab-v0.4.1

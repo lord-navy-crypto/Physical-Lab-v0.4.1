@@ -35,6 +35,15 @@ def main() -> None:
         detail = ", ".join(f"{name}={value}" for name, value in mismatched.items())
         raise SystemExit(f"Physical Lab version drift: expected {canonical}; {detail}")
 
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    first_line = readme.splitlines()[0] if readme.splitlines() else ""
+    if f"Physical Lab v{canonical}" not in first_line:
+        raise SystemExit(f"README title must advertise Physical Lab v{canonical}; found: {first_line!r}")
+
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    if f"## [{canonical}]" not in changelog:
+        raise SystemExit(f"CHANGELOG.md is missing a release section for {canonical}")
+
     workflow = (ROOT / ".github/workflows/macos-universal2-build.yml").read_text(encoding="utf-8")
     if "steps.release_version.outputs.version" not in workflow:
         raise SystemExit("Universal2 workflow must derive artifact names from the resolved release version")
@@ -48,6 +57,8 @@ def main() -> None:
     print(f"Physical Lab version consistency: PASS ({canonical})")
     for name, value in observed.items():
         print(f"  {name}: {value}")
+    print("  README title: aligned")
+    print("  CHANGELOG release section: present")
     print("  Universal2 artifact naming: source-driven")
 
 

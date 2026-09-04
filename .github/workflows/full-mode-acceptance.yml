@@ -13,13 +13,17 @@ on:
       - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
       - 'src-tauri/resources/modules.json'
       - 'scripts/digital_twin_reference_validation.py'
+      - 'scripts/accelerator_reference_benchmark.py'
       - 'docs/digital-twin-reference-validation.json'
+      - 'docs/accelerator-reference-benchmark.json'
   pull_request:
     paths:
       - '.github/workflows/full-mode-acceptance.yml'
       - 'src-tauri/resources/ui/physical_lab_radia_radiation_propagation.py'
       - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
       - 'src-tauri/resources/modules.json'
+      - 'scripts/accelerator_reference_benchmark.py'
+      - 'docs/accelerator-reference-benchmark.json'
 
 permissions:
   contents: read
@@ -144,8 +148,8 @@ jobs:
           y_mm = np.array([-1.0, 0.0, 1.0])
           z_mm = np.linspace(0.0, 80.0, 97)
           B = np.zeros((len(z_mm), len(y_mm), len(x_mm), 3), dtype=float)
-          # Small regular sinusoidal map exercises the exact field-map interface
-          # without claiming this synthetic map is a manufactured magnet.
+          # Small regular sinusoidal planar map exercises the exact field-map
+          # interface and has an independent analytic resonance reference.
           B[..., 1] = 0.05 * np.cos(2.0*np.pi*z_mm[:, None, None] / 20.0)
           np.savez_compressed(work/'cross-engine-field.npz', x_mm=x_mm, y_mm=y_mm, z_mm=z_mm, B_T=B)
           cfg = {
@@ -159,7 +163,7 @@ jobs:
               'observerDistanceM': 50.0,
               'thetaXMrad': 0.0,
               'thetaYMrad': 0.0,
-              'sourceLabel': 'Physical Lab CI synthetic regular field map',
+              'sourceLabel': 'Physical Lab CI synthetic regular planar field map',
           }
           (work/'worker-config.json').write_text(json.dumps(cfg, indent=2), encoding='utf-8')
           PY
@@ -193,6 +197,19 @@ jobs:
           print(json.dumps(evidence, indent=2, sort_keys=True))
           PY
 
+          # Independent physics invariant: the same 0.05 T, 20 mm planar
+          # sinusoidal map has a closed-form on-axis undulator resonance.
+          "$PY" scripts/accelerator_reference_benchmark.py \
+            --worker-output "$WORK/cross-engine-worker.json" \
+            --peak-field-t 0.05 \
+            --period-mm 20.0 \
+            --gamma 80.0 \
+            --max-relative-error 5e-4 \
+            --evidence-out cross-engine-physics-benchmark.json
+
+      - name: Accelerator analytic reference snapshot
+        run: python3 scripts/accelerator_reference_benchmark.py --check
+
       - name: Digital-twin deterministic core
         run: python3 scripts/digital_twin_reference_validation.py --check
 
@@ -203,4 +220,5 @@ jobs:
           path: |
             full-mode-acceptance.json
             cross-engine-acceptance.json
+            cross-engine-physics-benchmark.json
           if-no-files-found: error

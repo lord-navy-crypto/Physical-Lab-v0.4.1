@@ -1,4 +1,4 @@
-# Physical Lab v0.7.0 — Reproducible Computational Physics for macOS
+# Physical Lab v0.7.1 — Reproducible Computational Physics for macOS
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
 
@@ -61,7 +61,7 @@ See [`docs/ORIGINAL_CONTRIBUTIONS.md`](docs/ORIGINAL_CONTRIBUTIONS.md) for the d
 
 All module downloads are now pinned to explicit Git commit revisions in `src-tauri/resources/modules.json`; `physical-lab-source.json` records the revision actually requested for each managed checkout.
 
-## v0.7.0 research layer
+## v0.7.1 research layer
 
 ### Project Workspace
 
@@ -120,13 +120,15 @@ The same core is exposed through `scripts/physical_lab_digital_twin_cli.py`, so 
 
 Source CI still keeps RADIA outside the deterministic source-only reference snapshot. Separately, `.github/workflows/full-mode-acceptance.yml` runs on a clean macOS runner, builds a **pinned RADIA Universal2** revision, verifies `arm64 + x86_64`, evaluates a real native magnetic field with `radia.Fld`, checks symmetry/sanity conditions, reruns the digital-twin reference core, and uploads JSON evidence artifacts.
 
-For v0.7.0 the same acceptance workflow also exercises the cross-engine boundary: a regular 3-D field map is converted through the pinned Radiation Platform `FieldMapInsertionDevice` path and propagated into finite trajectory/radiation observables. This validates the interface and runtime boundary; it does **not** claim validation of a specific manufactured undulator, beam, detector, or radiation experiment.
+The same acceptance workflow exercises the cross-engine boundary: a regular 3-D field map is converted through the pinned Radiation Platform `FieldMapInsertionDevice` path and propagated into finite trajectory/radiation observables. This validates the interface and runtime boundary; it does **not** claim validation of a specific manufactured undulator, beam, detector, or radiation experiment.
+
+**v0.7.1 adds an independent accelerator benchmark.** For the deliberately simple planar case `B0 = 0.05 T`, `lambda_u = 20 mm`, `gamma = 80`, Physical Lab computes the closed-form on-axis undulator resonance and requires the clean-macOS field-map solver's fundamental frequency and photon energy to agree within a declared `5e-4` relative-error bound. The same check verifies `E = h f` consistency and that the solver-reported frequency residual matches the independently computed residual. See [`docs/ACCELERATOR_REFERENCE_BENCHMARK.md`](docs/ACCELERATOR_REFERENCE_BENCHMARK.md).
 
 ## Reproducible reference validation
 
-Source CI runs `scripts/reference_validation.py --check` against committed deterministic reference snapshots. The current snapshot includes Taylor-series error, harmonic-oscillator RK4 return error, exact random-walk MSD, the exact 2-D zero-field Ising critical-temperature reference, and an ideal-undulator first-harmonic reference. **RADIA Full mode is deliberately recorded as not run in source CI** because native 3-D solving is validated separately by the clean-macOS Full-mode acceptance workflow.
+Source CI runs deterministic reference checks against committed snapshots. The current set includes Taylor-series error, harmonic-oscillator RK4 return error, exact random-walk MSD, the exact 2-D zero-field Ising critical-temperature reference, an ideal-undulator first-harmonic reference, the Measurement Digital Twin reference core, and the dedicated planar-undulator accelerator benchmark. **RADIA Full mode is deliberately kept separate from source-only CI** because native 3-D solving is validated by the clean-macOS Full-mode acceptance workflow.
 
-See [`docs/REFERENCE_VALIDATION.md`](docs/REFERENCE_VALIDATION.md) and [`docs/reference-validation.json`](docs/reference-validation.json).
+See [`docs/REFERENCE_VALIDATION.md`](docs/REFERENCE_VALIDATION.md), [`docs/reference-validation.json`](docs/reference-validation.json), and [`docs/accelerator-reference-benchmark.json`](docs/accelerator-reference-benchmark.json).
 
 ## Validation philosophy
 
@@ -157,7 +159,7 @@ A packaged public DMG should still be treated separately from source correctness
 
 ## Source integrity CI
 
-`.github/workflows/source-integrity.yml` checks the repository structure, release-version consistency, JSON manifests, Python syntax, JavaScript syntax, deterministic reference snapshots and the project's source self-check on every push/PR. This does **not** substitute for real-macOS runtime acceptance tests of RADIA or hardware/serial paths.
+`.github/workflows/source-integrity.yml` checks the repository structure, release-version consistency, JSON manifests, Python syntax, JavaScript syntax, deterministic reference snapshots and the project's source self-check on every push/PR. The accelerator analytic snapshot is included in these deterministic checks. This does **not** substitute for real-macOS runtime acceptance tests of RADIA or hardware/serial paths.
 
 ## Current scope
 
@@ -173,7 +175,8 @@ A packaged public DMG should still be treated separately from source correctness
 - [`docs/VALIDATION.md`](docs/VALIDATION.md) — scientific/numerical validation policy.
 - [`docs/RESEARCH_NOTE_RADIATION.md`](docs/RESEARCH_NOTE_RADIATION.md) — reproducible accelerator-physics validation protocol.
 - [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) — workspace/data/reproducibility architecture.
-- [`docs/RADIA_RADIATION_PROPAGATION.md`](docs/RADIA_RADIATION_PROPAGATION.md) — v0.7.0 field → trajectory → radiation tolerance propagation boundary.
+- [`docs/RADIA_RADIATION_PROPAGATION.md`](docs/RADIA_RADIATION_PROPAGATION.md) — field → trajectory → radiation tolerance propagation boundary.
+- [`docs/ACCELERATOR_REFERENCE_BENCHMARK.md`](docs/ACCELERATOR_REFERENCE_BENCHMARK.md) — analytic resonance benchmark and clean-macOS comparison boundary.
 - [`docs/DEPENDENCY_AUDIT.md`](docs/DEPENDENCY_AUDIT.md) — dependency/runtime policy.
 
 ## License
