@@ -1,6 +1,32 @@
 # Changelog
 
-All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAJOR.MINOR.PATCH`).
+All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAUL.MINOR.PATCH`).
+
+## [0.9.0] - 2026-09-04
+
+### Added
+- Automated engineering campaigns for all five non-accelerator Labs, integrated before the existing Engineering V&V/UQ → Engineering Design Workflow → model-specific scorecard chain.
+- Compact and Standard campaign presets with explicit configuration, case records, canonical engineering metrics, deterministic SHA-256 campaign fingerprints, scientific boundary notes, and JSON export.
+- Numerical Error accuracy/cost refinement across Taylor orders plus an independent centered finite-difference convergence-order check.
+- Ising periodic 2-D multi-chain Metropolis campaign with classical R-hat, autocorrelation-based effective sample size, equilibration-drift screening, and an exact periodic 4×4 zero-field checkpoint obtained by enumerating all `2^16` states.
+- Random Walk independent-seed campaign for MSD scaling, diffusion-scale estimator error, and finite-replicate coefficient of variation.
+- Nonlinear Dynamics driven-Duffing timestep refinement, finite Poincaré-response indicator, tangent-dynamics finite-time Lyapunov estimates with renormalization, and energy/work-balance closure.
+- Oscillation RK4 refinement against a closed-form underdamped oscillator reference, including frequency, amplitude, phase, energy/work-balance and timestep-response metrics.
+- `src-tauri/resources/ui/physical_lab_model_campaigns.py`, `scripts/model_campaign_reference_validation.py`, and `docs/AUTOMATED_MODEL_CAMPAIGNS_V090.md`.
+
+### Changed
+- The engineering UI now renders the automated campaign before V&V/UQ so newly generated canonical metrics are discoverable by the same model-specific scorecards in the same Lab workflow.
+- Tauri packaging now includes the model-campaign module.
+- Release metadata advanced coherently to `0.9.0` across `VERSION`, npm, Cargo, Tauri, README and CHANGELOG.
+
+### Validation
+- Source Integrity compiles the new campaign module and deterministic validator.
+- CI executes every Compact campaign and requires all five existing model-specific engineering scorecards to PASS with 100% metric completeness.
+- CI also exercises the Standard nonlinear-chaos campaign because finite-time chaotic diagnostics can be especially sensitive to an inappropriate observation window.
+- Additional invariants verify numerical refinement direction/cost, the Ising exact-reference checkpoint, random-walk MSD exponent recovery, positive finite-time Duffing sensitivity, oscillator analytic-reference refinement, campaign fingerprints, and canonical session-metric export.
+
+### Scientific boundary
+v0.9.0 automates computational verification and finite numerical/stochastic engineering screening. Campaign PASS does not establish experimental validation, product certification, manufacturing yield, population failure probability, global chaos classification, or universal estimator superiority. Ising R-hat/ESS remain finite-sample diagnostics; chaos requirements target finite-window indicators rather than raw long-time coordinate agreement; runtime is descriptive and machine-dependent; and real physical apparatus still requires measurement, calibration and model-form validation.
 
 ## [0.8.1] - 2026-09-04
 
@@ -96,8 +122,9 @@ The v0.7.0 tolerance pipeline reports finite solver-ensemble behavior. It does n
 - Measurement/provenance bridge, isolated Lab environments, scientific smoke tests, run comparison, and reproducibility export.
 - Universal2 macOS packaging and public v0.4.1-era release infrastructure migrated toward the research-workbench architecture.
 
-[0.8.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
+[0.9.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
+[0.8.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lv0.4.1...HEAD
 [0.8.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.7.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
-[0.7.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
+[0.7.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lv0.4.1...HEAD
 [0.5.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/releases/tag/Physical-Lab-v0.4.1
