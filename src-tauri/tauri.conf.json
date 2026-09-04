@@ -60,6 +60,7 @@
       "resources/ui/physical_lab_measurement_registry.py": "ui/physical_lab_measurement_registry.py",
       "resources/ui/physical_lab_compute_engine.py": "ui/physical_lab_compute_engine.py",
       "resources/ui/physical_lab_job_worker.py": "ui/physical_lab_job_worker.py",
+      "resources/ui/physical_lab_diagnostics.py": "ui/physical_lab_diagnostics.py",
       "resources/ui/physical_lab_digital_twin.py": "ui/physical_lab_digital_twin.py",
       "resources/ui/physical_lab_digital_twin_ui.py": "ui/physical_lab_digital_twin_ui.py",
       "resources/ui/physical_lab_radia_adapter.py": "ui/physical_lab_radia_adapter.py",
