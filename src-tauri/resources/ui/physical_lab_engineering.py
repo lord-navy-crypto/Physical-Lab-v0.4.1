@@ -25,6 +25,7 @@ except ModuleNotFoundError:
     if _spec is None or _spec.loader is None:
         raise ImportError(f"Unable to load Physical Lab engineering implementation: {_legacy_path}")
     _legacy = importlib.util.module_from_spec(_spec)
+    sys.modules.setdefault("physical_lab_engineering_legacy", _legacy)
     _spec.loader.exec_module(_legacy)
 
 for _name, _value in vars(_legacy).items():
@@ -40,7 +41,13 @@ def _load_module_by_path(module_name: str, filename: str):
     if spec is None or spec.loader is None:
         raise ImportError(f"Unable to load Physical Lab module: {filename}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        if sys.modules.get(module_name) is module:
+            sys.modules.pop(module_name, None)
+        raise
     return module
 
 
@@ -92,10 +99,9 @@ def _load_kerr_ui_module():
         try:
             import physical_lab_kerr_geodesics  # noqa: F401
         except ModuleNotFoundError:
-            core = _load_module_by_path(
+            _load_module_by_path(
                 "physical_lab_kerr_geodesics", "physical_lab_kerr_geodesics.py"
             )
-            sys.modules["physical_lab_kerr_geodesics"] = core
         return _load_module_by_path(
             "physical_lab_kerr_ui", "physical_lab_kerr_ui.py"
         )
