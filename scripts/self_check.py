@@ -7,7 +7,8 @@ required = [
     'package.json','web/index.html','web/styles.css','web/app.js',
     'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs',
     'src-tauri/src/main.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
-    'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py','src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command'
+    'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py','src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command',
+    'VERSION','scripts/version_consistency.py'
 ]
 missing = [p for p in required if not (root / p).exists()]
 if missing:
@@ -68,10 +69,11 @@ dep_ids={d['id'] for d in deps}
 assert len(deps) >= 17
 assert {'python-runtime','numpy','scipy','pandas','plotly','streamlit','matplotlib','h5py','mpmath','xcode-clt','native-toolchain','cmake','fftw','radia','pychrono','chrono-modal','vampire'} <= dep_ids
 
+canonical_version=(root/'VERSION').read_text().strip()
 conf=json.loads((root/'src-tauri/tauri.conf.json').read_text())
-assert conf['version']=='0.5.0'
-assert json.loads((root/'package.json').read_text())['version']=='0.5.0'
-assert 'version = "0.5.0"' in (root/'src-tauri/Cargo.toml').read_text()
+assert conf['version']==canonical_version
+assert json.loads((root/'package.json').read_text())['version']==canonical_version
+assert f'version = "{canonical_version}"' in (root/'src-tauri/Cargo.toml').read_text()
 assert 'resources/safe_engine_server.py' in conf['bundle']['resources']
 assert 'resources/ui/sitecustomize.py' in conf['bundle']['resources']
 assert 'resources/ui/physical_lab_advanced.py' in conf['bundle']['resources']
@@ -90,7 +92,7 @@ for feature in ['2D sensitivity atlas','Binder cumulant','Twin-trajectory diverg
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in advanced, profile
 
-print('Physical Lab v0.5.0 Research Workspace self-check: PASS')
+print(f'Physical Lab v{canonical_version} Research Workspace self-check: PASS')
 print('Modules: 10 (7 labs + 3 runtime/builders)')
 print('Dependency health catalog:', len(deps), 'items')
 print('Persistent backend logs + data-folder access: configured')
@@ -119,7 +121,7 @@ print('Reproducibility export + task cancellation: configured')
 print('Enhanced simulation profiles: 7')
 print('Responsive KPI/result-card system: configured')
 
-# v0.5.0 public/reproducibility hardening
+# Public/reproducibility hardening
 required_public = [
     'docs/ORIGINAL_CONTRIBUTIONS.md', 'docs/VALIDATION.md', 'docs/RESEARCH_NOTE_RADIATION.md',
     'docs/source-integrity.example.yml', '.github/workflows/source-integrity.yml', 'scripts/reference_validation.py', 'docs/REFERENCE_VALIDATION.md', 'docs/reference-validation.json'
@@ -153,7 +155,7 @@ assert (root/'.github/workflows/full-mode-acceptance.yml').is_file()
 print('Measurement Digital Twin core + project UI: configured')
 print('RADIA Full-mode acceptance workflow: configured')
 
-# v0.6 phase 2: real RADIA measurement adapter + optional local AI explanation bridge
+# Real RADIA measurement adapter + optional local AI explanation bridge
 radia_adapter=(root/'src-tauri/resources/ui/physical_lab_radia_adapter.py').read_text()
 local_ai=(root/'src-tauri/resources/ui/physical_lab_local_ai.py').read_text()
 advanced_text=(root/'src-tauri/resources/ui/physical_lab_advanced.py').read_text()

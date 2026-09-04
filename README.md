@@ -1,4 +1,4 @@
-# Physical Lab v0.5.0 — Reproducible Computational Physics for macOS
+# Physical Lab v0.7.0 — Reproducible Computational Physics for macOS
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
 
@@ -61,7 +61,7 @@ See [`docs/ORIGINAL_CONTRIBUTIONS.md`](docs/ORIGINAL_CONTRIBUTIONS.md) for the d
 
 All module downloads are now pinned to explicit Git commit revisions in `src-tauri/resources/modules.json`; `physical-lab-source.json` records the revision actually requested for each managed checkout.
 
-## v0.5.0 research layer
+## v0.7.0 research layer
 
 ### Project Workspace
 
@@ -102,7 +102,6 @@ For numeric datasets, Physical Lab can report N, mean, sample standard deviation
 
 A reproducibility export packages project state with machine/runtime information, source revisions and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
 
-
 ## Optional Local AI Assistant
 
 Physical Lab can use a **local-only, read-only AI explanation layer** without making AI part of the scientific solver. The assistant discovers either the private OpenPenguin/Ollama runtime at `127.0.0.1:11435` or an existing Ollama service at `127.0.0.1:11434`, sends a bounded structured snapshot of the current Lab state, and can explain parameters, units, assumptions, diagnostics and possible next experiments. It cannot modify parameters, download models, execute model-generated code, or contact a cloud endpoint. Physical Lab remains fully functional when no local model is running.
@@ -119,11 +118,13 @@ The same core is exposed through `scripts/physical_lab_digital_twin_cli.py`, so 
 
 ### Native Full-mode acceptance
 
-Source CI still keeps RADIA outside the deterministic source-only reference snapshot. Separately, `.github/workflows/full-mode-acceptance.yml` runs on a clean macOS runner, builds a **pinned RADIA Universal2** revision, verifies `arm64 + x86_64`, evaluates a real native magnetic field with `radia.Fld`, checks symmetry/sanity conditions, reruns the digital-twin reference core, and uploads a JSON evidence artifact. This proves a small native RADIA Full-mode path works in the acceptance environment; it does **not** claim validation of a specific undulator, manufactured magnet or radiation experiment.
+Source CI still keeps RADIA outside the deterministic source-only reference snapshot. Separately, `.github/workflows/full-mode-acceptance.yml` runs on a clean macOS runner, builds a **pinned RADIA Universal2** revision, verifies `arm64 + x86_64`, evaluates a real native magnetic field with `radia.Fld`, checks symmetry/sanity conditions, reruns the digital-twin reference core, and uploads JSON evidence artifacts.
+
+For v0.7.0 the same acceptance workflow also exercises the cross-engine boundary: a regular 3-D field map is converted through the pinned Radiation Platform `FieldMapInsertionDevice` path and propagated into finite trajectory/radiation observables. This validates the interface and runtime boundary; it does **not** claim validation of a specific manufactured undulator, beam, detector, or radiation experiment.
 
 ## Reproducible reference validation
 
-Source CI runs `scripts/reference_validation.py --check` against committed deterministic reference snapshots. The current snapshot includes Taylor-series error, harmonic-oscillator RK4 return error, exact random-walk MSD, the exact 2-D zero-field Ising critical-temperature reference, and an ideal-undulator first-harmonic reference. **RADIA Full mode is deliberately recorded as not run in source CI** until a native 3-D field solve is available.
+Source CI runs `scripts/reference_validation.py --check` against committed deterministic reference snapshots. The current snapshot includes Taylor-series error, harmonic-oscillator RK4 return error, exact random-walk MSD, the exact 2-D zero-field Ising critical-temperature reference, and an ideal-undulator first-harmonic reference. **RADIA Full mode is deliberately recorded as not run in source CI** because native 3-D solving is validated separately by the clean-macOS Full-mode acceptance workflow.
 
 See [`docs/REFERENCE_VALIDATION.md`](docs/REFERENCE_VALIDATION.md) and [`docs/reference-validation.json`](docs/reference-validation.json).
 
@@ -150,11 +151,13 @@ chmod +x RUN_SOURCE_SELF_CHECK.command BUILD_PHYSICAL_LAB.command
 ./BUILD_PHYSICAL_LAB.command
 ```
 
-The release builder targets a Universal2 macOS application (`arm64` + `x86_64`). A packaged public DMG should be treated separately from source correctness; signing/notarization must be validated on the exact release artifact.
+The release builder targets a Universal2 macOS application (`arm64` + `x86_64`). Release version metadata is anchored by `VERSION` and checked against `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. The Universal2 CI derives artifact names from that version instead of hard-coding a DMG version.
+
+A packaged public DMG should still be treated separately from source correctness; signing/notarization must be validated on the exact release artifact.
 
 ## Source integrity CI
 
-`.github/workflows/source-integrity.yml` checks the repository structure, JSON manifests, Python syntax, JavaScript syntax, deterministic reference snapshots and the project's source self-check on every push/PR. This does **not** substitute for real-macOS runtime acceptance tests of RADIA or hardware/serial paths.
+`.github/workflows/source-integrity.yml` checks the repository structure, release-version consistency, JSON manifests, Python syntax, JavaScript syntax, deterministic reference snapshots and the project's source self-check on every push/PR. This does **not** substitute for real-macOS runtime acceptance tests of RADIA or hardware/serial paths.
 
 ## Current scope
 
@@ -169,7 +172,8 @@ The release builder targets a Universal2 macOS application (`arm64` + `x86_64`).
 - [`docs/ORIGINAL_CONTRIBUTIONS.md`](docs/ORIGINAL_CONTRIBUTIONS.md) — authorship and integration boundary.
 - [`docs/VALIDATION.md`](docs/VALIDATION.md) — scientific/numerical validation policy.
 - [`docs/RESEARCH_NOTE_RADIATION.md`](docs/RESEARCH_NOTE_RADIATION.md) — reproducible accelerator-physics validation protocol.
-- [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) — v0.5 workspace/data/reproducibility architecture.
+- [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) — workspace/data/reproducibility architecture.
+- [`docs/RADIA_RADIATION_PROPAGATION.md`](docs/RADIA_RADIATION_PROPAGATION.md) — v0.7.0 field → trajectory → radiation tolerance propagation boundary.
 - [`docs/DEPENDENCY_AUDIT.md`](docs/DEPENDENCY_AUDIT.md) — dependency/runtime policy.
 
 ## License

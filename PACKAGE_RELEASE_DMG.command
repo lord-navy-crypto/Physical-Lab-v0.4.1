@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Physical Lab — one-click Universal2 DMG packager
-# Designed for Physical Lab v0.5.0+ source trees.
+# Source-versioned release builder; release metadata is validated before packaging.
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.cargo/bin:$HOME/miniforge3/bin:$HOME/miniforge3/condabin:$PATH"
 
@@ -145,6 +145,9 @@ PY
 
 echo "Product: $PRODUCT"
 echo "Version: $VERSION"
+
+say "Release metadata consistency"
+python3 scripts/version_consistency.py
 
 say "Source self-check"
 if [[ -f scripts/self_check.py ]]; then
