@@ -2,10 +2,10 @@
 
 The original Engineering V&V/UQ implementation is retained verbatim in
 ``physical_lab_engineering_legacy``. This facade inserts the project-level
-``.physlab`` workspace, the dual-mode physics application layer and the
-engineering decision lens before delegating to the established engineering
-workflow. Existing public helpers and scientific behavior remain backward
-compatible.
+``.physlab`` workspace, project-bound measurement/calibration evidence, the
+dual-mode physics application layer and the engineering decision lens before
+delegating to the established engineering workflow. Existing public helpers and
+scientific behavior remain backward compatible.
 
 Sibling modules are loadable both through the normal packaged UI import path and
 through path-based deterministic validation, which imports this file directly.
@@ -52,6 +52,16 @@ def _load_project_kernel_module():
         )
 
 
+def _load_measurement_registry_module():
+    try:
+        import physical_lab_measurement_registry as measurement_registry
+        return measurement_registry
+    except ModuleNotFoundError:
+        return _load_module_by_path(
+            "physical_lab_measurement_registry", "physical_lab_measurement_registry.py"
+        )
+
+
 def _load_application_modules():
     try:
         import physical_lab_application_modes as application_modes
@@ -83,6 +93,12 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         project_kernel.render_project_workspace(st, profile, namespace)
     except Exception as exc:
         st.warning(f"Physical Lab Project Kernel could not load: {exc}")
+
+    try:
+        measurement_registry = _load_measurement_registry_module()
+        measurement_registry.render_measurement_workspace(st, profile)
+    except Exception as exc:
+        st.warning(f"Physical Lab Measurement/Calibration Evidence could not load: {exc}")
 
     try:
         application_modes, padded_range = _load_application_modules()
