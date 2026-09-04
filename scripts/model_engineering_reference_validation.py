@@ -30,7 +30,7 @@ def build_payload() -> dict:
         }
 
     convergence_order = eng.estimate_convergence_order(0.04, 0.01, 2.0)
-    stability = eng.replicate_stability([0.99, 1.0]) if False else eng.replicate_stability([0.99, 1.0, 1.01, 1.0])
+    stability = eng.replicate_stability([0.99, 1.0, 1.01, 1.0])
     frontier = eng.cost_accuracy_front([
         {"design": "cheap", "cost": 1.0, "error": 0.10},
         {"design": "balanced", "cost": 2.0, "error": 0.05},
@@ -68,7 +68,7 @@ def check_state_synchronization() -> None:
         existing_rows=None,
         discovered={
             "max_normalized_error": {"value": 0.8, "path": "run.max_normalized_error"},
-            "pass_fraction": {"value": 0.995, "value_source": "auto", "path": "run.pass_fraction"},
+            "pass_fraction": {"value": 0.995, "path": "run.pass_fraction"},
         },
     )
     by_metric = {row["metric"]: row for row in first}
@@ -101,7 +101,7 @@ def check_state_synchronization() -> None:
 
 def check_release_packager_guard() -> None:
     script = (ROOT / "PACKAGE_RELEASE_DMG.command").read_text(encoding="utf-8")
-    assert '$DOWNLOADS/Physical-Lab-v0.4.1' not in script, "stale v0.01 folder must never receive special priority"
+    assert '$DOWNLOADS/Physical-Lab-v0.4.1' not in script, "stale v0.4.1 folder must never receive special priority"
     assert 'version_file = path / "VERSION"' in script, "directory selection must inspect actual source VERSION"
     assert "zip_version(path)" in script, "source ZIP selection must be version-aware"
     assert 'src-tauri" / "tauri.conf.json' in script, "candidate source trees must be structurally validated"
