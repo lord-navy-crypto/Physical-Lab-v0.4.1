@@ -20,7 +20,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check numpy scipy plotly
       - name: Python syntax
         run: |
-          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/version_consistency.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py scripts/accelerator_reference_benchmark.py scripts/engineering_workflow_reference_validation.py scripts/model_engineering_reference_validation.py scripts/model_campaign_reference_validation.py scripts/experiment_kernel_compute_validation.py scripts/physics_application_modes_validation.py scripts/engineering_scenario_layer_validation.py scripts/project_kernel_validation.py scripts/measurement_calibration_validation.py scripts/diagnostics_log_validation.py scripts/kerr_geodesic_validation.py scripts/kerr_platform_workflow_validation.py scripts/physical_lab_project_cli.py scripts/physical_lab_compute_cli.py scripts/measured_field_radiation_validation.py scripts/physical_lab_digital_twin_cli.py scripts/local_ai_reference_validation.py scripts/engineering_reference_validation.py scripts/visualization_reference_validation.py scripts/engineering_visualization_validation.py scripts/nonlinear_tolerance_validation.py scripts/radia_radiation_propagation_validation.py src-tauri/resources/safe_engine_server.py
+          python -m py_compile scripts/prepare.py scripts/self_check.py scripts/version_consistency.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py scripts/accelerator_reference_benchmark.py scripts/engineering_workflow_reference_validation.py scripts/model_engineering_reference_validation.py scripts/model_campaign_reference_validation.py scripts/experiment_kernel_compute_validation.py scripts/physics_application_modes_validation.py scripts/engineering_scenario_layer_validation.py scripts/project_kernel_validation.py scripts/measurement_calibration_validation.py scripts/diagnostics_log_validation.py scripts/kerr_geodesic_validation.py scripts/kerr_platform_workflow_validation.py scripts/solar_system_dynamics_validation.py scripts/physical_lab_project_cli.py scripts/physical_lab_compute_cli.py scripts/measured_field_radiation_validation.py scripts/physical_lab_digital_twin_cli.py scripts/local_ai_reference_validation.py scripts/engineering_reference_validation.py scripts/visualization_reference_validation.py scripts/engineering_visualization_validation.py scripts/nonlinear_tolerance_validation.py scripts/radia_radiation_propagation_validation.py src-tauri/resources/safe_engine_server.py
           python -m py_compile src-tauri/resources/ui/*.py
       - name: JSON manifests
         run: |
@@ -54,6 +54,7 @@ jobs:
           python scripts/diagnostics_log_validation.py
           python scripts/kerr_geodesic_validation.py
           python scripts/kerr_platform_workflow_validation.py
+          python scripts/solar_system_dynamics_validation.py
           python scripts/local_ai_reference_validation.py
           python scripts/engineering_reference_validation.py
           python scripts/visualization_reference_validation.py
