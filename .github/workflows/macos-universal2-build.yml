@@ -30,9 +30,19 @@ jobs:
 
       - name: Source and reference checks
         run: |
+          python scripts/version_consistency.py
           python scripts/reference_validation.py --check
           python scripts/self_check.py
           node --check web/app.js
+
+      - name: Resolve release version
+        id: release_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
 
       - name: Install Tauri CLI dependencies
         run: npm install --no-audit --no-fund
@@ -56,14 +66,16 @@ jobs:
           [[ " $ARCHS " == *" x86_64 "* ]]
           DMG="$(find "$BUNDLE/dmg" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
           test -n "$DMG"
-          shasum -a 256 "$DMG" | tee Physical-Lab-Universal2.sha256.txt
-          cp "$DMG" Physical-Lab-v0.5.0-Universal2.dmg
+          RELEASE_DMG="Physical-Lab-v${{ steps.release_version.outputs.version }}-Universal2.dmg"
+          RELEASE_SHA="Physical-Lab-v${{ steps.release_version.outputs.version }}-Universal2.sha256.txt"
+          cp "$DMG" "$RELEASE_DMG"
+          shasum -a 256 "$RELEASE_DMG" | tee "$RELEASE_SHA"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Physical-Lab-v0.5.0-Universal2
+          name: Physical-Lab-v${{ steps.release_version.outputs.version }}-Universal2
           path: |
-            Physical-Lab-v0.5.0-Universal2.dmg
-            Physical-Lab-Universal2.sha256.txt
+            Physical-Lab-v${{ steps.release_version.outputs.version }}-Universal2.dmg
+            Physical-Lab-v${{ steps.release_version.outputs.version }}-Universal2.sha256.txt
           if-no-files-found: error
           retention-days: 30
