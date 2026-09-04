@@ -45,6 +45,8 @@
       "resources/ui/physical_lab_lattice_phonons.py": "ui/physical_lab_lattice_phonons.py",
       "resources/ui/physical_lab_lattice_workflow.py": "ui/physical_lab_lattice_workflow.py",
       "resources/ui/physical_lab_lattice_ui.py": "ui/physical_lab_lattice_ui.py",
+      "resources/ui/physical_lab_new_model_refinements.py": "ui/physical_lab_new_model_refinements.py",
+      "resources/ui/physical_lab_new_model_refinement_ui.py": "ui/physical_lab_new_model_refinement_ui.py",
       "resources/ui/physical_lab_radia_adapter.py": "ui/physical_lab_radia_adapter.py",
       "resources/ui/physical_lab_radia_tolerance.py": "ui/physical_lab_radia_tolerance.py",
       "resources/ui/physical_lab_radia_radiation_propagation.py": "ui/physical_lab_radia_radiation_propagation.py",
