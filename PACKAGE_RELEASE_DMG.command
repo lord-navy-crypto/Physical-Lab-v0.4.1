@@ -45,6 +45,9 @@ say() {
 }
 
 # Resolve the source tree without asking the user to hunt for paths.
+# Explicit source wins, then the source tree containing this command. Otherwise
+# choose the highest actual source VERSION in ~/Downloads. Historical folder
+# names never receive special priority, which prevents stale-source packaging.
 ROOT="${PHYSICAL_LAB_SOURCE:-}"
 if [[ -n "$ROOT" && ! -d "$ROOT" ]]; then
   fail "PHYSICAL_LAB_SOURCE points to a missing directory: $ROOT"
@@ -54,20 +57,47 @@ if [[ -z "$ROOT" && -f "$SCRIPT_DIR/package.json" && -f "$SCRIPT_DIR/src-tauri/t
   ROOT="$SCRIPT_DIR"
 fi
 
-if [[ -z "$ROOT" && -d "$DOWNLOADS/Physical-Lab-v0.4.1" ]]; then
-  ROOT="$DOWNLOADS/Physical-Lab-v0.4.1"
-fi
-
 if [[ -z "$ROOT" ]]; then
   latest_dir="$(python3 - "$DOWNLOADS" <<'PYSEL'
 from pathlib import Path
-import re, sys
-base=Path(sys.argv[1])
-def version_key(p):
-    m=re.search(r"Physical-Lab-v(\d+(?:\.\d+)*)$", p.name)
-    return tuple(int(x) for x in m.group(1).split('.')) if m else (-1,)
-items=[p for p in base.glob('Physical-Lab-v*') if p.is_dir() and version_key(p)!=(-1,)]
-print(max(items,key=version_key) if items else '')
+import json
+import re
+import sys
+
+base = Path(sys.argv[1])
+semver = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+def parse_version(text):
+    m = semver.fullmatch(str(text).strip())
+    return tuple(int(x) for x in m.groups()) if m else None
+
+def source_version(path):
+    version_file = path / "VERSION"
+    if version_file.is_file():
+        v = parse_version(version_file.read_text(errors="ignore"))
+        if v is not None:
+            return v
+    package_file = path / "package.json"
+    if package_file.is_file():
+        try:
+            v = parse_version(json.loads(package_file.read_text())["version"])
+            if v is not None:
+                return v
+        except Exception:
+            pass
+    m = re.fullmatch(r"Physical-Lab-v(\d+\.\d+\.\d+)", path.name)
+    return parse_version(m.group(1)) if m else None
+
+candidates = []
+for path in base.glob("Physical-Lab-v*"):
+    if not path.is_dir():
+        continue
+    if not (path / "package.json").is_file() or not (path / "src-tauri" / "tauri.conf.json").is_file():
+        continue
+    version = source_version(path)
+    if version is not None:
+        candidates.append((version, str(path)))
+print(max(candidates, default=((), ""))[1])
 PYSEL
 )"
   if [[ -n "$latest_dir" ]]; then
@@ -75,30 +105,70 @@ PYSEL
   fi
 fi
 
-# If the source is still zipped in Downloads, unpack it automatically.
+# If the source is still zipped in Downloads, choose the newest embedded VERSION
+# where possible, then extract it to an isolated cache directory.
 if [[ -z "$ROOT" ]]; then
   latest_zip="$(python3 - "$DOWNLOADS" <<'PYSEL'
 from pathlib import Path
-import re, sys
-base=Path(sys.argv[1])
-def version_key(p):
-    m=re.search(r"Physical-Lab-v(\d+(?:\.\d+)*)-source\.zip$", p.name)
-    return tuple(int(x) for x in m.group(1).split('.')) if m else (-1,)
-items=[p for p in base.glob('Physical-Lab-v*-source.zip') if p.is_file() and version_key(p)!=(-1,)]
-print(max(items,key=version_key) if items else '')
+import re
+import sys
+import zipfile
+
+base = Path(sys.argv[1])
+semver = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+def parse_version(text):
+    m = semver.fullmatch(str(text).strip())
+    return tuple(int(x) for x in m.groups()) if m else None
+
+def zip_version(path):
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = [n for n in zf.namelist() if n == "VERSION" or n.endswith("/VERSION")]
+            if names:
+                name = min(names, key=lambda n: (n.count("/"), len(n)))
+                v = parse_version(zf.read(name).decode("utf-8", errors="ignore"))
+                if v is not None:
+                    return v
+    except Exception:
+        pass
+    m = re.fullmatch(r"Physical-Lab-v(\d+\.\d+\.\d+)-source\.zip", path.name)
+    return parse_version(m.group(1)) if m else None
+
+candidates = []
+for path in base.glob("Physical-Lab-v*-source.zip"):
+    if path.is_file():
+        version = zip_version(path)
+        if version is not None:
+            candidates.append((version, str(path)))
+print(max(candidates, default=((), ""))[1])
 PYSEL
 )"
   if [[ -n "$latest_zip" ]]; then
     say "Extracting Physical Lab source"
-    unzip -q "$latest_zip" -d "$DOWNLOADS"
-    guessed="$(basename "$latest_zip" -source.zip)"
-    if [[ -n "$guessed" && -d "$DOWNLOADS/$guessed" ]]; then
-      ROOT="$DOWNLOADS/$guessed"
-    fi
+    extract_root="$HOME/.cache/physical-lab-release/source-$stamp"
+    mkdir -p "$extract_root"
+    unzip -q "$latest_zip" -d "$extract_root"
+    ROOT="$(python3 - "$extract_root" <<'PYROOT'
+from pathlib import Path
+import sys
+base = Path(sys.argv[1])
+candidates = []
+for package in base.rglob("package.json"):
+    source = package.parent
+    if (source / "src-tauri" / "tauri.conf.json").is_file():
+        candidates.append(source)
+if not candidates:
+    print("")
+else:
+    candidates.sort(key=lambda p: (len(p.relative_to(base).parts), str(p)))
+    print(candidates[0])
+PYROOT
+)"
   fi
 fi
 
-[[ -n "$ROOT" ]] || fail "Could not find a Physical-Lab-v* source folder or source ZIP in ~/Downloads."
+[[ -n "$ROOT" ]] || fail "Could not find a valid Physical Lab source folder or source ZIP in ~/Downloads."
 [[ -f "$ROOT/package.json" ]] || fail "Not a Physical Lab source tree: $ROOT"
 [[ -f "$ROOT/src-tauri/tauri.conf.json" ]] || fail "Missing src-tauri/tauri.conf.json in $ROOT"
 

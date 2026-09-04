@@ -56,6 +56,57 @@ def build_payload() -> dict:
     }
 
 
+def check_state_synchronization() -> None:
+    """Regression checks for the v0.8.1 stale-scorecard failure mode."""
+    nested_table = {"result_table": {"relative_error": {0: 0.0125}}}
+    discovered = eng.discover_metrics_with_provenance("random-walk-monte-carlo", [nested_table])
+    assert math.isclose(discovered["estimator_relative_error"]["value"], 0.0125, abs_tol=1e-15)
+    assert "relative_error" in discovered["estimator_relative_error"]["path"]
+
+    first = eng.synchronize_scorecard_rows(
+        "numerical-methods",
+        existing_rows=None,
+        discovered={
+            "max_normalized_error": {"value": 0.8, "path": "run.max_normalized_error"},
+            "pass_fraction": {"value": 0.995, "path": "run.pass_fraction"},
+        },
+    )
+    by_metric = {row["metric"]: row for row in first}
+    assert by_metric["max_normalized_error"]["auto_value"] == 0.8
+    assert by_metric["max_normalized_error"]["auto_source"] == "run.max_normalized_error"
+    assert by_metric["convergence_order"]["auto_value"] is None
+
+    existing = [dict(row) for row in first]
+    existing_by_metric = {row["metric"]: row for row in existing}
+    existing_by_metric["max_normalized_error"]["manual_override"] = 0.61
+    existing_by_metric["max_normalized_error"]["expanded_uncertainty"] = 0.04
+    existing_by_metric["max_normalized_error"]["upper"] = 0.9
+    refreshed = eng.synchronize_scorecard_rows(
+        "numerical-methods",
+        existing_rows=list(existing_by_metric.values()),
+        discovered={
+            "max_normalized_error": {"value": 0.35, "path": "new_run.max_normalized_error"},
+            "convergence_order": {"value": 3.95, "path": "new_run.observed_order"},
+        },
+    )
+    refreshed_by_metric = {row["metric"]: row for row in refreshed}
+    row = refreshed_by_metric["max_normalized_error"]
+    assert row["auto_value"] == 0.35
+    assert row["auto_source"] == "new_run.max_normalized_error"
+    assert row["manual_override"] == 0.61
+    assert row["expanded_uncertainty"] == 0.04
+    assert row["upper"] == 0.9
+    assert refreshed_by_metric["pass_fraction"]["auto_value"] is None
+
+
+def check_release_packager_guard() -> None:
+    script = (ROOT / "PACKAGE_RELEASE_DMG.command").read_text(encoding="utf-8")
+    assert '$DOWNLOADS/Physical-Lab-v0.4.1' not in script, "stale v0.4.1 folder must never receive special priority"
+    assert 'version_file = path / "VERSION"' in script, "directory selection must inspect actual source VERSION"
+    assert "zip_version(path)" in script, "source ZIP selection must be version-aware"
+    assert 'src-tauri" / "tauri.conf.json' in script, "candidate source trees must be structurally validated"
+
+
 def compare(expected, actual, path="root") -> None:
     if isinstance(expected, dict):
         assert isinstance(actual, dict), f"{path}: expected mapping"
@@ -82,12 +133,13 @@ def main() -> int:
     args = parser.parse_args()
     payload = build_payload()
 
-    # Hard invariants independent of the committed snapshot.
     assert set(payload["scorecards"]) == set(eng.SUPPORTED_PROFILES)
     assert all(item["overall_status"] == "PASS" for item in payload["scorecards"].values())
     assert all(item["metric_completeness"] == 1.0 for item in payload["scorecards"].values())
     assert math.isclose(payload["convergence_order"], 2.0, abs_tol=1e-12)
     assert payload["cost_accuracy_front_indices"] == [0, 1]
+    check_state_synchronization()
+    check_release_packager_guard()
 
     if args.write:
         REFERENCE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -96,7 +148,7 @@ def main() -> int:
     if args.check:
         expected = json.loads(REFERENCE_PATH.read_text())
         compare(expected, payload)
-        print("PASS model-specific engineering reference validation")
+        print("PASS model-specific engineering reference validation + workflow hardening regressions")
         return 0
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0

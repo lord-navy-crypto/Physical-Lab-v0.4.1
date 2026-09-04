@@ -1,11 +1,11 @@
 """Model-specific engineering scorecards for Physical Lab's non-accelerator Labs.
 
-The generic V&V/UQ layer is intentionally kept separate from this module.  These
+The generic V&V/UQ layer is intentionally kept separate from this module. These
 profiles translate each Lab's native scientific diagnostics into engineering
 questions such as requirement margin, convergence, computational efficiency and
 replicate robustness.
 
-All thresholds are editable screening defaults.  They are not standards,
+All thresholds are editable screening defaults. They are not standards,
 certification criteria, experimental validation, or claims of physical-product
 reliability.
 """
@@ -54,8 +54,7 @@ PROFILE_NOTES = {
     ),
 }
 
-# Editable defaults.  The purpose is to provide a meaningful starting scorecard,
-# not to claim a universal standard for every study.
+# Editable defaults. These are useful starting scorecards, not universal standards.
 PROFILE_REQUIREMENTS: dict[str, list[dict[str, Any]]] = {
     "numerical-methods": [
         {"metric": "max_normalized_error", "upper": 1.0, "label": "Worst normalized error"},
@@ -127,6 +126,14 @@ def _finite(value: Any, *, name: str = "value") -> float:
     if not math.isfinite(x):
         raise ValueError(f"{name} must be finite")
     return x
+
+
+def _finite_or_none(value: Any) -> float | None:
+    try:
+        x = float(value)
+        return x if math.isfinite(x) else None
+    except Exception:
+        return None
 
 
 def _quantile(values: list[float], q: float) -> float:
@@ -205,7 +212,9 @@ def cost_accuracy_front(cases: list[dict[str, Any]], *, error_key: str = "error"
         for j, err_j, cost_j in prepared:
             if i == j:
                 continue
-            if err_j <= err_i and cost_j <= cost_i and (err_j < err_i or cost_j < cost_i):
+            no_worse = err_j <= err_i and cost_j <= cost_i
+            strictly_better = err_j < err_i or cost_j < cost_i
+            if no_worse and strictly_better:
                 dominated = True
                 break
         if not dominated:
@@ -291,24 +300,27 @@ def profile_scorecard(
 
 
 def _flatten_numeric(value: Any, prefix: str = "", depth: int = 0) -> dict[str, float]:
-    if depth > 4:
+    """Flatten common Lab/session containers while retaining semantic column names."""
+    if depth > 5:
         return {}
     if isinstance(value, bool):
         return {}
     if isinstance(value, (int, float)):
-        try:
-            x = float(value)
-            return {prefix: x} if prefix and math.isfinite(x) else {}
-        except Exception:
-            return {}
+        x = _finite_or_none(value)
+        return {prefix: x} if prefix and x is not None else {}
     if isinstance(value, dict):
         out: dict[str, float] = {}
-        for key, item in list(value.items())[:200]:
+        for key, item in list(value.items())[:300]:
             child = f"{prefix}.{key}" if prefix else str(key)
             out.update(_flatten_numeric(item, child, depth + 1))
         return out
+    if isinstance(value, (list, tuple)):
+        out: dict[str, float] = {}
+        for index, item in enumerate(list(value)[:300]):
+            child = f"{prefix}.{index}" if prefix else str(index)
+            out.update(_flatten_numeric(item, child, depth + 1))
+        return out
     try:
-        # pandas Series/DataFrame and numpy objects are optional runtime inputs.
         if hasattr(value, "to_dict"):
             return _flatten_numeric(value.to_dict(), prefix, depth + 1)
         if hasattr(value, "item"):
@@ -318,29 +330,90 @@ def _flatten_numeric(value: Any, prefix: str = "", depth: int = 0) -> dict[str, 
     return {}
 
 
-def discover_metrics(profile: str, sources: list[Any]) -> dict[str, float]:
-    """Best-effort discovery of canonical scorecard metrics from current Lab state."""
+def _path_match_rank(path: str, aliases: tuple[str, ...]) -> int | None:
+    aliases_lower = {name.lower() for name in aliases}
+    components = [part.lower() for part in path.split(".") if part]
+    if not components:
+        return None
+    if components[-1] in aliases_lower:
+        return 0
+    if any(part in aliases_lower for part in components):
+        return 1
+    return None
+
+
+def discover_metrics_with_provenance(profile: str, sources: list[Any]) -> dict[str, dict[str, Any]]:
+    """Best-effort canonical metric discovery with source paths for auditability."""
     aliases = PROFILE_ALIASES.get(profile, {})
     flat: dict[str, float] = {}
     for source in sources:
         flat.update(_flatten_numeric(source))
-    found: dict[str, float] = {}
+    found: dict[str, dict[str, Any]] = {}
     for canonical, names in aliases.items():
-        candidates: list[float] = []
-        for key, value in flat.items():
-            leaf = key.rsplit(".", 1)[-1].lower()
-            if leaf in {name.lower() for name in names}:
-                candidates.append(value)
+        candidates: list[tuple[int, int, str, float]] = []
+        for order, (path, value) in enumerate(flat.items()):
+            rank = _path_match_rank(path, names)
+            if rank is not None:
+                candidates.append((rank, order, path, value))
         if not candidates:
             continue
-        # Some canonical metrics are intentionally worst/min aggregates.
+        best_rank = min(item[0] for item in candidates)
+        best = [item for item in candidates if item[0] == best_rank]
         if canonical == "rhat_max":
-            found[canonical] = max(candidates)
+            chosen = max(best, key=lambda item: item[3])
         elif canonical == "effective_samples_min":
-            found[canonical] = min(candidates)
+            chosen = min(best, key=lambda item: item[3])
         else:
-            found[canonical] = candidates[-1]
+            chosen = best[-1]
+        found[canonical] = {"value": chosen[3], "path": chosen[2], "match_rank": chosen[0]}
     return found
+
+
+def discover_metrics(profile: str, sources: list[Any]) -> dict[str, float]:
+    """Backward-compatible value-only metric discovery."""
+    return {name: float(item["value"]) for name, item in discover_metrics_with_provenance(profile, sources).items()}
+
+
+def synchronize_scorecard_rows(
+    profile: str,
+    existing_rows: list[dict[str, Any]] | None,
+    discovered: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Refresh solver-derived values while preserving human overrides and limits.
+
+    v0.8.1 initialized the scorecard only once in Streamlit session state, so a
+    later solver run could leave the table showing stale or empty values. This
+    rebuilds canonical rows every render. Manual overrides, uncertainty and
+    edited limits are preserved; automatic values and provenance are refreshed
+    from the current Lab state and cleared when no current value is discoverable.
+    """
+    if profile not in SUPPORTED_PROFILES:
+        raise ValueError(f"unsupported engineering profile: {profile}")
+    previous = {str(row.get("metric")): dict(row) for row in (existing_rows or []) if row.get("metric")}
+    rows: list[dict[str, Any]] = []
+    for req in PROFILE_REQUIREMENTS[profile]:
+        metric = str(req["metric"])
+        old = previous.get(metric, {})
+        auto = discovered.get(metric, {})
+        rows.append({
+            "metric": metric,
+            "engineering_quantity": old.get("engineering_quantity") or req.get("label", metric),
+            "auto_value": _finite_or_none(auto.get("value")),
+            "auto_source": str(auto.get("path") or ""),
+            "manual_override": _finite_or_none(old.get("manual_override")),
+            "expanded_uncertainty": abs(_finite_or_none(old.get("expanded_uncertainty")) or 0.0),
+            "lower": _finite_or_none(old.get("lower")) if "lower" in old else _finite_or_none(req.get("lower")),
+            "upper": _finite_or_none(old.get("upper")) if "upper" in old else _finite_or_none(req.get("upper")),
+        })
+    return rows
+
+
+def _effective_value(row: dict[str, Any]) -> tuple[float | None, str]:
+    manual = _finite_or_none(row.get("manual_override"))
+    if manual is not None:
+        return manual, "manual"
+    auto = _finite_or_none(row.get("auto_value"))
+    return auto, ("auto" if auto is not None else "missing")
 
 
 def profile_reference_cases() -> dict[str, dict[str, float]]:
@@ -355,7 +428,7 @@ def profile_reference_cases() -> dict[str, dict[str, float]]:
 
 
 def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | None = None) -> None:
-    """Render a domain-specific engineering panel for the five non-accelerator Labs."""
+    """Render a synchronized domain-specific engineering panel."""
     if profile not in SUPPORTED_PROFILES:
         return
     import pandas as pd
@@ -365,7 +438,8 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
     st.markdown(f"## Physical Lab · {PROFILE_TITLES[profile]}")
     st.caption(PROFILE_NOTES[profile])
     st.info(
-        "The defaults below are editable screening targets. Missing metrics produce REVIEW rather than being silently treated as zero or passing."
+        "Automatic values are refreshed from the current Lab state on every render. "
+        "Manual overrides and edited limits are preserved. Missing metrics remain REVIEW."
     )
 
     sources: list[Any] = [namespace or {}]
@@ -373,32 +447,30 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
         sources.append(dict(st.session_state))
     except Exception:
         pass
-    discovered = discover_metrics(profile, sources)
-    reqs = PROFILE_REQUIREMENTS[profile]
-    rows = []
-    for req in reqs:
-        metric = req["metric"]
-        rows.append({
-            "metric": metric,
-            "engineering_quantity": req.get("label", metric),
-            "value": discovered.get(metric, None),
-            "expanded_uncertainty": 0.0,
-            "lower": req.get("lower", None),
-            "upper": req.get("upper", None),
-        })
+    discovered = discover_metrics_with_provenance(profile, sources)
 
     score_tab, convergence_tab, robustness_tab = st.tabs(
         ["Domain scorecard", "Convergence / cost", "Replicate robustness"]
     )
     state_key = f"pl_model_eng_scorecard_{profile}"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = pd.DataFrame(rows)
+    existing_rows: list[dict[str, Any]] = []
+    if state_key in st.session_state:
+        existing = st.session_state[state_key]
+        try:
+            existing_rows = existing.to_dict(orient="records")
+        except Exception:
+            if isinstance(existing, list):
+                existing_rows = [dict(row) for row in existing if isinstance(row, dict)]
+    synced_rows = synchronize_scorecard_rows(profile, existing_rows, discovered)
+    st.session_state[state_key] = pd.DataFrame(synced_rows)
 
     with score_tab:
         if discovered:
-            st.caption("Physical Lab detected some compatible metrics from the current Lab state. Review them before using the screening result.")
+            st.caption(
+                f"Auto-detected {len(discovered)} canonical metric(s). Source paths are shown so the mapping can be audited before screening."
+            )
         else:
-            st.caption("No canonical metrics were auto-detected yet. Enter values from the current run or complete the relevant Lab experiment first.")
+            st.caption("No canonical metrics are currently auto-detected. Complete the relevant Lab run or enter a manual override.")
         edited = st.data_editor(
             st.session_state[state_key],
             width="stretch",
@@ -407,7 +479,9 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
             column_config={
                 "metric": st.column_config.TextColumn("Canonical metric", disabled=True),
                 "engineering_quantity": st.column_config.TextColumn("Engineering quantity", disabled=True),
-                "value": st.column_config.NumberColumn("Value", format="%.8g"),
+                "auto_value": st.column_config.NumberColumn("Current solver value", disabled=True, format="%.8g"),
+                "auto_source": st.column_config.TextColumn("Detected source", disabled=True),
+                "manual_override": st.column_config.NumberColumn("Manual override", format="%.8g"),
                 "expanded_uncertainty": st.column_config.NumberColumn("± expanded uncertainty", min_value=0.0, format="%.6g"),
                 "lower": st.column_config.NumberColumn("Lower target", format="%.8g"),
                 "upper": st.column_config.NumberColumn("Upper target", format="%.8g"),
@@ -417,39 +491,31 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
         metrics: dict[str, float] = {}
         uncertainties: dict[str, float] = {}
         custom_reqs: list[dict[str, Any]] = []
+        source_rows: list[dict[str, Any]] = []
         for row in edited.to_dict(orient="records"):
             metric = str(row.get("metric", ""))
-            value = row.get("value")
-            try:
-                if value is not None and math.isfinite(float(value)):
-                    metrics[metric] = float(value)
-            except Exception:
-                pass
-            try:
-                uncertainties[metric] = abs(float(row.get("expanded_uncertainty") or 0.0))
-            except Exception:
-                uncertainties[metric] = 0.0
-            def clean_limit(v: Any) -> float | None:
-                try:
-                    x = float(v)
-                    return x if math.isfinite(x) else None
-                except Exception:
-                    return None
+            value, source = _effective_value(row)
+            if value is not None:
+                metrics[metric] = value
+            uncertainties[metric] = abs(_finite_or_none(row.get("expanded_uncertainty")) or 0.0)
             custom_reqs.append({
                 "metric": metric,
                 "label": row.get("engineering_quantity") or metric,
-                "lower": clean_limit(row.get("lower")),
-                "upper": clean_limit(row.get("upper")),
+                "lower": _finite_or_none(row.get("lower")),
+                "upper": _finite_or_none(row.get("upper")),
             })
+            source_rows.append({"metric": metric, "effective_source": source, "effective_value": value})
         result = profile_scorecard(profile, metrics, uncertainties=uncertainties, requirements=custom_reqs)
-        a, b, c = st.columns(3)
+        a, b, c, d = st.columns(4)
         a.metric("Overall screening", result["overall_status"])
-        b.metric("Metrics supplied", f"{100*result['metric_completeness']:.0f}%")
+        b.metric("Metrics supplied", f"{100 * result['metric_completeness']:.0f}%")
+        c.metric("Auto-detected now", str(len(discovered)))
         fail_count = sum(r["status"] == "FAIL" for r in result["requirements"])
-        c.metric("Failed nominal targets", str(fail_count))
+        d.metric("Failed nominal targets", str(fail_count))
         display = pd.DataFrame(result["requirements"])
         preferred = [col for col in ["label", "status", "value", "expanded_interval", "lower", "upper", "minimum_margin_after_uncertainty", "reason"] if col in display.columns]
         st.dataframe(display[preferred], width="stretch", hide_index=True)
+        st.dataframe(pd.DataFrame(source_rows), width="stretch", hide_index=True)
         st.caption(result["boundary"])
 
     with convergence_tab:
@@ -466,6 +532,7 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
             st.metric("Observed convergence order p", "—" if order is None else ("∞" if math.isinf(order) and order > 0 else f"{order:.6g}"))
         except Exception as exc:
             st.error(str(exc))
+
         st.markdown("#### Cost ↔ accuracy design points")
         default_cases = pd.DataFrame([
             {"design": "coarse", "cost": 1.0, "error": 0.02},
@@ -475,18 +542,29 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
         cost_key = f"pl_model_eng_cost_{profile}"
         if cost_key not in st.session_state:
             st.session_state[cost_key] = default_cases
-        cost_df = st.data_editor(st.session_state[cost_key], num_rows="dynamic", width="stretch", hide_index=True, key=f"pl_model_eng_cost_editor_{profile}")
+        cost_df = st.data_editor(
+            st.session_state[cost_key], num_rows="dynamic", width="stretch", hide_index=True,
+            key=f"pl_model_eng_cost_editor_{profile}"
+        )
         st.session_state[cost_key] = cost_df
         try:
             cases = cost_df.to_dict(orient="records")
             front = cost_accuracy_front(cases)
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=cost_df["cost"], y=cost_df["error"], mode="markers+text", text=cost_df["design"], textposition="top center", name="designs"))
+            fig.add_trace(go.Scatter(
+                x=cost_df["cost"], y=cost_df["error"], mode="markers+text",
+                text=cost_df["design"], textposition="top center", name="designs"
+            ))
             if front["cases"]:
-                fx = [float(x["cost"]) for x in front["cases"]]
-                fy = [abs(float(x["error"])) for x in front["cases"]]
-                fig.add_trace(go.Scatter(x=fx, y=fy, mode="lines+markers", name="non-dominated frontier"))
-            fig.update_layout(title="Computational cost versus error", xaxis_title="Relative / measured cost", yaxis_title="Error magnitude", height=450)
+                fig.add_trace(go.Scatter(
+                    x=[float(x["cost"]) for x in front["cases"]],
+                    y=[abs(float(x["error"])) for x in front["cases"]],
+                    mode="lines+markers", name="non-dominated frontier"
+                ))
+            fig.update_layout(
+                title="Computational cost versus error", xaxis_title="Relative / measured cost",
+                yaxis_title="Error magnitude", height=450
+            )
             st.plotly_chart(fig, width="stretch")
             st.caption(front["boundary"])
         except Exception as exc:
@@ -497,7 +575,11 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
             "Paste a finite set of seed, chain, timestep, lattice-size, or repeat-run values for the same engineering response. "
             "For chaos, prefer indicators or event statistics rather than raw long-time coordinates."
         )
-        raw = st.text_area("Replicate values (comma or whitespace separated)", value="1.00, 1.02, 0.99, 1.01, 1.00", key=f"pl_model_eng_rep_{profile}")
+        raw = st.text_area(
+            "Replicate values (comma or whitespace separated)",
+            value="1.00, 1.02, 0.99, 1.01, 1.00",
+            key=f"pl_model_eng_rep_{profile}",
+        )
         try:
             values = [float(token) for token in raw.replace(",", " ").split()]
             result = replicate_stability(values)
@@ -505,8 +587,8 @@ def render_model_engineering(st: Any, profile: str, namespace: dict[str, Any] | 
             a.metric("Replicates", str(result["n"]))
             b.metric("Mean", f"{result['mean']:.8g}")
             c.metric("Sample std", f"{result['sample_std']:.6g}")
-            d.metric("CV", "—" if result["coefficient_of_variation"] is None else f"{100*result['coefficient_of_variation']:.4g}%")
-            st.write({k: v for k, v in result.items() if k not in {"boundary"}})
+            d.metric("CV", "—" if result["coefficient_of_variation"] is None else f"{100 * result['coefficient_of_variation']:.4g}%")
+            st.write({k: v for k, v in result.items() if k != "boundary"})
             st.caption(result["boundary"])
         except Exception as exc:
             st.warning(f"Replicate summary unavailable: {exc}")
