@@ -1,10 +1,10 @@
-# Physical Lab v0.8.0 — Reproducible Computational Physics & Engineering for macOS
+# Physical Lab v0.8.1 — Reproducible Computational Physics & Engineering for macOS
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
 
 **Physical Lab is a native macOS research workbench that turns seven computational-physics projects into one reproducible engineering workflow: requirement → model → run → validate → compare → optimize → measure → calibrate → decide.**
 
-It combines numerical-error analysis, Monte Carlo/statistical physics, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the research-software and engineering layer around those solvers: isolated environments, pinned source revisions, ABI-aware native-engine checks, Safe/Full execution, measurement provenance, scientific smoke tests, run comparison, V&V/UQ, requirement screening, robust-design summaries, measured-field residual analysis, batch planning, and reproducibility exports.
+It combines numerical-error analysis, Monte Carlo/statistical physics, stochastic simulation, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the engineering and research-software layer around those solvers: isolated environments, pinned source revisions, Safe/Full execution, scientific smoke tests, measurement provenance, V&V/UQ, model-specific requirement scorecards, convergence/cost analysis, robust-design summaries, measured/model comparison, batch planning, run provenance, and reproducibility exports.
 
 ## 30-second overview
 
@@ -12,15 +12,121 @@ It combines numerical-error analysis, Monte Carlo/statistical physics, nonlinear
 |---|---|
 | What physics does it cover? | Numerical error, Ising/Monte Carlo, random walk/QMC, chaos/Lyapunov analysis, oscillators/integration, RADIA magnetics, undulator radiation |
 | What is the representative deep workflow? | **RADIA Magnet Studio → realized magnetic field → measured/model residual → electron trajectory → Radiation Platform → analytic/reference comparison** |
-| What engineering questions can it answer? | Requirement margin, sensitivity ranking, finite-ensemble robustness, Pareto design comparison, measured-field discrepancy, bounded calibration updates, lightweight thermal coupling, resumable batch planning |
-| How is correctness treated? | Analytic/reference comparisons, bounded scientific smoke tests, uncertainty metrics, explicit model limitations, Safe/Full separation |
-| How is software reliability handled? | Per-Lab `.venv`, PEP 440 compatibility checks, `pip check`, import tests, CPython ABI checks, pinned GitHub revisions, cancellable tasks |
-| Can experiment data enter the platform? | Yes. CSV/TSV/JSON/HDF5 provenance plus bounded Arduino-style serial measurement capture |
+| Are the other Labs engineered too? | **Yes in v0.8.1.** Numerical, Ising, Random Walk, Chaos, and Oscillation now receive domain-specific engineering scorecards, convergence/cost analysis, and finite-replicate robustness tools |
+| What engineering questions can it answer? | Requirement margin, uncertainty budget, sensitivity, convergence, cost↔accuracy tradeoff, finite-ensemble robustness, measured/model discrepancy, Pareto design comparison, bounded calibration, batch planning |
+| How is correctness treated? | Analytic/reference comparisons, scientific smoke tests, explicit model limitations, deterministic reference snapshots, Safe/Full separation |
+| How is software reliability handled? | Per-Lab `.venv`, PEP 440 checks, `pip check`, import tests, CPython ABI checks, pinned revisions, cancellable tasks, Universal2 builds |
+| Can experiment data enter the platform? | Yes. CSV/TSV/JSON/HDF5 provenance plus bounded Arduino-style serial numeric capture |
 | Can results be reproduced? | Projects preserve parameters, source revision, Python/package state, measurements, runs and exportable provenance |
 
-## Representative research path: accelerator physics
+## Seven validated Lab interfaces
 
-Physical Lab's clearest end-to-end example is the accelerator-physics path:
+1. **Numerical Error Analysis** — Taylor evaluation, cancellation, floating-point reliability, reference comparison and convergence diagnostics.
+2. **Ising Monte Carlo Lab** — 1-D/2-D Ising systems, multiple samplers, autocorrelation/ESS, multi-chain diagnostics, finite-size analysis and critical behavior.
+3. **Random Walk & Monte Carlo** — random-walk scaling, first-passage/ensemble analysis, Monte Carlo and scrambled Sobol QMC comparisons.
+4. **Nonlinear Dynamics & Chaos** — driven/double pendula, Lyapunov divergence, stability/flip maps and finite-window chaos diagnostics.
+5. **Oscillation & Numerical Integration** — linear/damped/driven/nonlinear oscillators, Euler/Symplectic/RK2/RK4/DOP853 comparisons and energy-work checks.
+6. **RADIA Magnet Studio** — 3-D magnet geometry, native RADIA field solving, harmonics, field integrals, trajectory/phase metrics and manufacturing-error ensembles.
+7. **Radiation Platform** — magnet-to-trajectory-to-radiation workflow, scan-centric analysis and ideal/reference comparisons.
+
+All managed module downloads are pinned to explicit Git commit revisions in `src-tauri/resources/modules.json`; `physical-lab-source.json` records the revision actually requested for each managed checkout.
+
+## v0.8.1 — model-specific engineering across the other five Labs
+
+v0.8.0 established a shared Engineering Design Workflow. v0.8.1 closes the maturity gap between the accelerator path and the five non-accelerator models by adding a **domain-specific engineering layer** rather than forcing every model into the same generic template.
+
+Each supported Lab receives three common decision views:
+
+- **Domain scorecard** — editable lower/upper targets with PASS / REVIEW / FAIL uncertainty-margin screening. Missing metrics remain REVIEW rather than silently passing.
+- **Convergence / cost** — observed two-level convergence order plus a computational-cost-versus-error non-dominated frontier.
+- **Replicate robustness** — finite seed/chain/timestep/repeat summaries with mean, sample standard deviation, coefficient of variation, p05/median/p95, range and extrema.
+
+The shipped thresholds are transparent starting defaults and are editable. They are **not standards or certification limits**.
+
+### Numerical Error → accuracy & precision engineering
+
+The Numerical Error profile turns floating-point studies into an accuracy/cost design problem. The default scorecard considers:
+
+- worst normalized numerical error;
+- scan pass fraction;
+- observed convergence order.
+
+The cost/accuracy view can compare float32/float64, raw/range-reduced algorithms, Taylor order, reference precision or scan density. A small final Taylor term is not treated as proof that the final answer is accurate; independent/high-precision reference comparison remains decisive.
+
+### Ising Monte Carlo → sampling & criticality engineering
+
+The Ising profile uses the Lab's existing statistical diagnostics rather than counting raw sweeps as if they were independent samples. Its default scorecard considers:
+
+- worst multi-chain R-hat;
+- minimum effective sample size;
+- exact/reference relative discrepancy when a reference exists;
+- equilibration drift in sigma units.
+
+This makes autocorrelation, ESS, equilibration, finite-size behavior and computational work part of the engineering decision.
+
+### Random Walk / Monte Carlo → estimator engineering
+
+The stochastic profile focuses on whether the estimator behaves as expected and whether additional computational work actually buys precision. The default scorecard considers:
+
+- MSD/diffusion scaling-exponent error relative to the target theory used by the study;
+- estimator relative error;
+- finite-replicate coefficient of variation.
+
+It can compare ordinary Monte Carlo, different sample counts/seeds and scrambled-QMC designs on a shared cost↔error plane without claiming universal superiority from one finite benchmark.
+
+### Nonlinear Dynamics & Chaos → robust classification engineering
+
+For chaotic systems, requiring long-time trajectories to remain pointwise identical is usually physically inappropriate. The Chaos profile instead defaults to:
+
+- timestep sensitivity of a selected finite-window indicator;
+- finite-replicate spread of a Lyapunov statistic;
+- relative energy/work-balance error where such a balance is meaningful.
+
+Engineering requirements should preferentially target Lyapunov estimates, Poincaré/event statistics, bifurcation/flip locations, invariants or other finite-window observables—not raw long-time coordinate agreement.
+
+### Oscillation / Integration → dynamic-system engineering
+
+The Oscillation profile maps solver outputs naturally to mechanical/control-style response requirements:
+
+- frequency relative error;
+- amplitude relative error;
+- phase error;
+- energy/work-balance relative error;
+- response change under timestep refinement.
+
+These are useful computational engineering quantities, but real apparatus validation still requires measurements, calibration, and model-form uncertainty evidence.
+
+See [`docs/MULTI_LAB_ENGINEERING_V081.md`](docs/MULTI_LAB_ENGINEERING_V081.md).
+
+## v0.8.0 — shared Engineering Design Workflow
+
+The model-specific profiles sit on top of the common v0.8 engineering foundation rather than replacing it.
+
+### Requirement-driven verification
+
+Named response metrics can be checked against lower and/or upper limits with an explicitly entered symmetric uncertainty interval:
+
+- **PASS** — the full entered interval stays inside the requirement;
+- **REVIEW** — nominal is inside, but the entered interval crosses a limit;
+- **FAIL** — nominal itself violates a limit.
+
+These are engineering-screening labels, not certification claims.
+
+### Sensitivity, optimization and robust design
+
+Physical Lab supports one-at-a-time finite-difference sensitivity ranking, explicit min/max Pareto non-dominated screening, and finite solver/manufacturing ensemble summaries with mean, sample standard deviation, min/max and p05/median/p95. Finite-sample pass fractions are descriptive screening results, not automatically manufacturing yield or certified probabilities of failure.
+
+### Measured-field validation
+
+Co-registered field series can be compared using MAE, RMSE, maximum residual, model-relative RMSE, field-integral difference and uncertainty-normalized residual statistics when pointwise uncertainty is actually supplied. The workflow does not infer missing uncertainty assumptions or label the normalized statistic as chi-square without the needed statistical assumptions.
+
+### Calibration, lightweight multiphysics and batch planning
+
+A bounded model-based update can calculate a next parameter from response error and local sensitivity, but performs **no hardware I/O**. A first-order undulator thermal screen propagates expansion/field-temperature effects into `K` and resonance energy, explicitly without pretending to be structural/thermal FEA. Deterministic case fingerprints, resumable chunks and scheduling-wave estimates provide a batch/HPC boundary without blindly parallelizing native solvers.
+
+See [`docs/ENGINEERING_WORKFLOW_V080.md`](docs/ENGINEERING_WORKFLOW_V080.md).
+
+## Representative deep path: accelerator physics
 
 ```text
 Engineering requirement
@@ -44,172 +150,79 @@ analytic reference + requirement margin + design decision
 
 Safe mode keeps a clearly labeled analytical ideal-undulator fallback available when RADIA is unavailable; it is not presented as a replacement for 3-D magnetic-field solving.
 
-## What I built in Physical Lab
+## Research workspace and reproducibility
 
-Physical Lab is **not a claim that every upstream physics engine was authored here**. The project separates three contribution layers:
-
-1. **Original physics projects and analysis layers** — the seven linked Lab repositories and the Physical Lab advanced experiment suite, including numerical reliability studies, finite-size/statistical diagnostics, QMC comparisons, Lyapunov/stability analysis, integration/error diagnostics, RADIA tolerance ensembles, radiation sensitivity/reference workflows, and the v0.8 engineering-design layer.
-2. **Research-software engineering** — the Tauri/Rust macOS shell, Module/Runtime/Dependency/Task/Integrity centers, isolated environments, Safe/Full engine policy, source pinning, ABI/runtime discovery, scientific smoke tests, cancellation, workspaces, run provenance and reproducibility export.
-3. **Third-party scientific engines** — RADIA, Project Chrono/Chrono::Modal and VAMPIRE retain their own authorship and licenses. RADIA is currently consumed by real Labs; Chrono::Modal and VAMPIRE remain optional adapter boundaries and are intentionally not advertised as active solvers.
-
-See [`docs/ORIGINAL_CONTRIBUTIONS.md`](docs/ORIGINAL_CONTRIBUTIONS.md) for the detailed boundary.
-
-## Seven validated Lab interfaces
-
-- **Numerical Error Analysis** — Taylor evaluation, cancellation, floating-point reliability and convergence diagnostics.
-- **Ising Monte Carlo Lab** — 1-D/2-D Ising systems, samplers, autocorrelation/ESS, Binder-style finite-size analysis and critical behavior.
-- **Random Walk & Monte Carlo** — random-walk scaling, first-passage/ensemble analysis, Monte Carlo and scrambled Sobol QMC comparisons.
-- **Nonlinear Dynamics & Chaos** — driven/double pendula, Lyapunov divergence, stability/flip maps and Poincaré-oriented analysis.
-- **Oscillation & Numerical Integration** — linear/damped/driven/nonlinear oscillators, Euler/Symplectic/RK2/RK4/DOP853 comparisons and energy-work closure.
-- **RADIA Magnet Studio** — 3-D magnet geometry, actual RADIA field solving, harmonics, field integrals, trajectory/phase metrics and manufacturing-error ensembles.
-- **Radiation Platform** — magnet-to-trajectory-to-radiation workflow, scan intelligence and ideal-reference comparisons.
-
-All module downloads are pinned to explicit Git commit revisions in `src-tauri/resources/modules.json`; `physical-lab-source.json` records the revision actually requested for each managed checkout.
-
-## v0.8.0 engineering workflow
-
-Physical Lab v0.8 extends the existing Engineering V&V/UQ panel into a unified **Engineering Design Workflow** available inside the Lab research UI.
-
-### Requirement-driven verification
-
-Named response metrics can be checked against lower and/or upper limits with an explicitly entered symmetric uncertainty interval:
-
-- **PASS** — the whole entered interval stays inside the requirement;
-- **REVIEW** — nominal is inside, but the entered interval crosses a limit;
-- **FAIL** — nominal itself violates a limit.
-
-These are engineering-screening labels, not certification claims.
-
-### Design optimization / Pareto screening
-
-Candidate designs can be compared with explicit `min` / `max` objectives. The workflow identifies the non-dominated Pareto subset without pretending that a finite candidate table proves a global optimum.
-
-### Sensitivity and robust design
-
-One-at-a-time finite-difference cases can be ranked by `|Δy/Δx|`. Solver/manufacturing ensembles can be grouped by design and summarized with mean, sample standard deviation, min/max, p05/median/p95, and finite-sample requirement pass fractions.
-
-Finite-sample pass fractions are descriptive screening results; they are not automatically manufacturing yield or certified probabilities of failure.
-
-### Measured-field validation layer
-
-Co-registered field series can be compared using MAE, RMSE, maximum absolute residual, model-relative RMSE, field-integral difference, and uncertainty-normalized residual statistics when pointwise standard uncertainty is actually supplied.
-
-The workflow does not infer missing uncertainty or distributional assumptions, and it does not label the normalized statistic as chi-square.
-
-### Closed-loop calibration/control foundation
-
-A bounded model-based update computes the next parameter from current parameter, measured response, target response, local response sensitivity and gain. It performs **no hardware I/O**. Any future hardware-in-the-loop adapter must add a device-specific safety boundary before sending commands to physical equipment.
-
-### Lightweight multiphysics coupling
-
-A transparent undulator thermal screen propagates uniform linear expansion and an optional user-entered fractional field-temperature coefficient into period, `K`, resonance wavelength and photon energy. It is a first-order engineering screen, not structural/thermal FEA.
-
-### Batch / HPC foundation
-
-Physical Lab can create deterministic case fingerprints, resumable chunks and minimum scheduling-wave estimates for a requested worker count. Actual concurrent solver execution remains adapter-specific so native engines are not blindly parallelized.
-
-See [`docs/ENGINEERING_WORKFLOW_V080.md`](docs/ENGINEERING_WORKFLOW_V080.md).
-
-## Project Workspace
-
-A `.physlab` project owns:
-
-```text
-project.json
-├── datasets/
-├── measurements/
-├── runs/
-├── figures/
-├── exports/
-├── provenance/
-├── pipelines/
-└── campaigns/
-```
-
-Runs can preserve model parameters, Safe/Full mode, source revision, Python/package state and results, then be compared field-by-field.
+A `.physlab` project owns structured datasets, measurements, runs, figures, exports, provenance, pipelines and campaigns. Runs preserve model parameters, execution mode, source revision, Python/package state and results so they can be compared and reproduced.
 
 ### Measurement bridge
 
-Physical Lab can preserve CSV, TSV, JSON and HDF5 measurements with quantity, unit, sensor, calibration notes, timestamp and SHA-256 provenance. The native macOS build can discover `/dev/cu.*` / `/dev/tty.*` serial devices and perform bounded numeric capture for Arduino-style sensors. This is data acquisition, not arbitrary device control or firmware flashing.
+Physical Lab preserves CSV, TSV, JSON and HDF5 measurements with quantity, unit, sensor, calibration notes, timestamp and SHA-256 provenance. The native macOS build can discover `/dev/cu.*` / `/dev/tty.*` serial devices and perform bounded numeric capture for Arduino-style sensors. This is data acquisition, not arbitrary device control or firmware flashing.
 
 ### Integrity Center
 
-Dependency presence and scientific readiness are deliberately separate:
+Dependency presence and scientific readiness are deliberately separate. Requirement compatibility is checked inside each Lab's `.venv`; global packages do not make a Lab green; repair targets only the selected managed environment; and scientific smoke tests perform small calculations rather than stopping at import success.
 
-- requirement compatibility is checked **inside each Lab's own `.venv`** using PEP 440 semantics;
-- global packages do not make a Lab green;
-- repair targets only the selected managed Lab environment;
-- scientific smoke tests perform small deterministic calculations instead of stopping at `import` success.
+### Run Vault and exports
 
-### Results & validation
-
-For numeric datasets, Physical Lab can report N, mean, sample standard deviation, 95% CI, min/max, and observed/reference metrics including MAE, RMSE, relative RMSE, maximum absolute error and R². Agreement labels are descriptive only; they do not prove which model is physically correct.
-
-### Reproducibility
-
-A reproducibility export packages project state with machine/runtime information, source revisions and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
-
-## Optional Local AI Assistant
-
-Physical Lab can use a **local-only, read-only AI explanation layer** without making AI part of the scientific solver. The assistant discovers either the private OpenPenguin/Ollama runtime at `127.0.0.1:11435` or an existing Ollama service at `127.0.0.1:11434`, sends a bounded structured snapshot of the current Lab state, and can explain parameters, units, assumptions, diagnostics and possible next experiments. It cannot modify parameters, download models, execute model-generated code, or contact a cloud endpoint. Physical Lab remains fully functional when no local model is running.
-
-For RADIA Magnet Studio Full mode, the **RADIA Measurement Adapter** can evaluate the current managed magnet model at explicit measurement coordinates and write lineage-tracked `Bx/By/Bz/Bperp` columns into a derived `.physlab` dataset. A bounded one-parameter profile can repeatedly run the real RADIA forward model over explicit `gap_mm`, `br_t`, or `z_offset_mm` candidates. The best result means only the lowest RMSE on that finite grid; it is not presented as a posterior distribution or global optimum.
+The advanced experiment layer preserves parameter fingerprints, package versions, source revision and bounded result snapshots. Reproducibility exports package project state with machine/runtime information and per-Lab package freezes. See [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md).
 
 ## Measurement Digital Twin
 
-Physical Lab has a shared **measurement → calibration → model → comparison → update** scientific core instead of treating sensor data as a generic file attachment. `physical_lab_digital_twin.py` provides deterministic definitions for linear sensor calibration, measured/model field residuals and field integrals, affine model-discrepancy fitting, transverse beam phase-space/RMS-emittance statistics, and transparent residual-guided remeasurement priorities.
+Physical Lab contains a shared **measurement → calibration → model → comparison → update** core for linear sensor calibration, measured/model field residuals and field integrals, affine discrepancy fitting, transverse beam phase-space/RMS-emittance statistics, and residual-guided remeasurement priorities.
 
-The project-level **Measurement Digital Twin** view is injected into the accelerator/dynamics research layer and reads CSV/TSV datasets directly from `.physlab` workspaces. Calibration results can create lineage-tracked derived datasets; comparison, inverse-fit, phase-space and remeasurement outputs are written back to project provenance. Units and coordinate conventions are never silently inferred.
+For RADIA Magnet Studio Full mode, the RADIA Measurement Adapter evaluates the current managed magnet model at explicit measurement coordinates and can run a bounded one-parameter profile over `gap_mm`, `br_t`, or `z_offset_mm`. The best finite-grid result is not presented as a global optimum or posterior distribution.
 
-The same core is exposed through `scripts/physical_lab_digital_twin_cli.py`, so GUI and scripted workflows share the same mathematical definitions. See [`docs/DIGITAL_TWIN_CORE.md`](docs/DIGITAL_TWIN_CORE.md).
+The same mathematical definitions are exposed through `scripts/physical_lab_digital_twin_cli.py`. See [`docs/DIGITAL_TWIN_CORE.md`](docs/DIGITAL_TWIN_CORE.md).
 
-## Native Full-mode acceptance
+## Optional Local AI Assistant
 
-Source CI keeps RADIA outside the deterministic source-only reference snapshot. Separately, `.github/workflows/full-mode-acceptance.yml` runs on a clean macOS runner, builds a **pinned RADIA Universal2** revision, verifies `arm64 + x86_64`, evaluates a real native magnetic field with `radia.Fld`, checks symmetry/sanity conditions, reruns the deterministic reference cores, and uploads JSON evidence artifacts.
+Physical Lab can use a **local-only, read-only explanation layer** through OpenPenguin/Ollama-compatible localhost services. It receives a bounded structured snapshot and can explain parameters, units, assumptions, diagnostics and possible experiments. It cannot modify Lab parameters, download models, execute model-generated code or contact a cloud endpoint. The scientific workbench remains fully functional without a local model.
 
-The same acceptance workflow exercises the cross-engine boundary: a regular 3-D field map is converted through the pinned Radiation Platform `FieldMapInsertionDevice` path and propagated into finite trajectory/radiation observables. This validates the interface and runtime boundary; it does **not** claim validation of a specific manufactured undulator, beam, detector, or radiation experiment.
+## Validation and CI
 
-### Independent accelerator resonance benchmark
+### Deterministic source validation
 
-For the deliberately simple planar case `B0 = 0.05 T`, `lambda_u = 20 mm`, `gamma = 80`, Physical Lab computes the closed-form on-axis undulator resonance and requires the clean-macOS field-map solver's fundamental frequency and photon energy to agree within a declared `5e-4` relative-error bound. The same check verifies `E = h f` consistency and that the solver-reported frequency residual matches the independently computed residual. See [`docs/ACCELERATOR_REFERENCE_BENCHMARK.md`](docs/ACCELERATOR_REFERENCE_BENCHMARK.md).
+Source Integrity validates syntax, manifests, release-version coherence and committed deterministic reference snapshots. Current reference evidence includes numerical-error behavior, oscillator integration, random-walk MSD, exact 2-D Ising critical temperature, ideal-undulator resonance, the Measurement Digital Twin core, the accelerator resonance benchmark, the v0.8 Engineering Design Workflow, and the v0.8.1 five-profile model-engineering layer.
 
-### v0.8 measured-field-to-radiation acceptance
+`docs/model-engineering-reference-validation.json` and `scripts/model_engineering_reference_validation.py --check` cover all five non-accelerator scorecards plus convergence-order math, finite-replicate statistics, symmetric relative change and cost/error non-dominated filtering.
 
-Full-mode CI now creates a second deterministic **synthetic measurement-like** field map on the exact nominal grid. It contains a small field-amplitude perturbation and a weak third harmonic. Both nominal and perturbed maps are run through the pinned Radiation Platform worker, then `scripts/measured_field_radiation_validation.py` records:
+### Native Full-mode acceptance
 
-- model ↔ measurement-like field RMSE / integral discrepancy;
-- uncertainty-normalized residual screening;
-- fundamental-frequency change;
-- photon-energy change;
-- maximum transverse-excursion change.
+`.github/workflows/full-mode-acceptance.yml` runs separately on clean macOS, builds a pinned RADIA Universal2 revision, verifies `arm64 + x86_64`, evaluates a real native field, exercises the pinned Radiation Platform field-map path, reruns reference cores and uploads JSON evidence.
 
-This proves the software path **field discrepancy → trajectory/radiation discrepancy** is executable on clean macOS. The CI field is synthetic and must not be described as a real magnet measurement.
+For the simple planar reference `B0 = 0.05 T`, `lambda_u = 20 mm`, `gamma = 80`, the accelerator benchmark requires field-map-derived frequency and photon energy to agree with closed form within a declared `5e-4` relative-error bound and verifies `E = h f` consistency.
 
-## Reproducible reference validation
-
-Source CI runs deterministic reference checks against committed snapshots. The current set includes Taylor-series error, harmonic-oscillator RK4 return error, exact random-walk MSD, the exact 2-D zero-field Ising critical-temperature reference, an ideal-undulator first-harmonic reference, the Measurement Digital Twin reference core, the dedicated planar-undulator accelerator benchmark, and the v0.8 Engineering Design Workflow definitions.
-
-**RADIA Full mode is deliberately kept separate from source-only CI** because native 3-D solving is validated by the clean-macOS Full-mode acceptance workflow.
-
-See [`docs/REFERENCE_VALIDATION.md`](docs/REFERENCE_VALIDATION.md), [`docs/reference-validation.json`](docs/reference-validation.json), [`docs/accelerator-reference-benchmark.json`](docs/accelerator-reference-benchmark.json), and [`docs/engineering-workflow-reference-validation.json`](docs/engineering-workflow-reference-validation.json).
+Full-mode CI also creates a deterministic **synthetic measurement-like** perturbed field map, propagates nominal and perturbed fields through Radiation Platform, and records field residuals plus changes in frequency, photon energy and transverse excursion. This proves the software path **field discrepancy → trajectory/radiation discrepancy**; it is not a real magnet measurement.
 
 ## Validation philosophy
 
 Physical Lab follows a simple rule: **a simulation result is not automatically a physical result**.
 
-The project therefore distinguishes:
+The project distinguishes:
 
 - numerical convergence from physical validity;
-- finite-time chaos indicators from global claims;
-- finite QMC comparisons from universal superiority claims;
-- remanent induction from solved undulator field amplitude;
+- editable engineering screening thresholds from external standards or certification;
+- finite seed/chain/ensemble statistics from population failure probabilities or manufacturing yield;
+- finite Ising lattices from the thermodynamic limit;
+- finite stochastic benchmarks from universal estimator superiority;
+- finite-time chaos indicators from global trajectory claims;
+- chaotic trajectory divergence from numerical failure;
 - analytical Safe-mode references from RADIA Full-mode field solutions;
-- synthetic measurement-like CI fixtures from real experimental measurements;
-- finite-ensemble pass fractions from manufacturing yield/probability claims;
+- synthetic measurement-like CI fixtures from real experiments;
 - Pareto non-dominance from proof of global optimality;
-- optional detected runtimes from engines actually consumed by a Lab.
+- optional runtimes from engines actually consumed by a validated Lab.
 
-See [`docs/VALIDATION.md`](docs/VALIDATION.md) and [`docs/RESEARCH_NOTE_RADIATION.md`](docs/RESEARCH_NOTE_RADIATION.md).
+See [`docs/VALIDATION.md`](docs/VALIDATION.md).
+
+## What Physical Lab contributes
+
+Physical Lab does **not** claim that every upstream scientific engine was authored here. Its contribution boundary has three layers:
+
+1. **Original physics projects and analysis layers** — seven linked Lab repositories plus Physical Lab's advanced experiment, V&V/UQ, digital-twin and engineering-decision layers.
+2. **Research-software engineering** — Tauri/Rust macOS shell, Module/Runtime/Dependency/Task/Integrity centers, isolated environments, Safe/Full policy, source pinning, ABI/runtime discovery, scientific smoke tests, cancellation, workspaces, provenance and reproducibility export.
+3. **Third-party scientific engines** — RADIA, Project Chrono/Chrono::Modal and VAMPIRE retain their own authorship/licenses. RADIA is currently consumed by real Labs; Chrono::Modal and VAMPIRE remain optional adapter boundaries rather than advertised active solvers.
+
+See [`docs/ORIGINAL_CONTRIBUTIONS.md`](docs/ORIGINAL_CONTRIBUTIONS.md).
 
 ## Build on macOS
 
@@ -219,33 +232,32 @@ chmod +x RUN_SOURCE_SELF_CHECK.command BUILD_PHYSICAL_LAB.command
 ./BUILD_PHYSICAL_LAB.command
 ```
 
-The release builder targets a Universal2 macOS application (`arm64` + `x86_64`). Release version metadata is anchored by `VERSION` and checked against `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. The Universal2 CI derives artifact names from that version instead of hard-coding a DMG version.
+The release builder targets a Universal2 macOS application (`arm64` + `x86_64`). Release metadata is anchored by `VERSION` and checked against `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, README and CHANGELOG. CI derives artifact names from the canonical version.
 
-A packaged public DMG should still be treated separately from source correctness; signing/notarization must be validated on the exact release artifact.
-
-## Source integrity CI
-
-`.github/workflows/source-integrity.yml` checks repository structure, release-version consistency, JSON manifests, Python syntax, JavaScript syntax, deterministic reference snapshots and the project's source self-check on every push/PR. The accelerator analytic snapshot and Engineering Design Workflow snapshot are included in these deterministic checks. This does **not** substitute for real-macOS runtime acceptance tests of RADIA or hardware/serial paths.
+A packaged public DMG should still be treated separately from source correctness; Developer ID signing and notarization must be validated on the exact public release artifact.
 
 ## Current scope
 
-- macOS desktop application built with Tauri 2 / Rust.
-- Seven current computational-physics Labs.
-- One shared engineering-design workflow layered across the Labs instead of an eighth disconnected Lab.
+- Native macOS desktop application built with Tauri 2 / Rust.
+- Seven computational-physics Labs.
+- Shared Engineering V&V/UQ and Engineering Design Workflow.
+- Five domain-specific non-accelerator engineering profiles in v0.8.1.
 - RADIA is the only fragile native physics engine currently consumed by a real Lab.
-- Chrono::Modal and VAMPIRE remain optional future adapter boundaries; they are not part of the project's primary external description until a validated Lab consumes them.
+- Chrono::Modal and VAMPIRE remain optional future adapter boundaries.
 - The old `radiaition-study` / Radiation Study project is intentionally excluded.
 
 ## Documentation
 
+- [`docs/MULTI_LAB_ENGINEERING_V081.md`](docs/MULTI_LAB_ENGINEERING_V081.md) — v0.8.1 model-specific engineering profiles.
+- [`docs/ENGINEERING_WORKFLOW_V080.md`](docs/ENGINEERING_WORKFLOW_V080.md) — shared requirement → design → robustness → measurement → decision workflow.
+- [`docs/ENGINEERING_SIMULATION.md`](docs/ENGINEERING_SIMULATION.md) — V&V/UQ terminology and engineering-screening layer.
 - [`docs/ORIGINAL_CONTRIBUTIONS.md`](docs/ORIGINAL_CONTRIBUTIONS.md) — authorship and integration boundary.
 - [`docs/VALIDATION.md`](docs/VALIDATION.md) — scientific/numerical validation policy.
-- [`docs/RESEARCH_NOTE_RADIATION.md`](docs/RESEARCH_NOTE_RADIATION.md) — reproducible accelerator-physics validation protocol.
+- [`docs/RESEARCH_NOTE_RADIATION.md`](docs/RESEARCH_NOTE_RADIATION.md) — accelerator-physics validation protocol.
 - [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) — workspace/data/reproducibility architecture.
-- [`docs/RADIA_RADIATION_TOLERANCE_PROPAGATION.md`](docs/RADIA_RADIATION_TOLERANCE_PROPAGATION.md) — field → trajectory → radiation tolerance propagation boundary.
-- [`docs/ACCELERATOR_REFERENCE_BENCHMARK.md`](docs/ACCELERATOR_REFERENCE_BENCHMARK.md) — analytic resonance benchmark and clean-macOS comparison boundary.
-- [`docs/ENGINEERING_SIMULATION.md`](docs/ENGINEERING_SIMULATION.md) — V&V/UQ terminology and original engineering-screening layer.
-- [`docs/ENGINEERING_WORKFLOW_V080.md`](docs/ENGINEERING_WORKFLOW_V080.md) — requirement → design → robustness → measurement → decision workflow.
+- [`docs/RADIA_RADIATION_TOLERANCE_PROPAGATION.md`](docs/RADIA_RADIATION_TOLERANCE_PROPAGATION.md) — field → trajectory → radiation tolerance propagation.
+- [`docs/ACCELERATOR_REFERENCE_BENCHMARK.md`](docs/ACCELERATOR_REFERENCE_BENCHMARK.md) — analytic accelerator reference benchmark.
+- [`docs/DIGITAL_TWIN_CORE.md`](docs/DIGITAL_TWIN_CORE.md) — measurement digital-twin definitions.
 - [`docs/DEPENDENCY_AUDIT.md`](docs/DEPENDENCY_AUDIT.md) — dependency/runtime policy.
 
 ## License
