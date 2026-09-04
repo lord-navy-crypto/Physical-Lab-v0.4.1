@@ -1,6 +1,6 @@
 [package]
 name = "physical-lab"
-version = "0.7.1"
+version = "0.8.0"
 description = "Physical Lab unified computational physics workbench"
 edition = "2021"
 
