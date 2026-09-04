@@ -2,6 +2,34 @@
 
 All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAJOR.MINOR.PATCH`).
 
+## [0.8.0] - 2026-09-04
+
+### Added
+- Integrated Engineering Design Workflow layered on the existing per-Lab V&V/UQ tools.
+- Multi-metric requirement tables with PASS / REVIEW / FAIL screening and explicit uncertainty margins.
+- Pareto non-dominated design comparison for explicit minimize/maximize objectives.
+- One-at-a-time finite-difference sensitivity ranking.
+- Finite-ensemble robust-design summaries with descriptive p05/median/p95 statistics and sample pass fractions.
+- Co-registered model ↔ measured-field residual analysis with RMSE, MAE, maximum residual, field-integral difference, and optional uncertainty-normalized residual metrics.
+- First-order undulator thermal-expansion / field-temperature coupling into K and resonance photon energy.
+- Bounded model-based calibration/control parameter update with no hardware I/O.
+- Deterministic resumable batch/HPC planning with stable case fingerprints, chunking, and scheduling-wave estimates.
+- `docs/ENGINEERING_WORKFLOW_V080.md` and a committed deterministic engineering-workflow reference snapshot.
+
+### Full-mode engineering validation
+- Clean-macOS Full-mode CI now propagates both the nominal synthetic planar field and a deterministic measurement-like perturbed field through the pinned Radiation Platform worker.
+- New evidence connects field residuals to changes in fundamental frequency, photon energy and maximum transverse excursion.
+- The measurement-like CI fixture is explicitly synthetic and is not presented as experimental magnet validation.
+
+### Changed
+- Engineering V&V/UQ UI now exposes the integrated design-workflow tabs directly after the existing error-budget, requirement-margin and simulation↔measurement tools.
+- The Tauri bundle now includes the engineering workflow module.
+- Source Integrity compiles and validates the new engineering core, reference snapshot and measured-field propagation validator.
+- Release metadata advanced coherently to `0.8.0`.
+
+### Scientific boundary
+v0.8.0 adds engineering structure and executable evidence, not certification. Finite-ensemble pass fractions are not automatically manufacturing yield or probability of failure; Pareto membership is not a global optimum claim; the thermal model is not FEA; and the synthetic measurement-like Full-mode fixture is not a real experimental validation dataset.
+
 ## [0.7.1] - 2026-09-04
 
 ### Added
@@ -47,6 +75,7 @@ The v0.7.0 tolerance pipeline reports finite solver-ensemble behavior. It does n
 - Measurement/provenance bridge, isolated Lab environments, scientific smoke tests, run comparison, and reproducibility export.
 - Universal2 macOS packaging and public v0.4.1-era release infrastructure migrated toward the research-workbench architecture.
 
+[0.8.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.7.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.7.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.5.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/releases/tag/Physical-Lab-v0.4.1
