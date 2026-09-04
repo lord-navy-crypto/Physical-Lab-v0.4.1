@@ -1,7 +1,7 @@
 {
   "name": "physical-lab",
   "private": true,
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Physical Lab — unified local computational physics workbench",
   "scripts": {
     "prepare": "python3 scripts/prepare.py",
