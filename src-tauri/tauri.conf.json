@@ -42,6 +42,7 @@
       "resources/ui/physical_lab_solar_system_workflow.py": "ui/physical_lab_solar_system_workflow.py",
       "resources/ui/physical_lab_solar_system_ui.py": "ui/physical_lab_solar_system_ui.py",
       "resources/ui/physical_lab_lattice_dynamics.py": "ui/physical_lab_lattice_dynamics.py",
+      "resources/ui/physical_lab_lattice_phonons.py": "ui/physical_lab_lattice_phonons.py",
       "resources/ui/physical_lab_lattice_workflow.py": "ui/physical_lab_lattice_workflow.py",
       "resources/ui/physical_lab_lattice_ui.py": "ui/physical_lab_lattice_ui.py",
       "resources/ui/physical_lab_radia_adapter.py": "ui/physical_lab_radia_adapter.py",
