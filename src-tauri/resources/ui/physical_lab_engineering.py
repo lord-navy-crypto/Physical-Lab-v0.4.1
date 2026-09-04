@@ -14,6 +14,7 @@ through path-based deterministic validation, which imports this file directly.
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 try:
@@ -88,6 +89,13 @@ def _load_kerr_ui_module():
         import physical_lab_kerr_ui as kerr_ui
         return kerr_ui
     except ModuleNotFoundError:
+        try:
+            import physical_lab_kerr_geodesics  # noqa: F401
+        except ModuleNotFoundError:
+            core = _load_module_by_path(
+                "physical_lab_kerr_geodesics", "physical_lab_kerr_geodesics.py"
+            )
+            sys.modules["physical_lab_kerr_geodesics"] = core
         return _load_module_by_path(
             "physical_lab_kerr_ui", "physical_lab_kerr_ui.py"
         )
