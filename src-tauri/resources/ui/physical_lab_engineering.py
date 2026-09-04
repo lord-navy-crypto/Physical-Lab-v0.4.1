@@ -3,9 +3,10 @@
 The original Engineering V&V/UQ implementation is retained verbatim in
 ``physical_lab_engineering_legacy``. This facade inserts the project-level
 ``.physlab`` workspace, project-bound measurement/calibration evidence, the
-dual-mode physics application layer, engineering decision lens and unified
-Run & Diagnostics Log before delegating to the established engineering workflow.
-Existing public helpers and scientific behavior remain backward compatible.
+dual-mode physics application layer, engineering decision lens, model-specific
+workspaces and unified Run & Diagnostics Log before delegating to the established
+engineering workflow. Existing public helpers and scientific behavior remain
+backward compatible.
 
 Sibling modules are loadable both through the normal packaged UI import path and
 through path-based deterministic validation, which imports this file directly.
@@ -82,6 +83,16 @@ def _load_compute_engine_module():
         )
 
 
+def _load_kerr_ui_module():
+    try:
+        import physical_lab_kerr_ui as kerr_ui
+        return kerr_ui
+    except ModuleNotFoundError:
+        return _load_module_by_path(
+            "physical_lab_kerr_ui", "physical_lab_kerr_ui.py"
+        )
+
+
 def _record_module_exception(source: str, exc: Exception, profile: str) -> None:
     try:
         diagnostics = _load_diagnostics_module()
@@ -122,6 +133,14 @@ def _load_engineering_scenario_module():
 
 
 def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> None:
+    if profile == "nonlinear-chaos":
+        try:
+            kerr_ui = _load_kerr_ui_module()
+            kerr_ui.render_kerr_geodesic_workspace(st, profile)
+        except Exception as exc:
+            _record_module_exception("kerr-geodesic-model", exc, profile)
+            st.warning(f"Physical Lab Kerr Geodesic Dynamics could not load: {exc}")
+
     try:
         project_kernel = _load_project_kernel_module()
         project_kernel.render_project_workspace(st, profile, namespace)
