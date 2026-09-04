@@ -1,0 +1,52 @@
+{
+  "boundary": "These checks validate software definitions and deterministic synthetic cases, not a physical device or certified engineering process.",
+  "checks": {
+    "batch_plan": {
+      "chunk_count": 3,
+      "minimum_scheduling_waves": 2,
+      "pass": true,
+      "unique_fingerprints": 5
+    },
+    "bounded_update": {
+      "next_parameter": 1.025,
+      "pass": true
+    },
+    "measured_field": {
+      "integral_difference": -0.015000000000000013,
+      "pass": true,
+      "rmse": 0.01949358868961794,
+      "uncertainty_normalized_rms": 0.9746794344808969
+    },
+    "pareto": {
+      "designs": [
+        "A",
+        "B",
+        "C"
+      ],
+      "pass": true
+    },
+    "requirements": {
+      "overall_status": "PASS",
+      "pass": true
+    },
+    "robust_design": {
+      "A_pass_fraction": 1.0,
+      "B_pass_fraction": 0.3333333333333333,
+      "pass": true
+    },
+    "sensitivity": {
+      "pass": true,
+      "ranked_parameters": [
+        "gap",
+        "period"
+      ]
+    },
+    "thermal_coupling": {
+      "pass": true,
+      "period_relative": 0.00011999999999989797,
+      "photon_energy_relative": -0.00012102721692497376
+    }
+  },
+  "purpose": "Deterministic verification of requirement, measured-field, sensitivity, Pareto, robust-design, thermal/control and batch-planning definitions.",
+  "schema": "physical-lab-engineering-workflow-reference-v1"
+}
