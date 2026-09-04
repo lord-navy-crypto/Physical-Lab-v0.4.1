@@ -309,3 +309,9 @@ def render_engineering_vvuq(st: Any, profile: str, namespace: dict[str, Any] | N
         render_model_engineering(st, profile, namespace)
     except Exception as exc:
         st.warning(f"Physical Lab model-specific engineering profile could not load: {exc}")
+
+    try:
+        from physical_lab_compute_engine import render_compute_workspace
+        render_compute_workspace(st, profile, namespace)
+    except Exception as exc:
+        st.warning(f"Physical Lab Experiment Kernel / Compute Engine could not load: {exc}")
