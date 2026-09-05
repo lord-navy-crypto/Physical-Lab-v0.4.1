@@ -1,4 +1,4 @@
-# Physical Lab v0.9.0 — Reproducible Computational Physics & Engineering for macOS
+# Physical Lab v0.10.0 — Reproducible Computational Physics & Engineering for macOS
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
 

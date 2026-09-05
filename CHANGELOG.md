@@ -4,6 +4,10 @@ All notable Physical Lab changes are recorded here. Version numbers follow SemVe
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.10.0] - 2026-09-05
+
 ### Added — Evidence-First Engineering Systems
 - **Credibility Passport + Evidence Graph** with explicit PRESENT / PARTIAL / MISSING factors and no aggregate credibility score.
 - **Claim-to-Evidence Matrix** and evidence freshness states, without machine truth/proof verdicts.
@@ -150,6 +154,7 @@ The v0.7.0 tolerance pipeline reports finite solver-ensemble behavior. It does n
 - Measurement/provenance bridge, isolated Lab environments, scientific smoke tests, run comparison, and reproducibility export.
 - Universal2 macOS packaging and public v0.4.1-era release infrastructure migrated toward the research-workbench architecture.
 
+[0.10.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.9.0...Physical-Lab-v0.10.0
 [0.9.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.8.1]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD
 [0.8.0]: https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/compare/Physical-Lab-v0.4.1...HEAD

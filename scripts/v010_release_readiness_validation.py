@@ -24,7 +24,7 @@ ENGINEERING_LAYERS = (
 
 def main() -> int:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    assert version == "0.9.0", f"release-hardening branch must remain pre-bump; found {version}"
+    assert version in {"0.9.0", "0.10.0"}, f"unexpected v0.10 milestone version: {version}"
 
     conf = json.loads((ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
     resources = (conf.get("bundle") or {}).get("resources") or {}
@@ -96,6 +96,13 @@ def main() -> int:
         assert marker in readme, f"README missing release architecture marker: {marker}"
 
     assert "## [Unreleased]" in changelog
+    if version == "0.10.0":
+        assert "## [0.10.0] - 2026-09-05" in changelog
+        first_line = readme.splitlines()[0] if readme.splitlines() else ""
+        assert "Physical Lab v0.10.0" in first_line
+        assert "No unreleased changes." in changelog
+    else:
+        assert "## [0.10.0] - 2026-09-05" not in changelog
     for marker in (
         "Evidence-First Engineering Systems",
         "Engineering Decision Layer",
@@ -108,7 +115,7 @@ def main() -> int:
         assert marker in changelog, f"CHANGELOG missing release marker: {marker}"
 
     print("Physical Lab v0.10 release-readiness contract: PASS")
-    print("- source version remains 0.9.0 pending dedicated release bump: PASS")
+    print(f"- v0.10 milestone release state ({version}): PASS")
     print("- nine Evidence Center tabs: PASS")
     print("- five engineering-systems layers packaged + self-checked: PASS")
     print("- canonical project store / alias retirement boundary: PASS")
