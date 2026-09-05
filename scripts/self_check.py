@@ -8,6 +8,7 @@ required = [
     'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs','src-tauri/src/research_runtime_support.rs','src-tauri/src/research_legacy_impl.rs',
     'src-tauri/src/main.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
     'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py',
+    'src-tauri/resources/ui/physical_lab_builtin_lab_entry.py','src-tauri/resources/ui/physical_lab_builtin_requirements.txt',
     'src-tauri/resources/ui/physical_lab_sitecustomize_base.py',
     'src-tauri/resources/ui/physical_lab_evidence_center_patch.py',
     'src-tauri/resources/ui/physical_lab_evidence_center_ui.py',
@@ -31,10 +32,13 @@ if missing:
 
 mods = json.loads((root/'src-tauri/resources/modules.json').read_text())
 ids = [m['id'] for m in mods]
-assert len(mods) == 10, f'Expected 10 modules, found {len(mods)}'
+assert len(mods) == 13, f'Expected 13 modules, found {len(mods)}'
 assert len(ids) == len(set(ids)), 'Duplicate module ids'
-assert sum(m['kind']=='lab' for m in mods) == 7
+assert sum(m['kind']=='lab' for m in mods) == 10
 assert sum(m['kind']=='runtime' for m in mods) == 3
+bundled_ids={'kerr-geodesics','solar-system-dynamics','honeycomb-lattice'}
+assert {m['id'] for m in mods if m.get('bundled',False)} == bundled_ids
+assert all(not m.get('fragileDependencies') for m in mods if m.get('bundled',False))
 assert all(m['repo'].startswith('lord-navy-crypto/') for m in mods)
 # Old Radiation Study is explicitly out of scope and must never re-enter the app catalog.
 manifest_text=(root/'src-tauri/resources/modules.json').read_text().lower()
@@ -93,6 +97,8 @@ resources=conf['bundle']['resources']
 assert 'resources/safe_engine_server.py' in resources
 for resource in [
     'resources/ui/sitecustomize.py',
+    'resources/ui/physical_lab_builtin_lab_entry.py',
+    'resources/ui/physical_lab_builtin_requirements.txt',
     'resources/ui/physical_lab_sitecustomize_base.py',
     'resources/ui/physical_lab_evidence_center_patch.py',
     'resources/ui/physical_lab_evidence_center_ui.py',
@@ -117,12 +123,18 @@ assert 'physical_lab_evidence_center_patch' in ui_wrapper
 assert 'physical_lab_project_surface_patch' in ui_wrapper
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in ui_base
+for profile in ['kerr-geodesics','solar-system-dynamics','honeycomb-lattice']:
+    assert profile in ui_base, profile
 assert 'pl-result-grid' in ui_base
 assert 'Quick preset' in ui_base
 assert 'PHYSICAL_LAB_UI_PROFILE' in lib
 assert 'ensure_advanced_experiment_hook' in lib
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in lib, profile
+for profile in ['kerr-geodesics','solar-system-dynamics','honeycomb-lattice']:
+    assert profile in lib, profile
+assert 'fn prepare_bundled_lab_source' in lib
+assert 'bundled: bool' in lib
 advanced=(root/'src-tauri/resources/ui/physical_lab_advanced.py').read_text()
 for feature in ['2D sensitivity atlas','Binder cumulant','Twin-trajectory divergence','Run adaptive critical scan','Run stability atlas','Reliability frontier','Diffusion scaling law','Damping × drive atlas','Manufacturing seed ensemble','Driven bifurcation intelligence','Magnetization-distribution microscope']:
     assert feature in advanced, feature
@@ -140,7 +152,8 @@ assert 'render_project_workspace' in project_surface
 assert 'render_advanced_experiments' in project_surface
 
 print(f'Physical Lab v{canonical_version} Research Workspace self-check: PASS')
-print('Modules: 10 (7 labs + 3 runtime/builders)')
+print('Modules: 13 (10 labs + 3 runtime/builders)')
+print('Top-level Labs: 10')
 print('Dependency health catalog:', len(deps), 'items')
 print('Persistent backend logs + data-folder access: configured')
 print('Per-model uninstall + per-task delete: configured')
@@ -170,7 +183,8 @@ for needle2 in ['list_workspaces','import_measurement_dataset','lab_compatibilit
 print('Research workspace + measurement bridge + integrity matrix: configured')
 print('Pipeline contracts + campaign queues + run comparison: configured')
 print('Reproducibility export + task cancellation: configured')
-print('Enhanced simulation profiles: 7')
+print('Enhanced external simulation profiles: 7')
+print('Top-level Labs: 10')
 print('Responsive KPI/result-card system: configured')
 print('Shared Project surface + Evidence Center: configured')
 print('Engineering Systems layers: Decisions + Operations + Quality/Reliability + Risk/Economics + Requirements/Verification configured')
@@ -183,9 +197,12 @@ required_public = [
 for rel in required_public:
     assert (root/rel).is_file(), f'missing public/research file: {rel}'
 for m in mods:
+    if m.get('bundled',False):
+        assert not m.get('revision'), f"{m.get('id')} bundled app source must not masquerade as a network revision"
+        continue
     rev=m.get('revision','')
     assert isinstance(rev,str) and len(rev)==40 and all(c in '0123456789abcdef' for c in rev.lower()), f"{m.get('id')} missing pinned 40-char revision"
-print('Source pinning: 10/10 module revisions pinned')
+print('Network-downloaded source pinning: 10/10 non-bundled module revisions pinned')
 print('Admissions/research README: configured')
 print('Original-contribution boundary: configured')
 print('Validation/research note: configured')

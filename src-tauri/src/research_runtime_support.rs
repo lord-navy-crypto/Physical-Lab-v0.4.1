@@ -125,6 +125,15 @@ fn app_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(p)
 }
 
+fn ui_overlay_dir(app:&AppHandle)->Option<PathBuf>{
+    if let Ok(resource_dir)=app.path().resource_dir(){
+        let p=resource_dir.join("ui");
+        if p.join("sitecustomize.py").is_file(){return Some(p)}
+    }
+    let dev=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/ui");
+    if dev.join("sitecustomize.py").is_file(){Some(dev)}else{None}
+}
+
 fn modules_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_root(app)?.join("modules"))
 }
@@ -215,7 +224,10 @@ fn smoke_script(id:&str)->&'static str{
         "oscillation-integration"=>"import numpy as np; from scipy.integrate import solve_ivp; f=lambda t,y:[y[1],-y[0]]; sol=solve_ivp(f,[0,6.28],[1,0],rtol=1e-8,atol=1e-10); err=abs(sol.y[0,-1]-1); assert sol.success and err<1e-3; print('harmonic oscillator returns near initial state')",
         "radia-magnet-studio"=>"import numpy as np; assert np.isfinite(0.934*1.0*5.0); print('RADIA Lab scientific Python baseline passed')",
         "radiation-platform"=>"import numpy as np; g=1000.; K=1.; lu=0.05; lam=lu*(1+K*K/2)/(2*g*g); assert np.isfinite(lam) and lam>0; print('ideal undulator resonance baseline passed')",
-        _=>"print('No smoke script')"
+        "kerr-geodesics"=>"import numpy as np; from physical_lab_kerr_geodesics import KerrOrbitConfig,integrate_case,result_summary; c=KerrOrbitConfig(spin=0.5,inclination_deg=30.0,particle_type='massive',periapsis=6.5,apoapsis=10.0,lam_max=1.0,samples=200); r=integrate_case(c); s=result_summary(r); assert np.isfinite(float(s['first_integral_residual_max'])); print('bundled Kerr geodesic core passed')",
+        "solar-system-dynamics"=>"import numpy as np; from physical_lab_solar_system_dynamics import SolarSystemConfig,integrate_case; c=SolarSystemConfig(duration_years=0.1,samples=100,max_step_years=0.01); r=integrate_case(c); assert np.isfinite(np.asarray(r['positions_AU'],dtype=float)).all(); print('bundled Sun-Jupiter-Saturn core passed')",
+        "honeycomb-lattice"=>"import numpy as np; from physical_lab_lattice_dynamics import LatticeConfig,build_lattice; m=build_lattice(LatticeConfig(nx=2,ny=2,layers=2,drive_mode='none')); assert len(m.positions)==16 and len(m.inplane_i)>0 and np.isfinite(m.positions).all(); print('bundled honeycomb lattice core passed')",
+        _=>"import sys; print('No scientific smoke script registered',file=sys.stderr); raise SystemExit(3)"
     }
 }
 
@@ -224,7 +236,10 @@ pub fn scientific_smoke_tests(app:AppHandle)->Result<Vec<SmokeResult>,String>{
     for m in lab_specs()?{
         let py=root.join(&m.id).join(".venv/bin/python"); let installed=py.exists(); let start=Instant::now();
         if !installed{out.push(SmokeResult{module_id:m.id,module_name:m.name,installed:false,passed:false,scientific_ready:false,detail:"Lab not installed; smoke test skipped.".into(),duration_ms:start.elapsed().as_millis()});continue}
-        let proc=Command::new(&py).args(["-c",smoke_script(&m.id)]).output();
+        let mut command=Command::new(&py);
+        command.args(["-c",smoke_script(&m.id)]);
+        if let Some(ui)=ui_overlay_dir(&app){command.env("PYTHONPATH",ui);}
+        let proc=command.output();
         match proc{
             Ok(p)=>{let passed=p.status.success();let detail=if passed{String::from_utf8_lossy(&p.stdout).trim().to_string()}else{String::from_utf8_lossy(&p.stderr).trim().to_string()};out.push(SmokeResult{module_id:m.id,module_name:m.name,installed:true,passed,scientific_ready:passed,detail,duration_ms:start.elapsed().as_millis()})},
             Err(e)=>out.push(SmokeResult{module_id:m.id,module_name:m.name,installed:true,passed:false,scientific_ready:false,detail:e.to_string(),duration_ms:start.elapsed().as_millis()})

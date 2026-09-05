@@ -273,6 +273,117 @@
     "revision": "6d19b36304c9d30f9b608214f7cfb9fcbaf941d4"
   },
   {
+    "kind": "lab",
+    "repo": "lord-navy-crypto/Physical-Lab-v0.4.1",
+    "branch": "main",
+    "bundled": true,
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "id": "kerr-geodesics",
+    "name": "Kerr Black Hole Geodesics",
+    "category": "Relativity & Astrophysics",
+    "description": "Strengthened Kerr geodesic workspace with massive and photon orbits, Carter-Mino integration, invariant residuals, verification campaigns and frequency-structure refinement.",
+    "tags": [
+      "Kerr",
+      "Relativity",
+      "Geodesics"
+    ],
+    "safeModeNote": "Uses the Kerr solver and verification UI bundled with this Physical Lab build; no second solver checkout is downloaded.",
+    "fullModeNote": "Same bundled Kerr implementation today. Full mode does not silently substitute a different relativity engine."
+  },
+  {
+    "kind": "lab",
+    "repo": "lord-navy-crypto/Physical-Lab-v0.4.1",
+    "branch": "main",
+    "bundled": true,
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "id": "solar-system-dynamics",
+    "name": "Sun–Jupiter–Saturn Dynamics",
+    "category": "Computational Astrophysics",
+    "description": "Barycentric Sun-Jupiter-Saturn orbital dynamics with Newtonian baseline, bounded 1PN approximation, long-horizon diagnostics, verification workflow and 5:2 commensurability refinement.",
+    "tags": [
+      "Orbital dynamics",
+      "Astrophysics",
+      "N-body"
+    ],
+    "safeModeNote": "Uses the solar-system solver and verification UI bundled with this Physical Lab build; no second solver checkout is downloaded.",
+    "fullModeNote": "Same bundled orbital implementation today. Optional model terms remain explicitly labeled approximations or phenomenological studies."
+  },
+  {
+    "kind": "lab",
+    "repo": "lord-navy-crypto/Physical-Lab-v0.4.1",
+    "branch": "main",
+    "bundled": true,
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "id": "honeycomb-lattice",
+    "name": "Multilayer Honeycomb Lattice",
+    "category": "Materials & Condensed Matter",
+    "description": "Reduced-unit multilayer honeycomb lattice dynamics with stacking, defects, strain, driven/Langevin studies, phonon dispersion, DOS and transport refinement.",
+    "tags": [
+      "Materials",
+      "Phonons",
+      "Lattice dynamics"
+    ],
+    "safeModeNote": "Uses the lattice dynamics and phonon implementation bundled with this Physical Lab build; no second solver checkout is downloaded.",
+    "fullModeNote": "Same bundled reduced-unit lattice model today. It is not relabeled as an ab-initio or calibrated graphene solver."
+  },
+  {
     "id": "radia-runtime",
     "name": "RADIA Universal2 Runtime",
     "category": "Runtime & Builders",
