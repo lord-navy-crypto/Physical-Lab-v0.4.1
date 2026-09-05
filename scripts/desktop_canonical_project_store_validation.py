@@ -77,8 +77,11 @@ def main() -> int:
     resources = (conf.get("bundle") or {}).get("resources") or {}
     assert "resources/ui/physical_lab_workspace_aliases.py" in resources
     startup = (UI / "sitecustomize.py").read_text(encoding="utf-8")
-    assert "ensure_workspace_aliases" in startup
-    assert startup.index("ensure_workspace_aliases") < startup.index("physical_lab_sitecustomize_base")
+    alias_import = "from physical_lab_workspace_aliases import ensure_workspace_aliases"
+    base_import = "import physical_lab_sitecustomize_base"
+    assert alias_import in startup
+    assert base_import in startup
+    assert startup.index(alias_import) < startup.index(base_import)
 
     old_data = os.environ.get("PHYSICAL_LAB_DATA_DIR")
     try:
