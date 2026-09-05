@@ -22,6 +22,12 @@ jobs:
         run: |
           python -m py_compile scripts/prepare.py scripts/self_check.py scripts/version_consistency.py scripts/reference_validation.py scripts/digital_twin_reference_validation.py scripts/accelerator_reference_benchmark.py scripts/engineering_workflow_reference_validation.py scripts/model_engineering_reference_validation.py scripts/model_campaign_reference_validation.py scripts/job_worker_control_validation.py scripts/experiment_kernel_compute_validation.py scripts/physics_application_modes_validation.py scripts/engineering_scenario_layer_validation.py scripts/project_kernel_validation.py scripts/measurement_calibration_validation.py scripts/diagnostics_log_validation.py scripts/kerr_geodesic_validation.py scripts/kerr_platform_workflow_validation.py scripts/solar_system_dynamics_validation.py scripts/honeycomb_lattice_validation.py scripts/new_model_refinement_validation.py scripts/physical_lab_project_cli.py scripts/physical_lab_compute_cli.py scripts/measured_field_radiation_validation.py scripts/physical_lab_digital_twin_cli.py scripts/local_ai_reference_validation.py scripts/engineering_reference_validation.py scripts/visualization_reference_validation.py scripts/engineering_visualization_validation.py scripts/nonlinear_tolerance_validation.py scripts/radia_radiation_propagation_validation.py src-tauri/resources/safe_engine_server.py
           python -m py_compile src-tauri/resources/ui/*.py
+      - name: Generated artifact guard
+        run: |
+          if git ls-files | grep -E '(^|/)__pycache__/|\.py[co]$'; then
+            echo 'Tracked Python bytecode/generated cache files are not allowed.' >&2
+            exit 1
+          fi
       - name: JSON manifests
         run: |
           python -m json.tool src-tauri/resources/modules.json >/dev/null
