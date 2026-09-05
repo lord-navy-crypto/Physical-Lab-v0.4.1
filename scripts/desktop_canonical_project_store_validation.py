@@ -39,7 +39,10 @@ def function_block(text: str, name: str) -> str:
 def main() -> int:
     facade = (ROOT / "src-tauri/src/research.rs").read_text(encoding="utf-8")
     legacy = (ROOT / "src-tauri/src/research_legacy_impl.rs").read_text(encoding="utf-8")
-    assert '#[path = "research_legacy_impl.rs"]' in facade
+    assert '#[path = "research_runtime_support.rs"]' in facade
+    assert '#[path = "research_legacy_impl.rs"]' not in facade
+    assert "mod runtime_support;" in facade
+    assert "mod legacy;" not in facade
     assert len(legacy) > 25_000
 
     create_block = compact(function_block(facade, "create_workspace"))

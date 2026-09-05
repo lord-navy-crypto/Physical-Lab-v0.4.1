@@ -5,7 +5,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 required = [
     'package.json','web/index.html','web/styles.css','web/app.js',
-    'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs',
+    'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs','src-tauri/src/research_runtime_support.rs','src-tauri/src/research_legacy_impl.rs',
     'src-tauri/src/main.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
     'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py',
     'src-tauri/resources/ui/physical_lab_sitecustomize_base.py',
@@ -127,9 +127,14 @@ print('Per-model uninstall + per-task delete: configured')
 print('Old radiaition-study / Radiation Study: hard-excluded')
 
 research=(root/'src-tauri/src/research.rs').read_text()
+runtime_support=(root/'src-tauri/src/research_runtime_support.rs').read_text()
+assert 'SpecifierSet' in runtime_support
+assert '#[path = \"research_legacy_impl.rs\"]' not in research
+assert 'mod legacy;' not in research
+assert 'legacy::' not in research
 for needle2 in [
     'fn create_workspace(', 'fn import_measurement_dataset(', 'fn capture_serial_measurement(',
-    'fn lab_compatibility_matrix(', 'SpecifierSet', 'fn scientific_smoke_tests(',
+    'fn lab_compatibility_matrix(', 'fn scientific_smoke_tests(',
     'fn pipeline_templates(', 'fn create_campaign(', 'fn export_reproducibility_package(',
     'fn validate_dataset_columns(', 'fn adapter_statuses(', 'fn compare_run_snapshots('
 ]:
