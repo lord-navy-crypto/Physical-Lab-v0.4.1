@@ -17,6 +17,9 @@ ENABLED_PROFILES = {
     "random-walk-monte-carlo",
     "nonlinear-chaos",
     "oscillation-integration",
+    "kerr-geodesics",
+    "solar-system-dynamics",
+    "honeycomb-lattice",
     "radiation-platform",
     "radia-magnet-studio",
 }
@@ -250,6 +253,9 @@ if PROFILE in ENABLED_PROFILES:
             "random-walk-monte-carlo": "Random walk / MC",
             "nonlinear-chaos": "Nonlinear chaos",
             "oscillation-integration": "Oscillation",
+            "kerr-geodesics": "Kerr black hole geodesics",
+            "solar-system-dynamics": "Sun–Jupiter–Saturn dynamics",
+            "honeycomb-lattice": "Multilayer honeycomb lattice",
             "radiation-platform": "Radiation workflow",
             "radia-magnet-studio": "RADIA Magnet Studio",
         }

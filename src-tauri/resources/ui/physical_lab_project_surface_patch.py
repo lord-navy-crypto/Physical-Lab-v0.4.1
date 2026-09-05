@@ -1,7 +1,7 @@
 """Mount the shared .physlab Project surface after every managed Lab UI.
 
 The individual upstream Labs remain unchanged. This wrapper extends Physical
-Lab's shared advanced renderer so all seven managed profiles expose the same
+Lab's shared advanced renderer so all ten managed Lab profiles expose the same
 canonical Project Kernel; the Evidence Center patch then extends that Project
 Kernel. During the compatibility period it also performs one non-destructive
 legacy desktop-workspace sync per Streamlit session when session state is
@@ -17,6 +17,9 @@ SUPPORTED_PROFILES = {
     "random-walk-monte-carlo",
     "nonlinear-chaos",
     "oscillation-integration",
+    "kerr-geodesics",
+    "solar-system-dynamics",
+    "honeycomb-lattice",
     "radiation-platform",
     "radia-magnet-studio",
 }

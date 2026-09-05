@@ -25,6 +25,8 @@ struct ModuleSpec {
     repo: String,
     branch: String,
     #[serde(default)]
+    bundled: bool,
+    #[serde(default)]
     revision: Option<String>,
     entrypoint: Option<String>,
     requirements: Option<String>,
@@ -319,7 +321,7 @@ fn python_for_spec(spec: &ModuleSpec) -> Option<String> {
 }
 
 fn python_info() -> (bool, String, Option<String>) {
-    let generic=ModuleSpec{id:"python-probe".into(),name:"Python".into(),category:"Runtime".into(),kind:"runtime".into(),repo:String::new(),branch:String::new(),revision:None,entrypoint:None,requirements:None,launcher:None,runtime_requires:vec![],description:String::new(),tags:vec![],python_requires:Some(">=3.10".into()),verify_imports:vec![],supported_arches:vec![],system_requires:vec![],runtime_excludes:vec![],fragile_dependencies:vec![],safe_backend:"standard".into(),safe_mode_note:String::new(),full_mode_note:String::new()};
+    let generic=ModuleSpec{id:"python-probe".into(),name:"Python".into(),category:"Runtime".into(),kind:"runtime".into(),repo:String::new(),branch:String::new(),bundled:false,revision:None,entrypoint:None,requirements:None,launcher:None,runtime_requires:vec![],description:String::new(),tags:vec![],python_requires:Some(">=3.10".into()),verify_imports:vec![],supported_arches:vec![],system_requires:vec![],runtime_excludes:vec![],fragile_dependencies:vec![],safe_backend:"standard".into(),safe_mode_note:String::new(),full_mode_note:String::new()};
     if let Some(path)=python_for_spec(&generic) { let version=output(&path,&["--version"]).unwrap_or_else(||"Python 3".into()); return (true,version,Some(path)); }
     (false, "Compatible Python 3 not found".into(), None)
 }
@@ -513,6 +515,33 @@ fn run_streaming(app: &AppHandle, task: &str, spec: &ModuleSpec, stage: &str, pe
     if status.success() { Ok(()) } else { Err(format!("{stage} exited with status {status}")) }
 }
 
+fn prepare_bundled_lab_source(app:&AppHandle,task:&str,spec:&ModuleSpec)->Result<PathBuf,String>{
+    if !spec.bundled{return Err(format!("{} is not a bundled Lab",spec.name))}
+    let root=module_root(app,&spec.id)?;
+    fs::create_dir_all(&root).map_err(|e|e.to_string())?;
+    let source=root.join("source");
+    if source.exists(){fs::remove_dir_all(&source).map_err(|e|e.to_string())?;}
+    fs::create_dir_all(&source).map_err(|e|e.to_string())?;
+    let ui=ui_overlay_dir(app).ok_or_else(||"Bundled Physical Lab UI resources are unavailable.".to_string())?;
+    let entry=spec.entrypoint.as_deref().ok_or_else(||format!("{} has no bundled entrypoint",spec.name))?;
+    let requirements=spec.requirements.as_deref().ok_or_else(||format!("{} has no bundled requirements file",spec.name))?;
+    fs::copy(ui.join("physical_lab_builtin_lab_entry.py"),source.join(entry)).map_err(|e|format!("Could not prepare bundled entrypoint for {}: {e}",spec.name))?;
+    fs::copy(ui.join("physical_lab_builtin_requirements.txt"),source.join(requirements)).map_err(|e|format!("Could not prepare bundled requirements for {}: {e}",spec.name))?;
+    fs::write(source.join("README.md"),format!("# {}\n\nThis managed launcher wrapper uses the scientific implementation bundled with Physical Lab v{}.\n",spec.name,env!("CARGO_PKG_VERSION"))).map_err(|e|e.to_string())?;
+    let provenance=serde_json::json!({
+        "schema":"physical-lab-bundled-source-v1",
+        "moduleId":spec.id,
+        "repository":spec.repo,
+        "branch":spec.branch,
+        "appVersion":env!("CARGO_PKG_VERSION"),
+        "preparedAt":chrono::Utc::now().to_rfc3339(),
+        "policy":"bundled-app-resource"
+    });
+    fs::write(source.join("physical-lab-source.json"),serde_json::to_vec_pretty(&provenance).unwrap_or_default()).map_err(|e|e.to_string())?;
+    emit_task(app,task,&spec.id,&spec.name,"Preparing bundled Lab","Running",Some(45.0),"Prepared the app-bundled model host; no external solver repository was downloaded.",false,None);
+    Ok(source)
+}
+
 async fn download_source(app: &AppHandle, task: &str, spec: &ModuleSpec, start_pct: f64, end_pct: f64) -> Result<PathBuf, String> {
     let root = module_root(app, &spec.id)?;
     fs::create_dir_all(&root).map_err(|e| e.to_string())?;
@@ -650,7 +679,7 @@ async fn ensure_radia_for_lab(app:&AppHandle,task:&str,parent:&ModuleSpec)->Resu
 async fn install_inner(app:&AppHandle,task:&str,spec:&ModuleSpec)->Result<(),String>{
     preflight_system(spec)?;
     if spec.kind=="runtime"{download_source(app,task,spec,4.0,42.0).await?;let app2=app.clone();let task2=task.to_string();let spec2=spec.clone();tokio::task::spawn_blocking(move||run_runtime_builder(&app2,&task2,&spec2,None)).await.map_err(|e|e.to_string())??;return Ok(())}
-    download_source(app,task,spec,5.0,50.0).await?;
+    if spec.bundled{prepare_bundled_lab_source(app,task,spec)?;}else{download_source(app,task,spec,5.0,50.0).await?;}
     let app2=app.clone();let task2=task.to_string();let spec2=spec.clone();tokio::task::spawn_blocking(move||ensure_venv_and_requirements(&app2,&task2,&spec2)).await.map_err(|e|e.to_string())??;
     if spec.fragile_dependencies.iter().any(|r|r=="radia") {
         if let Err(e)=ensure_radia_for_lab(app,task,spec).await {
@@ -1085,7 +1114,7 @@ fn launch_module(app: AppHandle, state: State<'_, PhysicalLabState>, module_id: 
         let vpy=venv_python(&app,&module_id)?;
         let radia_dir=radia_dir().unwrap_or_else(||home_dir().join("Desktop/Radia-master/cpp/gcc"));
         let mut pythonpath=String::new();
-        if matches!(module_id.as_str(), "numerical-methods"|"ising-monte-carlo"|"random-walk-monte-carlo"|"nonlinear-chaos"|"oscillation-integration"|"radia-magnet-studio"|"radiation-platform") {
+        if matches!(module_id.as_str(), "numerical-methods"|"ising-monte-carlo"|"random-walk-monte-carlo"|"nonlinear-chaos"|"oscillation-integration"|"radia-magnet-studio"|"radiation-platform"|"kerr-geodesics"|"solar-system-dynamics"|"honeycomb-lattice") {
             if let Some(ui_dir)=ui_overlay_dir(&app){pythonpath.push_str(&ui_dir.to_string_lossy());pythonpath.push(':');}
         }
         pythonpath.push_str(&source.to_string_lossy());

@@ -2,7 +2,7 @@
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
 
-**Physical Lab is a native macOS Evidence-First Engineering Systems Workbench that turns seven computational-physics projects into one reproducible workflow: model / measurement → evidence → engineering decision → operations → quality / reliability → risk / economics → requirements / verification → human review.**
+**Physical Lab is a native macOS Evidence-First Engineering Systems Workbench that turns ten computational-physics and engineering model families into one reproducible workflow: model / measurement → evidence → engineering decision → operations → quality / reliability → risk / economics → requirements / verification → human review.**
 
 It combines numerical-error analysis, Monte Carlo/statistical physics, stochastic simulation, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the engineering and research-software layer around those solvers: isolated environments, pinned source revisions, Safe/Full execution, scientific smoke tests, measurement provenance, V&V/UQ, model-specific requirement scorecards, automated refinement/replicate campaigns, convergence/cost analysis, robust-design summaries, measured/model comparison, batch planning, run provenance, and reproducibility exports.
 
@@ -10,7 +10,7 @@ It combines numerical-error analysis, Monte Carlo/statistical physics, stochasti
 
 | Question | Physical Lab answer |
 |---|---|
-| What physics does it cover? | Numerical error, Ising/Monte Carlo, random walk/QMC, chaos/Lyapunov analysis, oscillators/integration, RADIA magnetics, undulator radiation |
+| What physics does it cover? | Numerical error, Ising/Monte Carlo, random walk/QMC, chaos/Lyapunov analysis, oscillators/integration, Kerr relativity, solar-system dynamics, multilayer lattice/phonons, RADIA magnetics, undulator radiation |
 | What is the representative deep workflow? | **RADIA Magnet Studio → realized magnetic field → measured/model residual → electron trajectory → Radiation Platform → analytic/reference comparison** |
 | Are the other Labs engineered too? | **Yes. v0.9.0 adds one-click automated engineering campaigns for Numerical Error, Ising, Random Walk, Chaos, and Oscillation, with canonical metrics fed directly into their v0.8.1 engineering scorecards** |
 | What engineering questions can it answer? | Requirement margin, uncertainty budget, sensitivity, convergence, cost↔accuracy tradeoff, Pareto decisions, operations/capacity, quality & reliability evidence, risk & economics, requirements & verification planning, measured/model discrepancy, bounded calibration |
@@ -63,17 +63,20 @@ New projects live directly in canonical `projects/*.physlab` stores. The old wor
 
 See `docs/V010_RELEASE_READINESS.md` plus the individual Engineering Systems layer design notes under `docs/`.
 
-## Seven validated Lab interfaces
+## Ten validated Lab interfaces
 
 1. **Numerical Error Analysis** — Taylor evaluation, cancellation, floating-point reliability, reference comparison and convergence diagnostics.
 2. **Ising Monte Carlo Lab** — 1-D/2-D Ising systems, multiple samplers, autocorrelation/ESS, multi-chain diagnostics, finite-size analysis and critical behavior.
 3. **Random Walk & Monte Carlo** — random-walk scaling, first-passage/ensemble analysis, Monte Carlo and scrambled Sobol QMC comparisons.
 4. **Nonlinear Dynamics & Chaos** — driven/double pendula, Lyapunov divergence, stability/flip maps and finite-window chaos diagnostics.
 5. **Oscillation & Numerical Integration** — linear/damped/driven/nonlinear oscillators, Euler/Symplectic/RK2/RK4/DOP853 comparisons and energy-work checks.
-6. **RADIA Magnet Studio** — 3-D magnet geometry, native RADIA field solving, harmonics, field integrals, trajectory/phase metrics and manufacturing-error ensembles.
-7. **Radiation Platform** — magnet-to-trajectory-to-radiation workflow, scan-centric analysis and ideal/reference comparisons.
+6. **Kerr Black Hole Geodesics** — strengthened massive/photon Kerr geodesics, Carter-Mino integration, invariant residuals, verification campaigns and frequency-structure refinement.
+7. **Sun–Jupiter–Saturn Dynamics** — barycentric orbital dynamics, controlled Newtonian/1PN studies, long-horizon diagnostics, V&V workflow and 5:2 commensurability refinement.
+8. **Multilayer Honeycomb Lattice** — reduced-unit multilayer lattice dynamics, stacking/defects/strain, phonon dispersion/DOS and transport refinement.
+9. **RADIA Magnet Studio** — 3-D magnet geometry, native RADIA field solving, harmonics, field integrals, trajectory/phase metrics and manufacturing-error ensembles.
+10. **Radiation Platform** — magnet-to-trajectory-to-radiation workflow, scan-centric analysis and ideal/reference comparisons.
 
-All managed module downloads are pinned to explicit Git commit revisions in `src-tauri/resources/modules.json`; `physical-lab-source.json` records the revision actually requested for each managed checkout.
+The seven external Labs and three runtime/builders remain pinned to explicit Git commit revisions in `src-tauri/resources/modules.json`. Kerr, Solar System and Honeycomb are first-class **bundled Labs**: their strengthened solver/UI implementations ship inside the Physical Lab build, while installation creates only an isolated per-Lab environment and a small managed launcher wrapper. They are not duplicated into a second solver checkout.
 
 ## v0.9.0 — automated engineering campaigns for all five non-accelerator Labs
 

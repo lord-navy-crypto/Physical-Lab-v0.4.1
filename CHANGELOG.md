@@ -4,7 +4,14 @@ All notable Physical Lab changes are recorded here. Version numbers follow SemVe
 
 ## [Unreleased]
 
-No unreleased changes.
+### Restored — first-class bundled scientific Labs
+- Restored **Kerr Black Hole Geodesics**, **Sun–Jupiter–Saturn Dynamics**, and **Multilayer Honeycomb Lattice** as top-level launcher Labs instead of hiding them under nonlinear-chaos / oscillation profiles.
+- The three Labs reuse the already strengthened solver, workflow, UI, verification and Model Refinement implementations shipped inside Physical Lab; no scientific equations were rewritten for this restoration.
+- Added a bundled-Lab installation path that creates an isolated per-Lab Python environment and launcher wrapper without downloading or maintaining a second solver repository.
+- Added a regression contract requiring **10 Labs + 3 runtime/builders** so these model families cannot silently disappear from the catalog again.
+
+### Boundary
+This restoration changes product identity, navigation and environment preparation. Existing numerical/model validity boundaries remain unchanged; first-class visibility does not imply experimental validation, calibrated material properties, astrophysical truth, safety approval or certification.
 
 ## [0.10.0] - 2026-09-05
 

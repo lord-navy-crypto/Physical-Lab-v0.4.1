@@ -307,6 +307,20 @@ def _render_lattice(st: Any) -> None:
     _render_evidence(st, LATTICE_VARIANT)
 
 
+def render_new_model_refinement_for_variant(st: Any, variant: str) -> None:
+    """Render only one strengthened model's refinement/evidence workspace."""
+    st.markdown("---")
+    st.markdown("## Physical Lab · Model Refinement Evidence")
+    if variant == KERR_VARIANT:
+        _render_kerr(st)
+    elif variant == SOLAR_VARIANT:
+        _render_solar(st)
+    elif variant == LATTICE_VARIANT:
+        _render_lattice(st)
+    else:
+        raise ValueError(f"unsupported refinement model variant: {variant}")
+
+
 def render_new_model_refinement_workspace(st: Any, profile: str) -> None:
     if profile not in {"nonlinear-chaos", "oscillation-integration"}:
         return
