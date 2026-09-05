@@ -79,13 +79,12 @@ def main() -> int:
     assert "create_alias(&alias,&dir)?" in create_block
     assert "summary_from_dir(&dir)" in create_block
 
-    for name in (
-        "capture_serial_measurement",
-    ):
-        block = compact(function_block(text, name))
-        assert "ensure_alias_for_id" in block, (
-            f"{name} still delegates through legacy storage and must create alias on demand"
-        )
+    serial_block = compact(function_block(text, "capture_serial_measurement"))
+    assert "resolve_project_dir" in serial_block
+    assert "capture_serial_measurement_to_dir" in serial_block
+    assert "ensure_alias_for_id" not in serial_block
+    assert "legacy::" not in serial_block
+    assert text.count("ensure_alias_for_id(") == 1, "compatibility alias helper must have no command callers"
 
     touch_block = compact(
         text[
@@ -109,7 +108,7 @@ def main() -> int:
     print("- Run list/compare: canonical/legacy direct read")
     print("- Campaign list: canonical/legacy direct read")
     print("- compatibility symlink ignored by read discovery")
-    print("- legacy write/computation delegates remain on-demand only")
+    print("- no project command requires the compatibility alias helper")
     print("- canonical updated_at + Measurement Evidence write-back no longer depend on alias identity")
     print("Boundary: this changes project path resolution only; run/dataset/campaign semantics are not promoted into canonical scientific evidence by reading them.")
     return 0

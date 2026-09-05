@@ -1242,6 +1242,84 @@ fn list_campaigns_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
     Ok(output)
 }
 
+fn capture_serial_measurement_to_dir(
+    app: &AppHandle,
+    project_dir: &Path,
+    canonical: bool,
+    device: &str,
+    baud: u32,
+    seconds: u64,
+    name: &str,
+    quantity: &str,
+    unit: &str,
+    sensor: &str,
+) -> Result<DatasetSummary, String> {
+    if !device.starts_with("/dev/cu.") && !device.starts_with("/dev/tty.") {
+        return Err("Only macOS serial devices under /dev/cu.* or /dev/tty.* are accepted.".into());
+    }
+    if !Path::new(device).exists() {
+        return Err("Serial device not found.".into());
+    }
+    let secs = seconds.clamp(1, 300);
+    let baud_text = baud.to_string();
+    let _ = Command::new("/bin/stty")
+        .args(["-f", device, baud_text.as_str(), "raw", "-echo"])
+        .status();
+    let temporary = app_root(app)?.join(format!("serial-{}.csv", Local::now().timestamp_millis()));
+    let code = r#"import os,sys,select,time
+p=sys.argv[1]; secs=float(sys.argv[2]); out=sys.argv[3]
+fd=os.open(p,os.O_RDONLY|os.O_NONBLOCK)
+end=time.time()+secs; buf=b''
+with open(out,'w',encoding='utf-8') as f:
+ f.write('timestamp,value\n')
+ while time.time()<end:
+  r,_,_=select.select([fd],[],[],0.2)
+  if not r: continue
+  try: chunk=os.read(fd,4096)
+  except BlockingIOError: continue
+  if not chunk: continue
+  buf+=chunk
+  while b'\n' in buf:
+   line,buf=buf.split(b'\n',1); s=line.decode('utf-8','ignore').strip()
+   if not s: continue
+   try: v=float(s.split(',')[-1].strip())
+   except: continue
+   f.write(f'{time.time():.6f},{v}\n'); f.flush()
+os.close(fd)
+"#;
+    let python = command_text("/usr/bin/which", &["python3"])
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "python3".into());
+    let secs_text = secs.to_string();
+    let temporary_text = temporary.to_string_lossy().to_string();
+    let status = Command::new(python.trim())
+        .args([
+            "-c",
+            code,
+            device,
+            secs_text.as_str(),
+            temporary_text.as_str(),
+        ])
+        .status()
+        .map_err(|e| e.to_string())?;
+    if !status.success() {
+        let _ = fs::remove_file(&temporary);
+        return Err("Serial capture failed. Check device permissions and baud rate.".into());
+    }
+    let result = import_measurement_dataset_to_dir(
+        project_dir,
+        canonical,
+        temporary.to_string_lossy().as_ref(),
+        name,
+        quantity,
+        unit,
+        sensor,
+        &format!("Serial capture at {baud} baud for {secs}s"),
+    );
+    let _ = fs::remove_file(&temporary);
+    result
+}
+
 #[tauri::command]
 pub fn create_workspace(app: AppHandle, name: String) -> Result<WorkspaceSummary, String> {
     let base = safe_slug(&name);
@@ -1434,7 +1512,18 @@ pub fn list_datasets(app: AppHandle, workspace_id: String) -> Result<Vec<Dataset
 
 #[tauri::command]
 pub fn list_serial_devices() -> Result<Vec<String>, String> {
-    legacy::list_serial_devices()
+    let mut output = Vec::new();
+    for entry in fs::read_dir("/dev")
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with("cu.") || name.starts_with("tty.") {
+            output.push(format!("/dev/{name}"));
+        }
+    }
+    output.sort();
+    Ok(output)
 }
 
 #[tauri::command]
@@ -1449,28 +1538,20 @@ pub fn capture_serial_measurement(
     unit: String,
     sensor: String,
 ) -> Result<DatasetSummary, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    let dataset = legacy::capture_serial_measurement(
-        app.clone(),
-        workspace_id.clone(),
-        device,
-        baud,
-        seconds,
-        name,
-        quantity,
-        unit,
-        sensor,
+    let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+    let secs = seconds.clamp(1, 300);
+    let dataset = capture_serial_measurement_to_dir(
+        &app, &dir, canonical, &device, baud, seconds, &name, &quantity, &unit, &sensor,
     )?;
-    register_desktop_measurement(
-        &app,
-        &workspace_id,
-        &dataset,
-        &format!(
-            "Serial capture recorded by desktop Data Bridge at {baud} baud for {} s.",
-            seconds.clamp(1, 300)
-        ),
-    )?;
-    touch_canonical_after_write(&app, &workspace_id)?;
+    if canonical {
+        register_desktop_measurement(
+            &app,
+            &workspace_id,
+            &dataset,
+            &format!("Serial capture recorded by desktop Data Bridge at {baud} baud for {secs} s."),
+        )?;
+        touch_project_after_direct_write(&dir, true)?;
+    }
     Ok(dataset)
 }
 
