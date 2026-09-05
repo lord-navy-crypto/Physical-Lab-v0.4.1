@@ -52,7 +52,8 @@ def main() -> int:
         "physical_lab_engineering_decision_ui",
         "render_engineering_decision_tab(st, path, profile, refs)",
         "_artifact_refs(path, doc)",
-        "No aggregate credibility score or machine truth/design verdict",
+        "machine truth verdict",
+        "design verdict",
     ):
         assert needle in evidence_ui, needle
 
@@ -69,7 +70,7 @@ def main() -> int:
     print("Physical Lab Engineering Decision Center wiring: PASS")
     print("- desktop bundle resources: PASS")
     print("- shared active Project surface: PASS")
-    print("- Evidence Center fifth-tab integration: PASS")
+    print("- Evidence Center decision-tab integration: PASS")
     print("- evidence-reference bridge: PASS")
     print("- trade-study registration/review UI: PASS")
     print("- human decision rationale UI: PASS")
