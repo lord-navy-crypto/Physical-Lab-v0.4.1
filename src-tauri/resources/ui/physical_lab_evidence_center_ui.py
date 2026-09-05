@@ -54,6 +54,7 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
     import physical_lab_project_kernel as projects
     import physical_lab_quality_reliability_ui as quality_reliability_ui
     import physical_lab_risk_economics_ui as risk_economics_ui
+    import physical_lab_requirements_ui as requirements_ui
 
     path = Path(project_path).expanduser().resolve()
     doc = projects.open_project(path)
@@ -64,8 +65,8 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
 
     with st.expander("Physical Lab · Evidence Center", expanded=False):
         st.caption(
-            "Evidence-first review across the active .physlab project. Passport, claims, cross-checks, engineering decisions, operations plans, quality/reliability studies, risk/economics studies, snapshots and diffs "
-            "use the same deterministic project state. No aggregate credibility score, machine truth verdict, design verdict, globally optimal schedule, process qualification, risk acceptance, investment recommendation, or certification verdict is produced."
+            "Evidence-first review across the active .physlab project. Passport, claims, cross-checks, engineering decisions, operations plans, quality/reliability studies, risk/economics studies, requirements traceability, snapshots and diffs "
+            "use the same deterministic project state. No aggregate credibility score, machine truth verdict, design verdict, globally optimal schedule, process qualification, risk acceptance, investment recommendation, machine requirement verification, or certification verdict is produced."
         )
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Evidence PRESENT", int(coverage.get("present") or 0))
@@ -79,8 +80,8 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
             f"Evidence graph `{str(passport.get('evidence_graph_sha256') or '')[:16]}…`"
         )
 
-        passport_tab, claims_tab, cross_tab, decision_tab, operations_tab, quality_tab, risk_economics_tab, diff_tab = st.tabs([
-            "Credibility Passport", "Claims", "Cross-Checks", "Engineering Decisions", "Operations", "Quality & Reliability", "Risk & Economics", "Snapshots & Diff"
+        passport_tab, claims_tab, cross_tab, decision_tab, operations_tab, quality_tab, risk_economics_tab, requirements_tab, diff_tab = st.tabs([
+            "Credibility Passport", "Claims", "Cross-Checks", "Engineering Decisions", "Operations", "Quality & Reliability", "Risk & Economics", "Requirements", "Snapshots & Diff"
         ])
 
         with passport_tab:
@@ -237,6 +238,9 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
 
         with risk_economics_tab:
             risk_economics_ui.render_risk_economics_tab(st, path, profile, refs)
+
+        with requirements_tab:
+            requirements_ui.render_requirements_tab(st, path, profile, refs)
 
         with diff_tab:
             if st.button("Capture evidence snapshot", type="primary", key=f"pl_evidence_snapshot_{profile}"):
