@@ -17,11 +17,12 @@ import physical_lab_evidence_center_patch as evidence_patch
 import physical_lab_evidence_center_ui as evidence_ui
 import physical_lab_project_kernel as project_kernel
 import physical_lab_project_surface_patch as surface_patch
+import physical_lab_project_unification as project_unification
 
 
 class FakeStreamlit:
     def __init__(self) -> None:
-        self.session_state: dict[str, str] = {}
+        self.session_state: dict[str, object] = {}
         self.warnings: list[str] = []
 
     def warning(self, message: object) -> None:
@@ -45,6 +46,7 @@ def main() -> int:
         "resources/ui/physical_lab_evidence_center_patch.py",
         "resources/ui/physical_lab_evidence_center_ui.py",
         "resources/ui/physical_lab_project_surface_patch.py",
+        "resources/ui/physical_lab_project_unification.py",
         "resources/ui/physical_lab_credibility.py",
         "resources/ui/physical_lab_claims.py",
         "resources/ui/physical_lab_cross_checks.py",
@@ -103,6 +105,7 @@ def main() -> int:
 
     surface_calls: list[tuple] = []
     original_advanced = advanced.render_advanced_experiments
+    original_sync = project_unification.synchronize_legacy_workspaces
     had_surface_flag = hasattr(advanced, "_physical_lab_project_surface_patched")
     old_surface_flag = getattr(advanced, "_physical_lab_project_surface_patched", None)
     old_profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE")
@@ -114,13 +117,20 @@ def main() -> int:
     def fake_project_surface(st, profile, namespace=None):
         surface_calls.append(("project", profile, namespace))
 
+    def fake_sync():
+        surface_calls.append(("legacy-sync",))
+        return {"created": 0, "measurements_imported": 0, "errors": []}
+
     fake_streamlit = types.ModuleType("streamlit")
+    fake_streamlit.session_state = {}
     fake_streamlit.warning = lambda message: surface_calls.append(("warning", str(message)))
+    fake_streamlit.toast = lambda message: surface_calls.append(("toast", str(message)))
 
     try:
         advanced.render_advanced_experiments = base_advanced
         advanced._physical_lab_project_surface_patched = False
         project_kernel.render_project_workspace = fake_project_surface
+        project_unification.synchronize_legacy_workspaces = fake_sync
         sys.modules["streamlit"] = fake_streamlit
         os.environ["PHYSICAL_LAB_UI_PROFILE"] = "numerical-methods"
 
@@ -130,8 +140,18 @@ def main() -> int:
         wrapped_advanced({"fixture": "surface"})
         assert surface_calls == [
             ("advanced", {"fixture": "surface"}),
+            ("legacy-sync",),
             ("project", "numerical-methods", {"fixture": "surface"}),
         ]
+        assert surface_patch.LEGACY_SYNC_SESSION_KEY in fake_streamlit.session_state
+
+        # The compatibility scan is once per Streamlit session, while Project remains per rerun.
+        wrapped_advanced({"fixture": "surface-rerun"})
+        assert surface_calls[-2:] == [
+            ("advanced", {"fixture": "surface-rerun"}),
+            ("project", "numerical-methods", {"fixture": "surface-rerun"}),
+        ]
+        assert surface_calls.count(("legacy-sync",)) == 1
 
         before_surface = advanced.render_advanced_experiments
         surface_patch.install()
@@ -142,9 +162,11 @@ def main() -> int:
         wrapped_advanced({"fixture": "unsupported"})
         assert len(surface_calls) == count + 1
         assert surface_calls[-1] == ("advanced", {"fixture": "unsupported"})
+        assert surface_calls.count(("legacy-sync",)) == 1, "unsupported profiles must not trigger legacy scans"
     finally:
         advanced.render_advanced_experiments = original_advanced
         project_kernel.render_project_workspace = original_workspace
+        project_unification.synchronize_legacy_workspaces = original_sync
         if had_surface_flag:
             advanced._physical_lab_project_surface_patched = old_surface_flag
         elif hasattr(advanced, "_physical_lab_project_surface_patched"):
@@ -164,8 +186,8 @@ def main() -> int:
     print("- no-active-project guard: PASS")
     print("- active project -> Evidence Center render: PASS")
     print("- create-new-project stale-path guard: PASS")
-    print("- Lab advanced renderer -> Project surface: PASS")
-    print("- unsupported-profile guard: PASS")
+    print("- Lab advanced renderer -> one-time legacy sync -> Project surface: PASS")
+    print("- unsupported-profile legacy-scan guard: PASS")
     print("- idempotent patch installation: PASS")
     print("Boundary: UI consumes the same project evidence APIs; it does not introduce a separate credibility/truth state.")
     return 0
