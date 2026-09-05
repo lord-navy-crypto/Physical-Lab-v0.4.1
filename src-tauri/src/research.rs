@@ -949,6 +949,90 @@ fn save_pipeline_to_dir(project_dir: &Path, canonical: bool, kind: &str) -> Resu
     Ok(id)
 }
 
+fn research_lab_id_name_pairs() -> Result<Vec<(String, String)>, String> {
+    let all: Vec<Value> = serde_json::from_str(include_str!("../resources/modules.json"))
+        .map_err(|e| e.to_string())?;
+    Ok(all
+        .into_iter()
+        .filter(|value| value.get("kind").and_then(Value::as_str) == Some("lab"))
+        .filter_map(|value| {
+            let id = value.get("id")?.as_str()?.to_string();
+            let name = value.get("name")?.as_str()?.to_string();
+            Some((id, name))
+        })
+        .collect())
+}
+
+fn export_reproducibility_package_from_dir(
+    app: &AppHandle,
+    project_dir: &Path,
+    workspace_id: &str,
+) -> Result<String, String> {
+    let provenance = project_dir.join("provenance");
+    fs::create_dir_all(&provenance).map_err(|e| e.to_string())?;
+    let mut modules = Vec::new();
+    let modules_root = modules_root_for_research(app)?;
+    for (id, name) in research_lab_id_name_pairs()? {
+        let module_dir = modules_root.join(&id);
+        let source = module_dir.join("source");
+        let python_path = module_dir.join(".venv/bin/python");
+        modules.push(json!({
+            "id":id,
+            "name":name,
+            "sourceCommit":if source.exists(){command_text_in(&source,"git",&["rev-parse","HEAD"])}else{None},
+            "python":if python_path.exists(){command_text(python_path.to_string_lossy().as_ref(), &["--version"])}else{None},
+            "pipFreeze":if python_path.exists(){command_text(python_path.to_string_lossy().as_ref(), &["-m","pip","freeze","--all"])}else{None}
+        }));
+    }
+    write_json(
+        &provenance.join("environment.json"),
+        &json!({
+            "createdAt":now_iso(),
+            "machine":{
+                "arch":command_text("uname", &["-m"]),
+                "os":command_text("sw_vers", &["-productVersion"]),
+                "build":command_text("sw_vers", &["-buildVersion"])
+            },
+            "modules":modules
+        }),
+    )?;
+    let export_dir = app_root(app)?.join("exports");
+    fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
+    let output = export_dir.join(format!(
+        "{}-reproducible-{}.zip",
+        safe_slug(workspace_id),
+        Local::now().format("%Y%m%d-%H%M%S")
+    ));
+    let project_text = project_dir.to_string_lossy().to_string();
+    let output_text = output.to_string_lossy().to_string();
+    let base_name = project_dir
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("workspace")
+        .to_string();
+    let status = Command::new("/usr/bin/ditto")
+        .args([
+            "-c",
+            "-k",
+            "--sequesterRsrc",
+            "--keepParent",
+            project_text.as_str(),
+            output_text.as_str(),
+        ])
+        .status()
+        .or_else(|_| {
+            Command::new("/usr/bin/zip")
+                .current_dir(project_dir.parent().unwrap_or(project_dir))
+                .args(["-r", output_text.as_str(), base_name.as_str()])
+                .status()
+        })
+        .map_err(|e| e.to_string())?;
+    if !status.success() {
+        return Err("Reproducibility archive creation failed".into());
+    }
+    Ok(output.to_string_lossy().to_string())
+}
+
 fn list_run_snapshots_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
     let root = project_dir.join("runs");
     if !root.is_dir() {
@@ -1477,10 +1561,8 @@ pub fn export_reproducibility_package(
     app: AppHandle,
     workspace_id: String,
 ) -> Result<String, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    let out = legacy::export_reproducibility_package(app.clone(), workspace_id.clone())?;
-    touch_canonical_after_write(&app, &workspace_id)?;
-    Ok(out)
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    export_reproducibility_package_from_dir(&app, &dir, &workspace_id)
 }
 
 #[tauri::command]
