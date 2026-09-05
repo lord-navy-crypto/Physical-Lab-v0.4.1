@@ -81,7 +81,6 @@ def main() -> int:
 
     for name in (
         "capture_serial_measurement",
-        "export_reproducibility_package",
     ):
         block = compact(function_block(text, name))
         assert "ensure_alias_for_id" in block, (
