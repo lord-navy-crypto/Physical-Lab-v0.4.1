@@ -239,7 +239,7 @@ jobs:
                   'max_parallel.clamp(1,8)',
                   '"queueState":"ready"',
                   '"execution":"queue-and-handoff"',
-                  '"CurrentLabUIsremainsolverownersuntilmodule-specificparameteradaptersareadded."',
+                  'CurrentLabUIsremainsolverownersuntilmodule-specificparameteradaptersareadded.',
               ):
                   assert token in new_create, token
               for token in (
