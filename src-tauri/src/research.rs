@@ -1,13 +1,15 @@
 //! Canonical desktop research facade for Physical Lab.
 //!
-//! The pre-cutover Rust research implementation is preserved byte-for-byte in
-//! `research_legacy_impl.rs`. New desktop projects are created under the same
-//! `projects/*.physlab` Project Kernel used by Experiment / Evidence tooling.
-//! Compatibility symlinks let the mature desktop Data/Results/Campaign surfaces
-//! keep using their proven code paths without creating a second project store.
+//! New desktop projects live under the canonical `projects/*.physlab` Project
+//! Kernel used by Experiment / Measurement / Evidence tooling. Read-only desktop
+//! surfaces resolve canonical projects directly and never create compatibility
+//! aliases. The pre-cutover research implementation is frozen in
+//! `research_legacy_impl.rs`; write/computation paths that still delegate to that
+//! implementation create an on-demand `workspaces/*.physlab` symlink only during
+//! the compatibility period.
 //!
-//! Existing real `workspaces/*.physlab` directories are never replaced. They
-//! continue through the non-destructive legacy bridge until explicitly retired.
+//! Existing real legacy workspaces are never replaced or rewritten. They remain
+//! readable as a fallback until explicit migration/retirement is complete.
 //!
 //! Self-check marker: legacy requirement evaluation still uses SpecifierSet in
 //! `research_legacy_impl.rs`; this facade does not duplicate that logic.
@@ -17,7 +19,12 @@ mod legacy;
 
 use chrono::Local;
 use serde_json::{json, Value};
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 use tauri::{AppHandle, Manager};
 
 pub use legacy::{
@@ -33,56 +40,108 @@ fn app_root(app: &AppHandle) -> Result<PathBuf, String> {
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     Ok(path)
 }
+
 fn canonical_root(app: &AppHandle) -> Result<PathBuf, String> {
     let path = app_root(app)?.join("projects");
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     Ok(path)
 }
+
+fn legacy_root_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_root(app)?.join("workspaces"))
+}
+
 fn legacy_root(app: &AppHandle) -> Result<PathBuf, String> {
-    let path = app_root(app)?.join("workspaces");
+    let path = legacy_root_path(app)?;
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     Ok(path)
 }
+
 fn safe_slug(value: &str) -> String {
     let mut out = String::new();
     for ch in value.trim().chars() {
         if ch.is_ascii_alphanumeric() {
             out.push(ch.to_ascii_lowercase());
         } else if ch == '-' || ch == '_' || ch == '.' || ch.is_whitespace() {
-            if !out.ends_with('-') { out.push('-'); }
+            if !out.ends_with('-') {
+                out.push('-');
+            }
         }
     }
     let trim: &[_] = &['-', '.', '_'];
     let out = out.trim_matches(trim).to_string();
     if out.is_empty() { "project".into() } else { out }
 }
+
 fn now_iso() -> String { Local::now().to_rfc3339() }
+
 fn read_json(path: &Path) -> Result<Value, String> {
-    serde_json::from_str(&fs::read_to_string(path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+    serde_json::from_str(&fs::read_to_string(path).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
 }
+
 fn write_json(path: &Path, value: &Value) -> Result<(), String> {
-    if let Some(parent) = path.parent() { fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     let tmp = path.with_extension("tmp");
-    fs::write(&tmp, serde_json::to_string_pretty(value).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    fs::write(
+        &tmp,
+        serde_json::to_string_pretty(value).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
+
 fn count_entries(path: PathBuf) -> usize {
-    fs::read_dir(path).ok().map(|it| it.filter_map(Result::ok).count()).unwrap_or(0)
+    fs::read_dir(path)
+        .ok()
+        .map(|it| it.filter_map(Result::ok).count())
+        .unwrap_or(0)
 }
+
 fn is_canonical(document: &Value) -> bool {
     document.get("schema").and_then(Value::as_str) == Some(PROJECT_SCHEMA)
         && document.get("project_version").and_then(Value::as_u64) == Some(PROJECT_VERSION)
-        && document.get("project_id").and_then(Value::as_str).map(|v| v.starts_with("plproj-")).unwrap_or(false)
+        && document
+            .get("project_id")
+            .and_then(Value::as_str)
+            .map(|value| value.starts_with("plproj-"))
+            .unwrap_or(false)
 }
+
 fn summary_from_dir(path: &Path) -> Result<WorkspaceSummary, String> {
     let project = read_json(&path.join("project.json"))?;
-    let fallback = path.file_name().and_then(|v| v.to_str()).unwrap_or("project").trim_end_matches(".physlab");
-    let id = project.get("slug").or_else(|| project.get("id")).and_then(Value::as_str).unwrap_or(fallback).to_string();
+    let fallback = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("project")
+        .trim_end_matches(".physlab");
+    let id = project
+        .get("slug")
+        .or_else(|| project.get("id"))
+        .and_then(Value::as_str)
+        .unwrap_or(fallback)
+        .to_string();
     Ok(WorkspaceSummary {
         id,
-        name: project.get("name").and_then(Value::as_str).unwrap_or("Physical Lab Project").to_string(),
-        created_at: project.get("created_at").or_else(|| project.get("createdAt")).and_then(Value::as_str).unwrap_or("").to_string(),
-        updated_at: project.get("updated_at").or_else(|| project.get("updatedAt")).and_then(Value::as_str).unwrap_or("").to_string(),
+        name: project
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("Physical Lab Project")
+            .to_string(),
+        created_at: project
+            .get("created_at")
+            .or_else(|| project.get("createdAt"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        updated_at: project
+            .get("updated_at")
+            .or_else(|| project.get("updatedAt"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
         path: path.to_string_lossy().to_string(),
         datasets: count_entries(path.join("datasets")),
         runs: count_entries(path.join("runs")),
@@ -90,76 +149,205 @@ fn summary_from_dir(path: &Path) -> Result<WorkspaceSummary, String> {
     })
 }
 
+fn canonical_identity_matches(path: &Path, document: &Value, workspace_id: &str) -> bool {
+    let wanted = safe_slug(workspace_id);
+    let folder = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .map(safe_slug)
+        .unwrap_or_default();
+    let slug = document
+        .get("slug")
+        .and_then(Value::as_str)
+        .map(safe_slug)
+        .unwrap_or_default();
+    let project_id = document
+        .get("project_id")
+        .and_then(Value::as_str)
+        .map(safe_slug)
+        .unwrap_or_default();
+    wanted == folder || wanted == slug || wanted == project_id
+}
+
+fn canonical_project_dir(app: &AppHandle, workspace_id: &str) -> Result<Option<PathBuf>, String> {
+    let root = canonical_root(app)?;
+    let direct = root.join(format!("{}.physlab", safe_slug(workspace_id)));
+    if direct.join("project.json").is_file() {
+        if let Ok(document) = read_json(&direct.join("project.json")) {
+            if is_canonical(&document)
+                && canonical_identity_matches(&direct, &document, workspace_id)
+            {
+                return Ok(Some(direct));
+            }
+        }
+    }
+    for entry in fs::read_dir(&root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+        let path = entry.path();
+        if !path.is_dir() || !path.join("project.json").is_file() {
+            continue;
+        }
+        let document = match read_json(&path.join("project.json")) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if is_canonical(&document) && canonical_identity_matches(&path, &document, workspace_id) {
+            return Ok(Some(path));
+        }
+    }
+    Ok(None)
+}
+
+fn is_compatibility_alias(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+}
+
+fn legacy_project_dir(app: &AppHandle, workspace_id: &str) -> Result<Option<PathBuf>, String> {
+    let root = legacy_root_path(app)?;
+    if !root.is_dir() {
+        return Ok(None);
+    }
+    let direct = root.join(format!("{}.physlab", safe_slug(workspace_id)));
+    if direct.join("project.json").is_file() && !is_compatibility_alias(&direct) {
+        return Ok(Some(direct));
+    }
+    for entry in fs::read_dir(&root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+        let path = entry.path();
+        if is_compatibility_alias(&path) || !path.join("project.json").is_file() {
+            continue;
+        }
+        let project = match read_json(&path.join("project.json")) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let fallback = path.file_stem().and_then(|value| value.to_str()).unwrap_or("project");
+        let id = project
+            .get("id")
+            .or_else(|| project.get("slug"))
+            .and_then(Value::as_str)
+            .unwrap_or(fallback);
+        if safe_slug(id) == safe_slug(workspace_id) {
+            return Ok(Some(path));
+        }
+    }
+    Ok(None)
+}
+
+fn resolve_project_dir(app: &AppHandle, workspace_id: &str) -> Result<(PathBuf, bool), String> {
+    if let Some(path) = canonical_project_dir(app, workspace_id)? {
+        return Ok((path, true));
+    }
+    if let Some(path) = legacy_project_dir(app, workspace_id)? {
+        return Ok((path, false));
+    }
+    Err(format!("Physical Lab project not found: {workspace_id}"))
+}
+
+fn open_path(path: &Path) -> Result<(), String> {
+    Command::new("/usr/bin/open")
+        .arg(path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg(unix)]
 fn create_alias(alias: &Path, target: &Path) -> Result<(), String> {
     use std::os::unix::fs::symlink;
-    if alias.exists() || alias.symlink_metadata().is_ok() { return Ok(()); }
+    if alias.exists() || alias.symlink_metadata().is_ok() {
+        return Ok(());
+    }
     symlink(target, alias).map_err(|e| format!("Could not create project compatibility alias: {e}"))
 }
+
 #[cfg(not(unix))]
 fn create_alias(_alias: &Path, _target: &Path) -> Result<(), String> { Ok(()) }
 
 fn ensure_alias_for_id(app: &AppHandle, workspace_id: &str) -> Result<(), String> {
-    let id = safe_slug(workspace_id);
-    let canonical = canonical_root(app)?.join(format!("{id}.physlab"));
-    if !canonical.is_dir() { return Ok(()); }
-    let alias = legacy_root(app)?.join(format!("{id}.physlab"));
+    let Some(canonical) = canonical_project_dir(app, workspace_id)? else {
+        return Ok(());
+    };
+    let alias = legacy_root(app)?.join(format!("{}.physlab", safe_slug(workspace_id)));
     // A real legacy workspace wins during the compatibility period. Never replace
     // it with an alias; the one-way bridge remains the safe migration path.
-    if alias.exists() || alias.symlink_metadata().is_ok() { return Ok(()); }
+    if alias.exists() || alias.symlink_metadata().is_ok() {
+        return Ok(());
+    }
     create_alias(&alias, &canonical)
 }
-fn ensure_all_aliases(app: &AppHandle) -> Result<(), String> {
-    for entry in fs::read_dir(canonical_root(app)?).map_err(|e| e.to_string())?.filter_map(Result::ok) {
-        let path = entry.path();
-        if !path.is_dir() || !path.join("project.json").is_file() { continue; }
-        let document = match read_json(&path.join("project.json")) { Ok(v) => v, Err(_) => continue };
-        if !is_canonical(&document) { continue; }
-        let slug = document.get("slug").and_then(Value::as_str)
-            .unwrap_or_else(|| path.file_stem().and_then(|x| x.to_str()).unwrap_or("project"));
-        let _ = ensure_alias_for_id(app, slug);
-    }
-    Ok(())
-}
-fn alias_targets_canonical(app: &AppHandle, workspace_id: &str) -> Result<bool, String> {
-    let id = safe_slug(workspace_id);
-    if !canonical_root(app)?.join(format!("{id}.physlab")).is_dir() { return Ok(false); }
-    let alias = legacy_root(app)?.join(format!("{id}.physlab"));
-    Ok(fs::symlink_metadata(alias).map(|m| m.file_type().is_symlink()).unwrap_or(false))
-}
+
 fn touch_canonical_after_write(app: &AppHandle, workspace_id: &str) -> Result<(), String> {
-    if !alias_targets_canonical(app, workspace_id)? { return Ok(()); }
-    let path = canonical_root(app)?.join(format!("{}.physlab/project.json", safe_slug(workspace_id)));
+    let Some(project_dir) = canonical_project_dir(app, workspace_id)? else {
+        return Ok(());
+    };
+    let path = project_dir.join("project.json");
     let mut project = read_json(&path)?;
-    if !is_canonical(&project) { return Ok(()); }
+    if !is_canonical(&project) {
+        return Ok(());
+    }
     project["updated_at"] = Value::String(now_iso());
-    if let Some(object) = project.as_object_mut() { object.remove("updatedAt"); }
+    if let Some(object) = project.as_object_mut() {
+        object.remove("updatedAt");
+    }
     write_json(&path, &project)
 }
 
-fn register_desktop_measurement(app: &AppHandle, workspace_id: &str, dataset: &DatasetSummary, note: &str) -> Result<(), String> {
-    if !alias_targets_canonical(app, workspace_id)? { return Ok(()); }
-    let project_dir = canonical_root(app)?.join(format!("{}.physlab", safe_slug(workspace_id)));
+fn register_desktop_measurement(
+    app: &AppHandle,
+    workspace_id: &str,
+    dataset: &DatasetSummary,
+    note: &str,
+) -> Result<(), String> {
+    let Some(project_dir) = canonical_project_dir(app, workspace_id)? else {
+        return Ok(());
+    };
     let project = read_json(&project_dir.join("project.json"))?;
-    if !is_canonical(&project) { return Ok(()); }
-    let digest = match dataset.sha256.as_deref() { Some(v) if v.len() == 64 => v.to_string(), _ => return Ok(()) };
+    if !is_canonical(&project) {
+        return Ok(());
+    }
+    let digest = match dataset.sha256.as_deref() {
+        Some(value) if value.len() == 64 => value.to_string(),
+        _ => return Ok(()),
+    };
     let source = PathBuf::from(&dataset.stored_file);
-    if !source.is_file() { return Ok(()); }
+    if !source.is_file() {
+        return Ok(());
+    }
     let measurement_id = format!("meas-{}", &digest[..20]);
-    let filename = source.file_name().and_then(|v| v.to_str()).unwrap_or("measurement.dat").to_string();
+    let filename = source
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("measurement.dat")
+        .to_string();
     let measurement_dir = project_dir.join("measurements").join(&measurement_id);
     fs::create_dir_all(&measurement_dir).map_err(|e| e.to_string())?;
     let asset = measurement_dir.join(&filename);
-    if !asset.exists() { fs::copy(&source, &asset).map_err(|e| e.to_string())?; }
+    if !asset.exists() {
+        fs::copy(&source, &asset).map_err(|e| e.to_string())?;
+    }
 
     let index_path = project_dir.join("measurements/index.json");
-    let mut index = if index_path.is_file() { read_json(&index_path).unwrap_or_else(|_| json!({})) } else { json!({}) };
+    let mut index = if index_path.is_file() {
+        read_json(&index_path).unwrap_or_else(|_| json!({}))
+    } else {
+        json!({})
+    };
     if index.get("schema").and_then(Value::as_str) != Some("physical-lab-measurement-index-v1") {
         index = json!({"schema":"physical-lab-measurement-index-v1","measurements":{},"updated_at":null});
     }
-    let registered_at = index.get("measurements").and_then(|v| v.get(&measurement_id))
-        .and_then(|v| v.get("registered_at")).and_then(Value::as_str).map(str::to_string).unwrap_or_else(now_iso);
-    let relative_asset = asset.strip_prefix(&project_dir).unwrap_or(&asset).to_string_lossy().replace('\\', "/");
+    let registered_at = index
+        .get("measurements")
+        .and_then(|value| value.get(&measurement_id))
+        .and_then(|value| value.get("registered_at"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(now_iso);
+    let relative_asset = asset
+        .strip_prefix(&project_dir)
+        .unwrap_or(&asset)
+        .to_string_lossy()
+        .replace('\\', "/");
     let record = json!({
         "schema":"physical-lab-measurement-v1",
         "measurement_id":measurement_id,
@@ -181,11 +369,173 @@ fn register_desktop_measurement(app: &AppHandle, workspace_id: &str, dataset: &D
         "boundary":"Desktop measurement evidence with file-integrity provenance only. Calibration status, sensor accuracy, traceability and experimental validation must be established separately."
     });
     write_json(&measurement_dir.join("measurement.json"), &record)?;
-    if index.get("measurements").and_then(Value::as_object).is_none() { index["measurements"] = json!({}); }
-    let key = record.get("measurement_id").and_then(Value::as_str).unwrap_or("").to_string();
-    if let Some(rows) = index.get_mut("measurements").and_then(Value::as_object_mut) { rows.insert(key, record); }
+    if index.get("measurements").and_then(Value::as_object).is_none() {
+        index["measurements"] = json!({});
+    }
+    let key = record
+        .get("measurement_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if let Some(rows) = index.get_mut("measurements").and_then(Value::as_object_mut) {
+        rows.insert(key, record);
+    }
     index["updated_at"] = Value::String(now_iso());
     write_json(&index_path, &index)
+}
+
+fn list_datasets_from_dir(project_dir: &Path) -> Result<Vec<DatasetSummary>, String> {
+    let root = project_dir.join("datasets");
+    if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut output = Vec::new();
+    for entry in fs::read_dir(root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+        let meta_path = entry.path().join("metadata.json");
+        if !meta_path.is_file() {
+            continue;
+        }
+        let value = match read_json(&meta_path) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        output.push(DatasetSummary {
+            id: value.get("id").and_then(Value::as_str).unwrap_or("").to_string(),
+            name: value.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+            quantity: value.get("quantity").and_then(Value::as_str).unwrap_or("").to_string(),
+            unit: value.get("unit").and_then(Value::as_str).unwrap_or("").to_string(),
+            sensor: value.get("sensor").and_then(Value::as_str).unwrap_or("").to_string(),
+            format: value.get("format").and_then(Value::as_str).unwrap_or("").to_string(),
+            source_file: value
+                .get("sourceFile")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            stored_file: value
+                .get("storedFile")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            sha256: value.get("sha256").and_then(Value::as_str).map(str::to_string),
+            created_at: value
+                .get("createdAt")
+                .or_else(|| value.get("created_at"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        });
+    }
+    output.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(output)
+}
+
+fn list_run_snapshots_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
+    let root = project_dir.join("runs");
+    if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut output = Vec::new();
+    for entry in fs::read_dir(root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+        let path = entry.path().join("run.json");
+        if let Ok(value) = read_json(&path) {
+            output.push(value);
+        }
+    }
+    output.sort_by(|a, b| {
+        b.get("createdAt")
+            .or_else(|| b.get("created_at"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .cmp(
+                a.get("createdAt")
+                    .or_else(|| a.get("created_at"))
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+            )
+    });
+    Ok(output)
+}
+
+fn flatten_json(prefix: &str, value: &Value, output: &mut HashMap<String, String>) {
+    match value {
+        Value::Object(map) => {
+            for (key, child) in map {
+                let path = if prefix.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{prefix}.{key}")
+                };
+                flatten_json(&path, child, output);
+            }
+        }
+        Value::Array(values) => {
+            output.insert(prefix.into(), format!("[{} items]", values.len()));
+        }
+        _ => {
+            output.insert(prefix.into(), value.to_string());
+        }
+    }
+}
+
+fn compare_run_snapshots_from_dir(
+    project_dir: &Path,
+    run_a: &str,
+    run_b: &str,
+) -> Result<Value, String> {
+    let base = project_dir.join("runs");
+    let a = read_json(&base.join(run_a).join("run.json"))?;
+    let b = read_json(&base.join(run_b).join("run.json"))?;
+    let mut flat_a = HashMap::new();
+    let mut flat_b = HashMap::new();
+    flatten_json("", &a, &mut flat_a);
+    flatten_json("", &b, &mut flat_b);
+    let mut keys: Vec<String> = flat_a.keys().chain(flat_b.keys()).cloned().collect();
+    keys.sort();
+    keys.dedup();
+    let differences: Vec<Value> = keys
+        .into_iter()
+        .filter_map(|key| {
+            let left = flat_a.get(&key);
+            let right = flat_b.get(&key);
+            if left == right {
+                None
+            } else {
+                Some(json!({"field":key,"a":left,"b":right}))
+            }
+        })
+        .collect();
+    let count = differences.len();
+    Ok(json!({"runA":run_a,"runB":run_b,"differences":differences,"differenceCount":count}))
+}
+
+fn list_campaigns_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
+    let root = project_dir.join("campaigns");
+    if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut output = Vec::new();
+    for entry in fs::read_dir(root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        if let Ok(value) = read_json(&path) {
+            output.push(value);
+        }
+    }
+    output.sort_by(|a, b| {
+        b.get("createdAt")
+            .or_else(|| b.get("created_at"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .cmp(
+                a.get("createdAt")
+                    .or_else(|| a.get("created_at"))
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+            )
+    });
+    Ok(output)
 }
 
 #[tauri::command]
@@ -198,9 +548,15 @@ pub fn create_workspace(app: AppHandle, name: String) -> Result<WorkspaceSummary
     while canonical.join(format!("{id}.physlab")).exists()
         || legacy.join(format!("{id}.physlab")).exists()
         || legacy.join(format!("{id}.physlab")).symlink_metadata().is_ok()
-    { id = format!("{base}-{n}"); n += 1; }
+    {
+        id = format!("{base}-{n}");
+        n += 1;
+    }
     let dir = canonical.join(format!("{id}.physlab"));
-    for child in ["experiments","jobs","results","measurements","calibration","reports","provenance","datasets","runs","figures","exports","pipelines","campaigns"] {
+    for child in [
+        "experiments", "jobs", "results", "measurements", "calibration", "reports",
+        "provenance", "datasets", "runs", "figures", "exports", "pipelines", "campaigns",
+    ] {
         fs::create_dir_all(dir.join(child)).map_err(|e| e.to_string())?;
     }
     let now = now_iso();
@@ -235,114 +591,259 @@ pub fn create_workspace(app: AppHandle, name: String) -> Result<WorkspaceSummary
     }))?;
     let alias = legacy.join(format!("{id}.physlab"));
     create_alias(&alias, &dir)?;
-    summary_from_dir(&alias)
+    summary_from_dir(&dir)
 }
 
 #[tauri::command]
 pub fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceSummary>, String> {
-    ensure_all_aliases(&app)?;
     let mut rows = Vec::new();
-    for entry in fs::read_dir(legacy_root(&app)?).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+    let mut seen = HashSet::new();
+    for entry in fs::read_dir(canonical_root(&app)?).map_err(|e| e.to_string())?.filter_map(Result::ok) {
         let path = entry.path();
-        if path.join("project.json").is_file() { if let Ok(summary) = summary_from_dir(&path) { rows.push(summary); } }
+        if !path.is_dir() || !path.join("project.json").is_file() {
+            continue;
+        }
+        let document = match read_json(&path.join("project.json")) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if !is_canonical(&document) {
+            continue;
+        }
+        if let Ok(summary) = summary_from_dir(&path) {
+            seen.insert(safe_slug(&summary.id));
+            rows.push(summary);
+        }
     }
-    rows.sort_by(|a,b| b.updated_at.cmp(&a.updated_at));
+    let legacy = legacy_root_path(&app)?;
+    if legacy.is_dir() {
+        for entry in fs::read_dir(&legacy).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+            let path = entry.path();
+            if is_compatibility_alias(&path) || !path.join("project.json").is_file() {
+                continue;
+            }
+            if let Ok(summary) = summary_from_dir(&path) {
+                if seen.insert(safe_slug(&summary.id)) {
+                    rows.push(summary);
+                }
+            }
+        }
+    }
+    rows.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
     Ok(rows)
 }
 
 #[tauri::command]
 pub fn open_workspace(app: AppHandle, workspace_id: String) -> Result<String, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::open_workspace(app, workspace_id)
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    open_path(&dir)?;
+    Ok(dir.to_string_lossy().to_string())
 }
+
 #[tauri::command]
-pub fn record_run_snapshot(app: AppHandle, workspace_id: String, module_id: String, mode: String, parameters_json: String, results_json: String) -> Result<String, String> {
+pub fn record_run_snapshot(
+    app: AppHandle,
+    workspace_id: String,
+    module_id: String,
+    mode: String,
+    parameters_json: String,
+    results_json: String,
+) -> Result<String, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
-    let out = legacy::record_run_snapshot(app.clone(), workspace_id.clone(), module_id, mode, parameters_json, results_json)?;
+    let out = legacy::record_run_snapshot(
+        app.clone(), workspace_id.clone(), module_id, mode, parameters_json, results_json,
+    )?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(out)
 }
+
 #[tauri::command]
-pub fn import_measurement_dataset(app: AppHandle, workspace_id: String, source_path: String, name: String, quantity: String, unit: String, sensor: String, calibration: String) -> Result<DatasetSummary, String> {
+pub fn import_measurement_dataset(
+    app: AppHandle,
+    workspace_id: String,
+    source_path: String,
+    name: String,
+    quantity: String,
+    unit: String,
+    sensor: String,
+    calibration: String,
+) -> Result<DatasetSummary, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
-    let dataset = legacy::import_measurement_dataset(app.clone(), workspace_id.clone(), source_path, name, quantity, unit, sensor, calibration.clone())?;
-    register_desktop_measurement(&app, &workspace_id, &dataset, &format!("Registered by Physical Lab desktop Data Bridge. Calibration/note field preserved as user metadata: {calibration}"))?;
+    let dataset = legacy::import_measurement_dataset(
+        app.clone(), workspace_id.clone(), source_path, name, quantity, unit, sensor,
+        calibration.clone(),
+    )?;
+    register_desktop_measurement(
+        &app,
+        &workspace_id,
+        &dataset,
+        &format!("Registered by Physical Lab desktop Data Bridge. Calibration/note field preserved as user metadata: {calibration}"),
+    )?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(dataset)
 }
+
 #[tauri::command]
 pub fn list_datasets(app: AppHandle, workspace_id: String) -> Result<Vec<DatasetSummary>, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::list_datasets(app, workspace_id)
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    list_datasets_from_dir(&dir)
 }
+
 #[tauri::command]
-pub fn list_serial_devices() -> Result<Vec<String>, String> { legacy::list_serial_devices() }
+pub fn list_serial_devices() -> Result<Vec<String>, String> {
+    legacy::list_serial_devices()
+}
+
 #[tauri::command]
-pub fn capture_serial_measurement(app: AppHandle, workspace_id: String, device: String, baud: u32, seconds: u64, name: String, quantity: String, unit: String, sensor: String) -> Result<DatasetSummary, String> {
+pub fn capture_serial_measurement(
+    app: AppHandle,
+    workspace_id: String,
+    device: String,
+    baud: u32,
+    seconds: u64,
+    name: String,
+    quantity: String,
+    unit: String,
+    sensor: String,
+) -> Result<DatasetSummary, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
-    let dataset = legacy::capture_serial_measurement(app.clone(), workspace_id.clone(), device, baud, seconds, name, quantity, unit, sensor)?;
-    register_desktop_measurement(&app, &workspace_id, &dataset, &format!("Serial capture recorded by desktop Data Bridge at {baud} baud for {} s.", seconds.clamp(1,300)))?;
+    let dataset = legacy::capture_serial_measurement(
+        app.clone(), workspace_id.clone(), device, baud, seconds, name, quantity, unit, sensor,
+    )?;
+    register_desktop_measurement(
+        &app,
+        &workspace_id,
+        &dataset,
+        &format!(
+            "Serial capture recorded by desktop Data Bridge at {baud} baud for {} s.",
+            seconds.clamp(1, 300)
+        ),
+    )?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(dataset)
 }
+
 #[tauri::command]
-pub fn analyze_dataset(app: AppHandle, workspace_id: String, dataset_id: String) -> Result<Vec<ColumnStats>, String> {
+pub fn analyze_dataset(
+    app: AppHandle,
+    workspace_id: String,
+    dataset_id: String,
+) -> Result<Vec<ColumnStats>, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     legacy::analyze_dataset(app, workspace_id, dataset_id)
 }
+
 #[tauri::command]
-pub fn validate_dataset_columns(app: AppHandle, workspace_id: String, dataset_id: String, observed_column: String, reference_column: String) -> Result<ValidationResult, String> {
+pub fn validate_dataset_columns(
+    app: AppHandle,
+    workspace_id: String,
+    dataset_id: String,
+    observed_column: String,
+    reference_column: String,
+) -> Result<ValidationResult, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::validate_dataset_columns(app, workspace_id, dataset_id, observed_column, reference_column)
+    legacy::validate_dataset_columns(
+        app, workspace_id, dataset_id, observed_column, reference_column,
+    )
 }
+
 #[tauri::command]
-pub fn lab_compatibility_matrix(app: AppHandle) -> Result<Vec<CompatibilityRow>, String> { legacy::lab_compatibility_matrix(app) }
+pub fn lab_compatibility_matrix(app: AppHandle) -> Result<Vec<CompatibilityRow>, String> {
+    legacy::lab_compatibility_matrix(app)
+}
+
 #[tauri::command]
-pub fn repair_lab_environment(app: AppHandle, module_id: String) -> Result<String, String> { legacy::repair_lab_environment(app, module_id) }
+pub fn repair_lab_environment(app: AppHandle, module_id: String) -> Result<String, String> {
+    legacy::repair_lab_environment(app, module_id)
+}
+
 #[tauri::command]
-pub fn scientific_smoke_tests(app: AppHandle) -> Result<Vec<SmokeResult>, String> { legacy::scientific_smoke_tests(app) }
+pub fn scientific_smoke_tests(app: AppHandle) -> Result<Vec<SmokeResult>, String> {
+    legacy::scientific_smoke_tests(app)
+}
+
 #[tauri::command]
-pub fn pipeline_templates() -> Vec<Value> { legacy::pipeline_templates() }
+pub fn pipeline_templates() -> Vec<Value> {
+    legacy::pipeline_templates()
+}
+
 #[tauri::command]
-pub fn save_pipeline(app: AppHandle, workspace_id: String, kind: String) -> Result<String, String> {
+pub fn save_pipeline(
+    app: AppHandle,
+    workspace_id: String,
+    kind: String,
+) -> Result<String, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let out = legacy::save_pipeline(app.clone(), workspace_id.clone(), kind)?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(out)
 }
+
 #[tauri::command]
-pub fn create_campaign(app: AppHandle, workspace_id: String, module_id: String, parameter: String, start: f64, stop: f64, points: u32, max_parallel: u32) -> Result<String, String> {
+pub fn create_campaign(
+    app: AppHandle,
+    workspace_id: String,
+    module_id: String,
+    parameter: String,
+    start: f64,
+    stop: f64,
+    points: u32,
+    max_parallel: u32,
+) -> Result<String, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
-    let out = legacy::create_campaign(app.clone(), workspace_id.clone(), module_id, parameter, start, stop, points, max_parallel)?;
+    let out = legacy::create_campaign(
+        app.clone(), workspace_id.clone(), module_id, parameter, start, stop, points, max_parallel,
+    )?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(out)
 }
+
 #[tauri::command]
-pub fn adapter_statuses(app: AppHandle) -> Result<Vec<AdapterStatus>, String> { legacy::adapter_statuses(app) }
+pub fn adapter_statuses(app: AppHandle) -> Result<Vec<AdapterStatus>, String> {
+    legacy::adapter_statuses(app)
+}
+
 #[tauri::command]
-pub fn export_reproducibility_package(app: AppHandle, workspace_id: String) -> Result<String, String> {
+pub fn export_reproducibility_package(
+    app: AppHandle,
+    workspace_id: String,
+) -> Result<String, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let out = legacy::export_reproducibility_package(app.clone(), workspace_id.clone())?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(out)
 }
+
 #[tauri::command]
 pub fn list_run_snapshots(app: AppHandle, workspace_id: String) -> Result<Vec<Value>, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::list_run_snapshots(app, workspace_id)
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    list_run_snapshots_from_dir(&dir)
 }
+
 #[tauri::command]
-pub fn compare_run_snapshots(app: AppHandle, workspace_id: String, run_a: String, run_b: String) -> Result<Value, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::compare_run_snapshots(app, workspace_id, run_a, run_b)
+pub fn compare_run_snapshots(
+    app: AppHandle,
+    workspace_id: String,
+    run_a: String,
+    run_b: String,
+) -> Result<Value, String> {
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    compare_run_snapshots_from_dir(&dir, &run_a, &run_b)
 }
+
 #[tauri::command]
 pub fn list_campaigns(app: AppHandle, workspace_id: String) -> Result<Vec<Value>, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::list_campaigns(app, workspace_id)
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    list_campaigns_from_dir(&dir)
 }
+
 #[tauri::command]
-pub fn campaign_action(app: AppHandle, workspace_id: String, campaign_id: String, action: String) -> Result<Value, String> {
+pub fn campaign_action(
+    app: AppHandle,
+    workspace_id: String,
+    campaign_id: String,
+    action: String,
+) -> Result<Value, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let out = legacy::campaign_action(app.clone(), workspace_id.clone(), campaign_id, action)?;
     touch_canonical_after_write(&app, &workspace_id)?;
