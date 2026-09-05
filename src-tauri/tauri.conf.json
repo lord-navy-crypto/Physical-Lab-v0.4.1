@@ -20,6 +20,8 @@
       "resources/ui/physical_lab_project_surface_patch.py": "ui/physical_lab_project_surface_patch.py",
       "resources/ui/physical_lab_project_unification.py": "ui/physical_lab_project_unification.py",
       "resources/ui/physical_lab_workspace_aliases.py": "ui/physical_lab_workspace_aliases.py",
+      "resources/ui/physical_lab_project_discovery.py": "ui/physical_lab_project_discovery.py",
+      "resources/ui/physical_lab_canonical_discovery_patch.py": "ui/physical_lab_canonical_discovery_patch.py",
       "resources/ui/physical_lab_advanced.py": "ui/physical_lab_advanced.py",
       "resources/ui/physical_lab_visualization.py": "ui/physical_lab_visualization.py",
       "resources/ui/physical_lab_visualization_engineering.py": "ui/physical_lab_visualization_engineering.py",
