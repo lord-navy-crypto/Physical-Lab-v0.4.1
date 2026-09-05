@@ -1,0 +1,298 @@
+name: Canonical Campaign Cutover
+
+on:
+  push:
+    branches: [ feature/rust-canonical-campaign-writes ]
+    paths:
+      - .github/workflows/canonical-campaign-cutover.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-cutover:
+    if: contains(github.event.head_commit.message, 'Apply canonical campaign write cutover')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/rust-canonical-campaign-writes
+      - name: Apply mechanical cutover
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('src-tauri/src/research.rs')
+          read_validation_path = Path('scripts/rust_canonical_read_paths_validation.py')
+          validation_path = Path('scripts/rust_canonical_campaign_writes_validation.py')
+          text = source_path.read_text(encoding='utf-8')
+
+          def replace_rust_fn(text: str, name: str, replacement: str) -> str:
+              marker = f'pub fn {name}('
+              start = text.index(marker)
+              attr = text.rfind('#[tauri::command]', 0, start)
+              brace = text.index('{', start)
+              depth = 0
+              for i in range(brace, len(text)):
+                  if text[i] == '{': depth += 1
+                  elif text[i] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return text[:attr] + replacement.rstrip() + '\n' + text[i+1:]
+              raise RuntimeError(name)
+
+          if 'fn create_campaign_to_dir(' not in text:
+              helpers = r'''
+          fn create_campaign_to_dir(
+              project_dir: &Path,
+              canonical: bool,
+              module_id: &str,
+              parameter: &str,
+              start: f64,
+              stop: f64,
+              points: u32,
+              max_parallel: u32,
+          ) -> Result<String, String> {
+              if points < 2 || points > 10_000 {
+                  return Err("Campaign points must be between 2 and 10000.".into());
+              }
+              let id = format!(
+                  "{}-campaign-{}",
+                  safe_slug(module_id),
+                  Local::now().format("%Y%m%d-%H%M%S")
+              );
+              let values: Vec<f64> = (0..points)
+                  .map(|index| {
+                      start + (stop - start) * (index as f64) / ((points - 1) as f64)
+                  })
+                  .collect();
+              let jobs: Vec<Value> = values
+                  .iter()
+                  .enumerate()
+                  .map(|(index, value)| {
+                      json!({
+                          "id":format!("run-{:04}", index + 1),
+                          "parameter":parameter,
+                          "value":value,
+                          "status":"queued"
+                      })
+                  })
+                  .collect();
+              write_json(
+                  &project_dir.join("campaigns").join(format!("{id}.json")),
+                  &json!({
+                      "schema":"physical-lab-campaign-v1",
+                      "id":&id,
+                      "createdAt":now_iso(),
+                      "moduleId":module_id,
+                      "parameter":parameter,
+                      "start":start,
+                      "stop":stop,
+                      "points":points,
+                      "maxParallel":max_parallel.clamp(1, 8),
+                      "queueState":"ready",
+                      "jobs":jobs,
+                      "execution":"queue-and-handoff",
+                      "note":"Campaign parameters are persisted reproducibly. Current Lab UIs remain solver owners until module-specific parameter adapters are added."
+                  }),
+              )?;
+              touch_project_after_direct_write(project_dir, canonical)?;
+              Ok(id)
+          }
+
+          fn campaign_action_in_dir(
+              project_dir: &Path,
+              canonical: bool,
+              campaign_id: &str,
+              action: &str,
+          ) -> Result<Value, String> {
+              let path = project_dir
+                  .join("campaigns")
+                  .join(format!("{campaign_id}.json"));
+              let mut value = read_json(&path)?;
+              match action {
+                  "pause" => value["queueState"] = Value::String("paused".into()),
+                  "resume" => value["queueState"] = Value::String("ready".into()),
+                  "retry-failed" => {
+                      if let Some(jobs) = value.get_mut("jobs").and_then(Value::as_array_mut) {
+                          for job in jobs {
+                              if job.get("status").and_then(Value::as_str) == Some("failed") {
+                                  job["status"] = Value::String("queued".into());
+                              }
+                          }
+                      }
+                  }
+                  "reset" => {
+                      if let Some(jobs) = value.get_mut("jobs").and_then(Value::as_array_mut) {
+                          for job in jobs {
+                              job["status"] = Value::String("queued".into());
+                          }
+                      }
+                  }
+                  _ => {
+                      return Err(
+                          "Supported campaign actions: pause, resume, retry-failed, reset".into(),
+                      )
+                  }
+              }
+              value["updatedAt"] = Value::String(now_iso());
+              write_json(&path, &value)?;
+              if canonical {
+                  touch_project_after_direct_write(project_dir, true)?;
+              }
+              Ok(value)
+          }
+
+          '''
+              text = text.replace('fn list_campaigns_from_dir(', helpers + 'fn list_campaigns_from_dir(', 1)
+
+          text = replace_rust_fn(text, 'create_campaign', r'''#[tauri::command]
+          pub fn create_campaign(
+              app: AppHandle,
+              workspace_id: String,
+              module_id: String,
+              parameter: String,
+              start: f64,
+              stop: f64,
+              points: u32,
+              max_parallel: u32,
+          ) -> Result<String, String> {
+              let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+              create_campaign_to_dir(
+                  &dir,
+                  canonical,
+                  &module_id,
+                  &parameter,
+                  start,
+                  stop,
+                  points,
+                  max_parallel,
+              )
+          }''')
+
+          text = replace_rust_fn(text, 'campaign_action', r'''#[tauri::command]
+          pub fn campaign_action(
+              app: AppHandle,
+              workspace_id: String,
+              campaign_id: String,
+              action: String,
+          ) -> Result<Value, String> {
+              let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+              campaign_action_in_dir(&dir, canonical, &campaign_id, &action)
+          }''')
+          source_path.write_text(text, encoding='utf-8')
+
+          read_validation = read_validation_path.read_text(encoding='utf-8')
+          read_validation = read_validation.replace('        "create_campaign",\n', '')
+          read_validation = read_validation.replace('        "campaign_action",\n', '')
+          read_validation_path.write_text(read_validation, encoding='utf-8')
+
+          validation_path.write_text(r'''#!/usr/bin/env python3
+          """Acceptance checks for canonical-native Rust campaign metadata writes."""
+          from __future__ import annotations
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[1]
+          SOURCE = ROOT / "src-tauri/src/research.rs"
+          LEGACY = ROOT / "src-tauri/src/research_legacy_impl.rs"
+
+          def compact(value: str) -> str:
+              return "".join(value.split())
+
+          def function_block(text: str, name: str) -> str:
+              marker = f"fn {name}("
+              start = text.index(marker)
+              brace = text.index("{", start)
+              depth = 0
+              for index in range(brace, len(text)):
+                  if text[index] == "{": depth += 1
+                  elif text[index] == "}":
+                      depth -= 1
+                      if depth == 0: return text[start:index + 1]
+              raise AssertionError(name)
+
+          def main() -> int:
+              source = SOURCE.read_text(encoding="utf-8")
+              legacy = LEGACY.read_text(encoding="utf-8")
+
+              for helper in ("create_campaign_to_dir", "campaign_action_in_dir"):
+                  assert f"fn {helper}(" in source
+
+              for command, helper in (
+                  ("create_campaign", "create_campaign_to_dir"),
+                  ("campaign_action", "campaign_action_in_dir"),
+              ):
+                  block = compact(function_block(source, command))
+                  assert "resolve_project_dir" in block
+                  assert helper in block
+                  assert "ensure_alias_for_id" not in block
+                  assert "legacy::" not in block
+
+              new_create = compact(function_block(source, "create_campaign_to_dir"))
+              old_create = compact(function_block(legacy, "create_campaign"))
+              for token in (
+                  'points<2||points>10_000',
+                  '"Campaignpointsmustbebetween2and10000."',
+                  '"physical-lab-campaign-v1"',
+                  '"run-{:04}"',
+                  '"status":"queued"',
+                  'max_parallel.clamp(1,8)',
+                  '"queueState":"ready"',
+                  '"execution":"queue-and-handoff"',
+                  '"CurrentLabUIsremainsolverownersuntilmodule-specificparameteradaptersareadded."',
+              ):
+                  assert token in new_create, token
+              for token in (
+                  'points<2||points>10000',
+                  '"Campaignpointsmustbebetween2and10000."',
+                  '"physical-lab-campaign-v1"',
+                  '"run-{:04}"',
+                  '"status":"queued"',
+                  'max_parallel.clamp(1,8)',
+                  '"queueState":"ready"',
+                  '"execution":"queue-and-handoff"',
+              ):
+                  assert token in old_create, token
+
+              new_action = compact(function_block(source, "campaign_action_in_dir"))
+              old_action = compact(function_block(legacy, "campaign_action"))
+              for token in (
+                  '"pause"', '"paused"', '"resume"', '"ready"',
+                  '"retry-failed"', '"failed"', '"reset"', '"queued"',
+                  '"Supportedcampaignactions:pause,resume,retry-failed,reset"',
+                  'value["updatedAt"]',
+              ):
+                  assert token in new_action, token
+              for token in (
+                  '"pause"', '"paused"', '"resume"', '"ready"',
+                  '"retry-failed"', '"failed"', '"reset"', '"queued"',
+                  '"Supportedcampaignactions:pause,resume,retry-failed,reset"',
+              ):
+                  assert token in old_action, token
+
+              assert "touch_project_after_direct_write" in new_create
+              assert "ifcanonical" in new_action
+              assert "touch_project_after_direct_write" in new_action
+
+              print("Physical Lab Rust canonical campaign writes: PASS")
+              print("- campaign creation: direct canonical/legacy resolver, no alias")
+              print("- campaign action state machine preserved")
+              print("- point bounds / spacing / maxParallel contracts preserved")
+              print("- canonical project updated_at write-through preserved")
+              print("Boundary: campaign metadata remains queue/provenance state; it does not mean a solver ran or a scientific result was validated.")
+              return 0
+
+          if __name__ == "__main__":
+              raise SystemExit(main())
+          ''', encoding='utf-8')
+          PY
+          rustfmt --edition 2021 src-tauri/src/research.rs
+          python scripts/rust_canonical_read_paths_validation.py
+          python scripts/rust_canonical_campaign_writes_validation.py
+      - name: Commit validated source changes
+        run: |
+          git config user.name 'physical-lab-ci'
+          git config user.email 'physical-lab-ci@users.noreply.github.com'
+          git add src-tauri/src/research.rs scripts/rust_canonical_read_paths_validation.py scripts/rust_canonical_campaign_writes_validation.py
+          git commit -m 'Move campaign metadata writes to canonical project paths'
+          git push origin HEAD:feature/rust-canonical-campaign-writes
