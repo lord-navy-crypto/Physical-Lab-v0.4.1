@@ -1,0 +1,29 @@
+name: Restored Labs Dual-Arch Rust Check
+
+on:
+  push:
+    branches: [ test/restore-bundled-labs-universal2 ]
+    paths:
+      - .github/workflows/test-restored-labs-rust.yml
+
+jobs:
+  cargo-check:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/restore-bundled-labs-universal2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Restoration contracts
+        run: |
+          python scripts/bundled_model_labs_validation.py
+          python scripts/self_check.py
+      - name: Type-check Apple Silicon desktop
+        run: cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-darwin
+      - name: Type-check Intel desktop
+        run: cargo check --manifest-path src-tauri/Cargo.toml --target x86_64-apple-darwin
