@@ -2,7 +2,9 @@
 
 The individual upstream Labs remain unchanged. This wrapper extends Physical
 Lab's shared advanced renderer so all seven managed profiles expose the same
-Project Kernel; the Evidence Center patch then extends that Project Kernel.
+canonical Project Kernel; the Evidence Center patch then extends that Project
+Kernel. During the compatibility period it also performs one non-destructive
+legacy desktop-workspace sync per Streamlit session.
 """
 from __future__ import annotations
 
@@ -17,6 +19,8 @@ SUPPORTED_PROFILES = {
     "radiation-platform",
     "radia-magnet-studio",
 }
+
+LEGACY_SYNC_SESSION_KEY = "_pl_legacy_workspace_bridge_v1"
 
 
 def install() -> None:
@@ -35,6 +39,22 @@ def install() -> None:
             return
         try:
             import streamlit as st
+            if LEGACY_SYNC_SESSION_KEY not in st.session_state:
+                try:
+                    from physical_lab_project_unification import synchronize_legacy_workspaces
+                    bridge = synchronize_legacy_workspaces()
+                    st.session_state[LEGACY_SYNC_SESSION_KEY] = bridge
+                    if bridge.get("created") or bridge.get("measurements_imported"):
+                        try:
+                            st.toast(
+                                "Physical Lab imported legacy workspace evidence into the canonical Project Kernel "
+                                f"({bridge.get('created', 0)} project(s), {bridge.get('measurements_imported', 0)} measurement(s))."
+                            )
+                        except Exception:
+                            pass
+                except Exception as bridge_exc:
+                    st.session_state[LEGACY_SYNC_SESSION_KEY] = {"errors": [{"error": str(bridge_exc)}]}
+                    st.warning(f"Legacy .physlab compatibility sync could not complete: {bridge_exc}")
             from physical_lab_project_kernel import render_project_workspace
             render_project_workspace(st, profile, namespace)
         except Exception as exc:
