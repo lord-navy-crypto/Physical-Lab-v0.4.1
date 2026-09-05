@@ -1,0 +1,24 @@
+name: Model Builder Dual-Arch Rust Check
+
+on:
+  push:
+    branches: [ test/model-builder-mvp-dual-arch ]
+    paths:
+      - .github/workflows/test-model-builder-dual-arch.yml
+
+jobs:
+  cargo-check:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Model Builder contracts
+        run: |
+          python3 scripts/model_builder_validation.py
+          python3 scripts/model_builder_wiring_validation.py
+      - name: Type-check Apple Silicon desktop
+        run: cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-darwin
+      - name: Type-check Intel desktop
+        run: cargo check --manifest-path src-tauri/Cargo.toml --target x86_64-apple-darwin
