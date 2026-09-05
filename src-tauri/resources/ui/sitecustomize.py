@@ -2,7 +2,7 @@
 
 The original shared Streamlit enhancement layer is preserved byte-for-byte in
 physical_lab_sitecustomize_base. This wrapper executes it, then installs the
-project-level Evidence Center hook for every managed Lab process.
+project-level Evidence Center and shared Project surface for every managed Lab.
 """
 from __future__ import annotations
 
@@ -14,5 +14,11 @@ except Exception:
 try:
     from physical_lab_evidence_center_patch import install as _pl_install_evidence_center
     _pl_install_evidence_center()
+except Exception:
+    pass
+
+try:
+    from physical_lab_project_surface_patch import install as _pl_install_project_surface
+    _pl_install_project_surface()
 except Exception:
     pass
