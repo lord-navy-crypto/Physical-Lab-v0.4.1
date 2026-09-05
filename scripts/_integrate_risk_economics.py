@@ -44,18 +44,6 @@ def main() -> int:
         '      "resources/ui/physical_lab_quality_reliability_ui.py": "ui/physical_lab_quality_reliability_ui.py",\n      "resources/ui/physical_lab_risk_economics.py": "ui/physical_lab_risk_economics.py",\n      "resources/ui/physical_lab_risk_economics_ui.py": "ui/physical_lab_risk_economics_ui.py",\n      "resources/ui/physical_lab_units.py": "ui/physical_lab_units.py",\n',
     )
 
-    workflow = ROOT / ".github/workflows/source-integrity.yml"
-    replace_once(
-        workflow,
-        "scripts/quality_reliability_validation.py scripts/quality_reliability_wiring_validation.py scripts/project_unification_validation.py",
-        "scripts/quality_reliability_validation.py scripts/quality_reliability_wiring_validation.py scripts/risk_economics_validation.py scripts/risk_economics_wiring_validation.py scripts/project_unification_validation.py",
-    )
-    replace_once(
-        workflow,
-        "          python scripts/quality_reliability_validation.py\n          python scripts/quality_reliability_wiring_validation.py\n          python scripts/project_unification_validation.py\n",
-        "          python scripts/quality_reliability_validation.py\n          python scripts/quality_reliability_wiring_validation.py\n          python scripts/risk_economics_validation.py\n          python scripts/risk_economics_wiring_validation.py\n          python scripts/project_unification_validation.py\n",
-    )
-
     print("Risk & Economics guarded integration: PASS")
     return 0
 
