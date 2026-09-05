@@ -14,6 +14,13 @@ def install() -> None:
     def wrapped(st, profile, namespace=None):
         original(st, profile, namespace)
         try:
+            # The Project Kernel intentionally returns early while the create-new
+            # form is selected. An older active path can still exist in session
+            # state, so do not leak that project's Evidence Center underneath the
+            # creation form.
+            selector_key = f"pl_project_select_{profile}"
+            if str(st.session_state.get(selector_key) or "") == "Create new project":
+                return
             active = str(st.session_state.get(project_kernel.ACTIVE_PROJECT_SESSION_KEY) or "").strip()
             if not active:
                 return
