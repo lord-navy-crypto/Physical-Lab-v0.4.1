@@ -27,6 +27,7 @@
       "resources/ui/physical_lab_model_campaigns.py": "ui/physical_lab_model_campaigns.py",
       "resources/ui/physical_lab_experiment_kernel.py": "ui/physical_lab_experiment_kernel.py",
       "resources/ui/physical_lab_project_kernel.py": "ui/physical_lab_project_kernel.py",
+      "resources/ui/physical_lab_credibility.py": "ui/physical_lab_credibility.py",
       "resources/ui/physical_lab_units.py": "ui/physical_lab_units.py",
       "resources/ui/physical_lab_measurement_registry.py": "ui/physical_lab_measurement_registry.py",
       "resources/ui/physical_lab_compute_engine.py": "ui/physical_lab_compute_engine.py",
