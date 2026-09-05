@@ -3,8 +3,9 @@
 //! New desktop projects live under the canonical `projects/*.physlab` Project
 //! Kernel used by Experiment / Measurement / Evidence tooling. Read-only desktop
 //! surfaces resolve canonical projects directly and never create compatibility
-//! aliases. The pre-cutover research implementation is frozen in
-//! `research_legacy_impl.rs` for non-project helper behavior and contract comparison.
+//! aliases. Non-Project desktop support lives in `research_runtime_support.rs`.
+//! The pre-cutover `research_legacy_impl.rs` stays frozen only as a compatibility
+//! and regression fixture and is not compiled into the desktop runtime.
 //! Project reads/writes resolve canonical projects directly; no compatibility
 //! symlink is created or required.
 //!
@@ -12,11 +13,11 @@
 //! directly readable as a fallback and eligible for the explicit non-destructive
 //! Project Kernel bridge.
 //!
-//! Self-check marker: legacy requirement evaluation still uses SpecifierSet in
-//! `research_legacy_impl.rs`; this facade does not duplicate that logic.
+//! Self-check marker: runtime requirement evaluation uses SpecifierSet in
+//! `research_runtime_support.rs`; this facade does not duplicate that logic.
 
-#[path = "research_legacy_impl.rs"]
-mod legacy;
+#[path = "research_runtime_support.rs"]
+mod runtime_support;
 
 use chrono::Local;
 use serde_json::{json, Value};
@@ -29,7 +30,7 @@ use std::{
 };
 use tauri::{AppHandle, Manager};
 
-pub use legacy::{
+pub use runtime_support::{
     AdapterStatus, ColumnStats, CompatibilityRow, DatasetSummary, SmokeResult, ValidationResult,
     WorkspaceSummary,
 };
@@ -1529,17 +1530,17 @@ pub fn validate_dataset_columns(
 
 #[tauri::command]
 pub fn lab_compatibility_matrix(app: AppHandle) -> Result<Vec<CompatibilityRow>, String> {
-    legacy::lab_compatibility_matrix(app)
+    runtime_support::lab_compatibility_matrix(app)
 }
 
 #[tauri::command]
 pub fn repair_lab_environment(app: AppHandle, module_id: String) -> Result<String, String> {
-    legacy::repair_lab_environment(app, module_id)
+    runtime_support::repair_lab_environment(app, module_id)
 }
 
 #[tauri::command]
 pub fn scientific_smoke_tests(app: AppHandle) -> Result<Vec<SmokeResult>, String> {
-    legacy::scientific_smoke_tests(app)
+    runtime_support::scientific_smoke_tests(app)
 }
 
 #[tauri::command]
@@ -1584,7 +1585,7 @@ pub fn create_campaign(
 
 #[tauri::command]
 pub fn adapter_statuses(app: AppHandle) -> Result<Vec<AdapterStatus>, String> {
-    legacy::adapter_statuses(app)
+    runtime_support::adapter_statuses(app)
 }
 
 #[tauri::command]
