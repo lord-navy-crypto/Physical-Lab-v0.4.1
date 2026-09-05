@@ -74,7 +74,8 @@
       "resources/ui/physical_lab_radia_tolerance.py": "ui/physical_lab_radia_tolerance.py",
       "resources/ui/physical_lab_radia_radiation_propagation.py": "ui/physical_lab_radia_radiation_propagation.py",
       "resources/ui/physical_lab_radiation_worker.py": "ui/physical_lab_radiation_worker.py",
-      "resources/ui/physical_lab_local_ai.py": "ui/physical_lab_local_ai.py"
+      "resources/ui/physical_lab_local_ai.py": "ui/physical_lab_local_ai.py",
+      "resources/ui/physical_lab_model_builder.py": "ui/physical_lab_model_builder.py"
     },
     "macOS": {"minimumSystemVersion": "11.0", "dmg": {"appPosition": {"x": 180, "y": 220}, "applicationFolderPosition": {"x": 480, "y": 220}}}
   }

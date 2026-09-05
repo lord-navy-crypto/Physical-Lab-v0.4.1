@@ -151,6 +151,30 @@ fn run_builder_cli(
 }
 
 #[tauri::command]
+pub fn model_builder_choose_source() -> Result<String, String> {
+    let output = Command::new("/usr/bin/osascript")
+        .args([
+            "-e",
+            "POSIX path of (choose file with prompt \"Choose a trusted local Python research model\")",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if detail.is_empty() {
+            "Python file selection was cancelled.".into()
+        } else {
+            detail
+        });
+    }
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !path.to_ascii_lowercase().ends_with(".py") {
+        return Err("Research Model Builder MVP accepts a .py source file.".into());
+    }
+    Ok(path)
+}
+
+#[tauri::command]
 pub fn model_builder_analyze(app: AppHandle, source_path: String) -> Result<Value, String> {
     run_builder_cli(
         &app,

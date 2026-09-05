@@ -1,4 +1,5 @@
 mod research;
+mod model_builder;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -1171,7 +1172,8 @@ pub fn run() {
             research::import_measurement_dataset, research::list_datasets, research::list_serial_devices, research::capture_serial_measurement,
             research::analyze_dataset, research::validate_dataset_columns, research::lab_compatibility_matrix, research::repair_lab_environment,
             research::scientific_smoke_tests, research::pipeline_templates, research::save_pipeline, research::create_campaign,
-            research::adapter_statuses, research::export_reproducibility_package, research::list_run_snapshots, research::compare_run_snapshots, research::list_campaigns, research::campaign_action, cancel_task])
+            research::adapter_statuses, research::export_reproducibility_package, research::list_run_snapshots, research::compare_run_snapshots, research::list_campaigns, research::campaign_action,
+            research::save_model_builder_bundle, model_builder::model_builder_choose_source, model_builder::model_builder_analyze, model_builder::model_builder_generate, model_builder::model_builder_run, model_builder::model_builder_validate, model_builder::model_builder_open_bundle, cancel_task])
         .build(tauri::generate_context!())
         .expect("error while building Physical Lab");
 

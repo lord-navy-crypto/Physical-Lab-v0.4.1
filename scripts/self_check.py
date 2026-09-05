@@ -6,7 +6,7 @@ root = Path(__file__).resolve().parents[1]
 required = [
     'package.json','web/index.html','web/styles.css','web/app.js',
     'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs','src-tauri/src/research_runtime_support.rs','src-tauri/src/research_legacy_impl.rs',
-    'src-tauri/src/main.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
+    'src-tauri/src/main.rs','src-tauri/src/model_builder.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
     'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py',
     'src-tauri/resources/ui/physical_lab_builtin_lab_entry.py','src-tauri/resources/ui/physical_lab_builtin_requirements.txt',
     'src-tauri/resources/ui/physical_lab_sitecustomize_base.py',
@@ -23,7 +23,7 @@ required = [
     'src-tauri/resources/ui/physical_lab_requirements_verification.py',
     'src-tauri/resources/ui/physical_lab_requirements_verification_ui.py',
     'src-tauri/resources/ui/physical_lab_project_surface_patch.py',
-    'src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command',
+    'src-tauri/resources/ui/physical_lab_advanced.py','src-tauri/resources/ui/physical_lab_model_builder.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command',
     'VERSION','scripts/version_consistency.py'
 ]
 missing = [p for p in required if not (root / p).exists()]
@@ -95,6 +95,7 @@ assert json.loads((root/'package.json').read_text())['version']==canonical_versi
 assert f'version = "{canonical_version}"' in (root/'src-tauri/Cargo.toml').read_text()
 resources=conf['bundle']['resources']
 assert 'resources/safe_engine_server.py' in resources
+assert 'resources/ui/physical_lab_model_builder.py' in resources
 for resource in [
     'resources/ui/sitecustomize.py',
     'resources/ui/physical_lab_builtin_lab_entry.py',
@@ -187,6 +188,7 @@ print('Enhanced external simulation profiles: 7')
 print('Top-level Labs: 10')
 print('Responsive KPI/result-card system: configured')
 print('Shared Project surface + Evidence Center: configured')
+print('Research Model Builder: static AST → ModelSpec → adapter → preview/equivalence → Project bundle configured')
 print('Engineering Systems layers: Decisions + Operations + Quality/Reliability + Risk/Economics + Requirements/Verification configured')
 
 # Public/reproducibility hardening
