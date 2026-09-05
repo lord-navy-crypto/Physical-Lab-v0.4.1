@@ -82,9 +82,7 @@ def main() -> int:
     for name in (
         "import_measurement_dataset",
         "capture_serial_measurement",
-        "create_campaign",
         "export_reproducibility_package",
-        "campaign_action",
     ):
         block = compact(function_block(text, name))
         assert "ensure_alias_for_id" in block, (

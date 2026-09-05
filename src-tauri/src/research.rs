@@ -947,6 +947,100 @@ fn compare_run_snapshots_from_dir(
     Ok(json!({"runA":run_a,"runB":run_b,"differences":differences,"differenceCount":count}))
 }
 
+fn create_campaign_to_dir(
+    project_dir: &Path,
+    canonical: bool,
+    module_id: &str,
+    parameter: &str,
+    start: f64,
+    stop: f64,
+    points: u32,
+    max_parallel: u32,
+) -> Result<String, String> {
+    if points < 2 || points > 10_000 {
+        return Err("Campaign points must be between 2 and 10000.".into());
+    }
+    let id = format!(
+        "{}-campaign-{}",
+        safe_slug(module_id),
+        Local::now().format("%Y%m%d-%H%M%S")
+    );
+    let values: Vec<f64> = (0..points)
+        .map(|index| start + (stop - start) * (index as f64) / ((points - 1) as f64))
+        .collect();
+    let jobs: Vec<Value> = values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            json!({
+                "id":format!("run-{:04}", index + 1),
+                "parameter":parameter,
+                "value":value,
+                "status":"queued"
+            })
+        })
+        .collect();
+    write_json(
+        &project_dir.join("campaigns").join(format!("{id}.json")),
+        &json!({
+            "schema":"physical-lab-campaign-v1",
+            "id":&id,
+            "createdAt":now_iso(),
+            "moduleId":module_id,
+            "parameter":parameter,
+            "start":start,
+            "stop":stop,
+            "points":points,
+            "maxParallel":max_parallel.clamp(1, 8),
+            "queueState":"ready",
+            "jobs":jobs,
+            "execution":"queue-and-handoff",
+            "note":"Campaign parameters are persisted reproducibly. Current Lab UIs remain solver owners until module-specific parameter adapters are added."
+        }),
+    )?;
+    touch_project_after_direct_write(project_dir, canonical)?;
+    Ok(id)
+}
+
+fn campaign_action_in_dir(
+    project_dir: &Path,
+    canonical: bool,
+    campaign_id: &str,
+    action: &str,
+) -> Result<Value, String> {
+    let path = project_dir
+        .join("campaigns")
+        .join(format!("{campaign_id}.json"));
+    let mut value = read_json(&path)?;
+    match action {
+        "pause" => value["queueState"] = Value::String("paused".into()),
+        "resume" => value["queueState"] = Value::String("ready".into()),
+        "retry-failed" => {
+            if let Some(jobs) = value.get_mut("jobs").and_then(Value::as_array_mut) {
+                for job in jobs {
+                    if job.get("status").and_then(Value::as_str) == Some("failed") {
+                        job["status"] = Value::String("queued".into());
+                    }
+                }
+            }
+        }
+        "reset" => {
+            if let Some(jobs) = value.get_mut("jobs").and_then(Value::as_array_mut) {
+                for job in jobs {
+                    job["status"] = Value::String("queued".into());
+                }
+            }
+        }
+        _ => return Err("Supported campaign actions: pause, resume, retry-failed, reset".into()),
+    }
+    value["updatedAt"] = Value::String(now_iso());
+    write_json(&path, &value)?;
+    if canonical {
+        touch_project_after_direct_write(project_dir, true)?;
+    }
+    Ok(value)
+}
+
 fn list_campaigns_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
     let root = project_dir.join("campaigns");
     if !root.is_dir() {
@@ -1273,19 +1367,17 @@ pub fn create_campaign(
     points: u32,
     max_parallel: u32,
 ) -> Result<String, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    let out = legacy::create_campaign(
-        app.clone(),
-        workspace_id.clone(),
-        module_id,
-        parameter,
+    let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+    create_campaign_to_dir(
+        &dir,
+        canonical,
+        &module_id,
+        &parameter,
         start,
         stop,
         points,
         max_parallel,
-    )?;
-    touch_canonical_after_write(&app, &workspace_id)?;
-    Ok(out)
+    )
 }
 
 #[tauri::command]
@@ -1334,8 +1426,6 @@ pub fn campaign_action(
     campaign_id: String,
     action: String,
 ) -> Result<Value, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    let out = legacy::campaign_action(app.clone(), workspace_id.clone(), campaign_id, action)?;
-    touch_canonical_after_write(&app, &workspace_id)?;
-    Ok(out)
+    let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+    campaign_action_in_dir(&dir, canonical, &campaign_id, &action)
 }
