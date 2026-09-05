@@ -51,7 +51,7 @@ def build_evidence_snapshot(project_dir: str | Path, *, label: str = "", generat
     graph_nodes = [
         {
             "id": row.get("id"),
-            "kind": row.get("kind"),
+            "kind": row.get("type") or row.get("kind"),
             "sha256": row.get("sha256"),
             "label": row.get("label"),
         }
