@@ -1,0 +1,285 @@
+name: Canonical Measurement Import Cutover
+
+on:
+  push:
+    branches: [ feature/rust-canonical-measurement-import ]
+    paths:
+      - .github/workflows/canonical-measurement-import-cutover.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-cutover:
+    if: contains(github.event.head_commit.message, 'Apply canonical measurement import cutover')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/rust-canonical-measurement-import
+      - name: Apply mechanical cutover
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('src-tauri/src/research.rs')
+          read_validation_path = Path('scripts/rust_canonical_read_paths_validation.py')
+          validation_path = Path('scripts/rust_canonical_measurement_import_validation.py')
+          text = source_path.read_text(encoding='utf-8')
+
+          def replace_rust_fn(text: str, name: str, replacement: str) -> str:
+              marker = f'pub fn {name}('
+              start = text.index(marker)
+              attr = text.rfind('#[tauri::command]', 0, start)
+              brace = text.index('{', start)
+              depth = 0
+              for i in range(brace, len(text)):
+                  if text[i] == '{':
+                      depth += 1
+                  elif text[i] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return text[:attr] + replacement.rstrip() + '\n' + text[i+1:]
+              raise RuntimeError(name)
+
+          if 'fn sha256_file(' not in text:
+              helpers = r'''
+          fn sha256_file(path: &Path) -> Option<String> {
+              let path_text = path.to_string_lossy().to_string();
+              let output = Command::new("/usr/bin/shasum")
+                  .args(["-a", "256", path_text.as_str()])
+                  .output()
+                  .ok()?;
+              if !output.status.success() {
+                  return None;
+              }
+              String::from_utf8_lossy(&output.stdout)
+                  .split_whitespace()
+                  .next()
+                  .map(str::to_string)
+          }
+
+          fn import_measurement_dataset_to_dir(
+              project_dir: &Path,
+              canonical: bool,
+              source_path: &str,
+              name: &str,
+              quantity: &str,
+              unit: &str,
+              sensor: &str,
+              calibration: &str,
+          ) -> Result<DatasetSummary, String> {
+              let source = PathBuf::from(source_path.trim());
+              if !source.is_file() {
+                  return Err(format!(
+                      "Measurement file does not exist: {}",
+                      source.display()
+                  ));
+              }
+              let extension = source
+                  .extension()
+                  .and_then(|value| value.to_str())
+                  .unwrap_or("")
+                  .to_ascii_lowercase();
+              if !["csv", "tsv", "json", "h5", "hdf5"].contains(&extension.as_str()) {
+                  return Err("Supported measurement formats: CSV, TSV, JSON, HDF5".into());
+              }
+              let dataset_id = format!(
+                  "{}-{}",
+                  safe_slug(name),
+                  Local::now().format("%Y%m%d-%H%M%S")
+              );
+              let dataset_dir = project_dir.join("datasets").join(&dataset_id);
+              fs::create_dir_all(&dataset_dir).map_err(|e| e.to_string())?;
+              let stored = dataset_dir.join(format!("data.{extension}"));
+              fs::copy(&source, &stored).map_err(|e| e.to_string())?;
+              let digest = sha256_file(&stored);
+              let created_at = now_iso();
+              write_json(
+                  &dataset_dir.join("metadata.json"),
+                  &json!({
+                      "schema":"physical-lab-dataset-v1",
+                      "id":&dataset_id,
+                      "name":name,
+                      "quantity":quantity,
+                      "unit":unit,
+                      "sensor":sensor,
+                      "calibration":calibration,
+                      "format":&extension,
+                      "sourceFile":source.to_string_lossy(),
+                      "storedFile":stored.to_string_lossy(),
+                      "sha256":&digest,
+                      "createdAt":&created_at,
+                      "measurement":true
+                  }),
+              )?;
+              touch_project_after_direct_write(project_dir, canonical)?;
+              Ok(DatasetSummary {
+                  id: dataset_id,
+                  name: name.to_string(),
+                  quantity: quantity.to_string(),
+                  unit: unit.to_string(),
+                  sensor: sensor.to_string(),
+                  format: extension,
+                  source_file: source.to_string_lossy().to_string(),
+                  stored_file: stored.to_string_lossy().to_string(),
+                  sha256: digest,
+                  created_at,
+              })
+          }
+
+          '''
+              text = text.replace('fn list_datasets_from_dir(', helpers + 'fn list_datasets_from_dir(', 1)
+
+          text = replace_rust_fn(text, 'import_measurement_dataset', r'''#[tauri::command]
+          pub fn import_measurement_dataset(
+              app: AppHandle,
+              workspace_id: String,
+              source_path: String,
+              name: String,
+              quantity: String,
+              unit: String,
+              sensor: String,
+              calibration: String,
+          ) -> Result<DatasetSummary, String> {
+              let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+              let dataset = import_measurement_dataset_to_dir(
+                  &dir,
+                  canonical,
+                  &source_path,
+                  &name,
+                  &quantity,
+                  &unit,
+                  &sensor,
+                  &calibration,
+              )?;
+              if canonical {
+                  register_desktop_measurement(
+                      &app,
+                      &workspace_id,
+                      &dataset,
+                      &format!(
+                          "Registered by Physical Lab desktop Data Bridge. Calibration/note field preserved as user metadata: {calibration}"
+                      ),
+                  )?;
+              }
+              Ok(dataset)
+          }''')
+          source_path.write_text(text, encoding='utf-8')
+
+          read_validation = read_validation_path.read_text(encoding='utf-8')
+          read_validation = read_validation.replace('        "import_measurement_dataset",\n', '')
+          read_validation_path.write_text(read_validation, encoding='utf-8')
+
+          validation_path.write_text(r'''#!/usr/bin/env python3
+          """Acceptance checks for canonical-native desktop measurement file import."""
+          from __future__ import annotations
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[1]
+          SOURCE = ROOT / "src-tauri/src/research.rs"
+          LEGACY = ROOT / "src-tauri/src/research_legacy_impl.rs"
+
+          def compact(value: str) -> str:
+              return "".join(value.split())
+
+          def function_block(text: str, name: str) -> str:
+              marker = f"fn {name}("
+              start = text.index(marker)
+              brace = text.index("{", start)
+              depth = 0
+              for index in range(brace, len(text)):
+                  if text[index] == "{": depth += 1
+                  elif text[index] == "}":
+                      depth -= 1
+                      if depth == 0: return text[start:index + 1]
+              raise AssertionError(name)
+
+          def main() -> int:
+              source = SOURCE.read_text(encoding="utf-8")
+              legacy = LEGACY.read_text(encoding="utf-8")
+
+              command = compact(function_block(source, "import_measurement_dataset"))
+              assert "resolve_project_dir" in command
+              assert "import_measurement_dataset_to_dir" in command
+              assert "ensure_alias_for_id" not in command
+              assert "legacy::" not in command
+              assert "ifcanonical" in command
+              assert "register_desktop_measurement" in command
+
+              new_import = compact(function_block(source, "import_measurement_dataset_to_dir"))
+              old_import = compact(function_block(legacy, "import_measurement_dataset"))
+              for token in (
+                  'source.is_file()',
+                  '["csv","tsv","json","h5","hdf5"]',
+                  '"Supportedmeasurementformats:CSV,TSV,JSON,HDF5"',
+                  'project_dir.join("datasets")',
+                  'format!("data.{extension}")',
+                  'fs::copy(&source,&stored)',
+                  '"physical-lab-dataset-v1"',
+                  '"calibration":calibration',
+                  '"sourceFile":source.to_string_lossy()',
+                  '"storedFile":stored.to_string_lossy()',
+                  '"sha256":&digest',
+                  '"createdAt":&created_at',
+                  '"measurement":true',
+                  'touch_project_after_direct_write(project_dir,canonical)',
+              ):
+                  assert token in new_import, token
+
+              for token in (
+                  'src.is_file()',
+                  '["csv","tsv","json","h5","hdf5"]',
+                  '"Supportedmeasurementformats:CSV,TSV,JSON,HDF5"',
+                  'dir.join("datasets")',
+                  'format!("data.{ext}")',
+                  'fs::copy(&src,&stored)',
+                  '"physical-lab-dataset-v1"',
+                  '"calibration":&calibration',
+                  '"sourceFile":src.to_string_lossy()',
+                  '"storedFile":stored.to_string_lossy()',
+                  '"sha256":&hash',
+                  '"createdAt":&created',
+                  '"measurement":true',
+              ):
+                  assert token in old_import, token
+
+              new_hash = compact(function_block(source, "sha256_file"))
+              old_hash = compact(function_block(legacy, "sha256"))
+              for token in ('"/usr/bin/shasum"', '"-a","256"', 'split_whitespace()'):
+                  assert token in new_hash, token
+                  assert token in old_hash, token
+
+              registration = compact(function_block(source, "register_desktop_measurement"))
+              for token in (
+                  '"physical-lab-measurement-v1"',
+                  '"source_type":"desktop-data-bridge"',
+                  '"sha256":digest',
+                  '"Calibrationstatus,sensoraccuracy,traceabilityandexperimentalvalidationmustbeestablishedseparately."',
+              ):
+                  assert token in registration, token
+
+              assert 'ifcanonical' in command
+              print("Physical Lab Rust canonical measurement import: PASS")
+              print("- CSV/TSV/JSON/HDF5 import formats preserved")
+              print("- project-local dataset copy + SHA-256 metadata preserved")
+              print("- canonical/legacy direct resolver, no compatibility alias")
+              print("- canonical import registers Measurement Evidence")
+              print("- genuine legacy fallback does not fabricate canonical evidence")
+              print("Boundary: file integrity and project registration do not establish calibration accuracy, traceability, or experimental validation.")
+              return 0
+
+          if __name__ == "__main__":
+              raise SystemExit(main())
+          ''', encoding='utf-8')
+          PY
+          rustfmt --edition 2021 src-tauri/src/research.rs
+          python scripts/rust_canonical_read_paths_validation.py
+          python scripts/rust_canonical_measurement_import_validation.py
+      - name: Commit validated source changes
+        run: |
+          git config user.name 'physical-lab-ci'
+          git config user.email 'physical-lab-ci@users.noreply.github.com'
+          git add src-tauri/src/research.rs scripts/rust_canonical_read_paths_validation.py scripts/rust_canonical_measurement_import_validation.py
+          git commit -m 'Move measurement file import to canonical project paths'
+          git push origin HEAD:feature/rust-canonical-measurement-import
