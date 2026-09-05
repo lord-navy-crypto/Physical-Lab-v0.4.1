@@ -77,6 +77,13 @@ def main() -> int:
         assert calls[-1] == ("evidence", "/tmp/fixture.physlab", "numerical-methods")
         assert not st.warnings
 
+        call_count = len(calls)
+        st.session_state["pl_project_select_numerical-methods"] = "Create new project"
+        wrapped(st, "numerical-methods", {"fixture": 3})
+        assert len(calls) == call_count + 1
+        assert calls[-1] == ("base", "numerical-methods", {"fixture": 3})
+        assert not st.warnings
+
         before = project_kernel.render_project_workspace
         patch.install()
         assert project_kernel.render_project_workspace is before, "Evidence Center patch must be idempotent"
@@ -93,6 +100,7 @@ def main() -> int:
     print("- desktop bundle resources: PASS")
     print("- no-active-project guard: PASS")
     print("- active project -> Evidence Center render: PASS")
+    print("- create-new-project stale-path guard: PASS")
     print("- idempotent patch installation: PASS")
     print("Boundary: UI consumes the same project evidence APIs; it does not introduce a separate credibility/truth state.")
     return 0
