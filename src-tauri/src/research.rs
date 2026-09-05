@@ -406,6 +406,90 @@ fn register_desktop_measurement(
     write_json(&index_path, &index)
 }
 
+fn sha256_file(path: &Path) -> Option<String> {
+    let path_text = path.to_string_lossy().to_string();
+    let output = Command::new("/usr/bin/shasum")
+        .args(["-a", "256", path_text.as_str()])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .next()
+        .map(str::to_string)
+}
+
+fn import_measurement_dataset_to_dir(
+    project_dir: &Path,
+    canonical: bool,
+    source_path: &str,
+    name: &str,
+    quantity: &str,
+    unit: &str,
+    sensor: &str,
+    calibration: &str,
+) -> Result<DatasetSummary, String> {
+    let source = PathBuf::from(source_path.trim());
+    if !source.is_file() {
+        return Err(format!(
+            "Measurement file does not exist: {}",
+            source.display()
+        ));
+    }
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !["csv", "tsv", "json", "h5", "hdf5"].contains(&extension.as_str()) {
+        return Err("Supported measurement formats: CSV, TSV, JSON, HDF5".into());
+    }
+    let dataset_id = format!(
+        "{}-{}",
+        safe_slug(name),
+        Local::now().format("%Y%m%d-%H%M%S")
+    );
+    let dataset_dir = project_dir.join("datasets").join(&dataset_id);
+    fs::create_dir_all(&dataset_dir).map_err(|e| e.to_string())?;
+    let stored = dataset_dir.join(format!("data.{extension}"));
+    fs::copy(&source, &stored).map_err(|e| e.to_string())?;
+    let digest = sha256_file(&stored);
+    let created_at = now_iso();
+    write_json(
+        &dataset_dir.join("metadata.json"),
+        &json!({
+            "schema":"physical-lab-dataset-v1",
+            "id":&dataset_id,
+            "name":name,
+            "quantity":quantity,
+            "unit":unit,
+            "sensor":sensor,
+            "calibration":calibration,
+            "format":&extension,
+            "sourceFile":source.to_string_lossy(),
+            "storedFile":stored.to_string_lossy(),
+            "sha256":&digest,
+            "createdAt":&created_at,
+            "measurement":true
+        }),
+    )?;
+    touch_project_after_direct_write(project_dir, canonical)?;
+    Ok(DatasetSummary {
+        id: dataset_id,
+        name: name.to_string(),
+        quantity: quantity.to_string(),
+        unit: unit.to_string(),
+        sensor: sensor.to_string(),
+        format: extension,
+        source_file: source.to_string_lossy().to_string(),
+        stored_file: stored.to_string_lossy().to_string(),
+        sha256: digest,
+        created_at,
+    })
+}
+
 fn list_datasets_from_dir(project_dir: &Path) -> Result<Vec<DatasetSummary>, String> {
     let root = project_dir.join("datasets");
     if !root.is_dir() {
@@ -1234,24 +1318,27 @@ pub fn import_measurement_dataset(
     sensor: String,
     calibration: String,
 ) -> Result<DatasetSummary, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    let dataset = legacy::import_measurement_dataset(
-        app.clone(),
-        workspace_id.clone(),
-        source_path,
-        name,
-        quantity,
-        unit,
-        sensor,
-        calibration.clone(),
+    let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+    let dataset = import_measurement_dataset_to_dir(
+        &dir,
+        canonical,
+        &source_path,
+        &name,
+        &quantity,
+        &unit,
+        &sensor,
+        &calibration,
     )?;
-    register_desktop_measurement(
-        &app,
-        &workspace_id,
-        &dataset,
-        &format!("Registered by Physical Lab desktop Data Bridge. Calibration/note field preserved as user metadata: {calibration}"),
-    )?;
-    touch_canonical_after_write(&app, &workspace_id)?;
+    if canonical {
+        register_desktop_measurement(
+            &app,
+            &workspace_id,
+            &dataset,
+            &format!(
+                "Registered by Physical Lab desktop Data Bridge. Calibration/note field preserved as user metadata: {calibration}"
+            ),
+        )?;
+    }
     Ok(dataset)
 }
 
