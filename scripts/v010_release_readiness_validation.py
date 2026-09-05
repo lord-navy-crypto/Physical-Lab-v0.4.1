@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Release-readiness contract for the Physical Lab v0.10 engineering-systems milestone.
 
-This validator intentionally runs while the source version is still 0.9.0. A later
-release PR may bump version metadata only after this contract and the full Source
-Integrity suite are green.
+The contract recognizes both the historical 0.9.0 hardening state and the released
+0.10.0 milestone. After 0.10.0 is released, the Unreleased section is intentionally
+allowed to accumulate future development without invalidating the v0.10 release.
 """
 from __future__ import annotations
 
@@ -95,12 +95,11 @@ def main() -> int:
     ):
         assert marker in readme, f"README missing release architecture marker: {marker}"
 
-    assert "## [Unreleased]" in changelog
+    assert changelog.count("## [Unreleased]") == 1, "CHANGELOG must contain exactly one Unreleased section"
     if version == "0.10.0":
         assert "## [0.10.0] - 2026-09-05" in changelog
         first_line = readme.splitlines()[0] if readme.splitlines() else ""
         assert "Physical Lab v0.10.0" in first_line
-        assert "No unreleased changes." in changelog
     else:
         assert "## [0.10.0] - 2026-09-05" not in changelog
     for marker in (
@@ -116,6 +115,7 @@ def main() -> int:
 
     print("Physical Lab v0.10 release-readiness contract: PASS")
     print(f"- v0.10 milestone release state ({version}): PASS")
+    print("- one mutable Unreleased section for subsequent development: PASS")
     print("- nine Evidence Center tabs: PASS")
     print("- five engineering-systems layers packaged + self-checked: PASS")
     print("- canonical project store / alias retirement boundary: PASS")
