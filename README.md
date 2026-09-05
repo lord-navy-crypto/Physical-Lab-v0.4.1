@@ -6,11 +6,14 @@
 
 It combines numerical-error analysis, Monte Carlo/statistical physics, stochastic simulation, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the engineering and research-software layer around those solvers: isolated environments, pinned source revisions, Safe/Full execution, scientific smoke tests, measurement provenance, V&V/UQ, model-specific requirement scorecards, automated refinement/replicate campaigns, convergence/cost analysis, robust-design summaries, measured/model comparison, batch planning, run provenance, and reproducibility exports.
 
+The **Unreleased Research Model Builder MVP** adds a creator path alongside the ten built-in Lab families: a trusted local `.py` model can be statically inspected without execution, converted into a human-reviewed `ModelSpec`, wrapped by a generated adapter, previewed through deterministic controls/plots, checked for original↔adapter interface equivalence, and stored as a provenance-tracked model bundle inside a canonical `.physlab` Project.
+
 ## 30-second overview
 
 | Question | Physical Lab answer |
 |---|---|
 | What physics does it cover? | Numerical error, Ising/Monte Carlo, random walk/QMC, chaos/Lyapunov analysis, oscillators/integration, Kerr relativity, solar-system dynamics, multilayer lattice/phonons, RADIA magnetics, undulator radiation |
+| Can students bring their own Python model? | **Yes, in the Unreleased Model Builder MVP:** static AST analysis → human-reviewed ModelSpec → generated wrapper/UI → explicit trusted local preview → adapter-equivalence check → Project model bundle |
 | What is the representative deep workflow? | **RADIA Magnet Studio → realized magnetic field → measured/model residual → electron trajectory → Radiation Platform → analytic/reference comparison** |
 | Are the other Labs engineered too? | **Yes. v0.9.0 adds one-click automated engineering campaigns for Numerical Error, Ising, Random Walk, Chaos, and Oscillation, with canonical metrics fed directly into their v0.8.1 engineering scorecards** |
 | What engineering questions can it answer? | Requirement margin, uncertainty budget, sensitivity, convergence, cost↔accuracy tradeoff, Pareto decisions, operations/capacity, quality & reliability evidence, risk & economics, requirements & verification planning, measured/model discrepancy, bounded calibration |
@@ -18,6 +21,36 @@ It combines numerical-error analysis, Monte Carlo/statistical physics, stochasti
 | How is software reliability handled? | Per-Lab `.venv`, PEP 440 checks, `pip check`, import tests, CPython ABI checks, pinned revisions, cancellable tasks, Universal2 builds |
 | Can experiment data enter the platform? | Yes. CSV/TSV/JSON/HDF5 provenance plus bounded Arduino-style serial numeric capture |
 | Can results be reproduced? | Projects preserve parameters, source revision, Python/package state, measurements, runs, campaign fingerprints and exportable provenance |
+
+## Research Model Builder — Unreleased MVP
+
+Physical Lab now includes a native **Model Builder** creation surface based on the principle **Preserve the science. Standardize the interface. Automate the bridge.** The MVP is intentionally narrower than an unrestricted AI code generator:
+
+```text
+trusted local model.py
+        ↓
+static AST analysis (no import / no execution)
+        ↓
+entry / parameters / outputs / dependencies
+        ↓
+human parameter + unit + range review
+        ↓
+physical-lab-model-spec-v1
+        ↓
+adapter.py + deterministic ui.json + tests/provenance
+        ↓
+explicit trusted local Preview
+        ↓
+original ↔ adapter equivalence
+        ↓
+canonical Project models/<bundle-id>/
+```
+
+Generation never overwrites the selected source file. A generated bundle contains an `original_model.py` snapshot plus separate `adapter.py`, `model.json`, `ui.json`, `tests.json` and `provenance.json`, each with source/model fingerprints where applicable. Slider bounds are never invented automatically: ranges and scientific units remain human-confirmed metadata.
+
+`Analyze` and `Generate` do not execute the selected model. `Preview` and `Validate Adapter` are separate trusted-local-code actions with a fixed timeout, bounded output capture and no shell-command execution path. The current MVP is **not a sandbox for arbitrary untrusted Internet code** and does not provide public/server Python execution.
+
+Adapter equivalence verifies that the wrapper preserves the selected source snapshot's interface/output structure for a declared test case. It does **not** establish correctness of equations, units, assumptions, numerical method, calibration, experimental validity, safety, compliance or certification. See `docs/RESEARCH_MODEL_BUILDER_MVP.md`.
 
 ## Evidence-First Engineering Systems Workbench
 

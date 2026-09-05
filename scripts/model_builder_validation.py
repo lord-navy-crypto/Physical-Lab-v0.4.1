@@ -58,6 +58,8 @@ def main() -> int:
         check = core.validate_adapter(str(bundle_path), {"length": 2.0, "angle": 0.5, "samples": 4})
         assert check["schema"] == "physical-lab-model-adapter-validation-v1"
         assert check["equivalent"] is True
+        assert check["same_structure"] is True
+        assert check["numeric_paths_match"] is True
         assert check["max_abs_diff"] == 0.0
         assert "not scientific validation" in check["boundary"]
 

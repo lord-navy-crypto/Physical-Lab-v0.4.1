@@ -390,6 +390,22 @@ def run_bundle(bundle: str, parameters: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_signature(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _shape_signature(child) for key, child in sorted(value.items(), key=lambda item: str(item[0]))}
+    if isinstance(value, list):
+        return {"type": "list", "length": len(value), "items": [_shape_signature(child) for child in value]}
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    return type(value).__name__
+
+
 def _flatten_numeric(value: Any, prefix: str = "") -> dict[str, float]:
     out: dict[str, float] = {}
     if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value)):
@@ -421,12 +437,14 @@ def validate_adapter(bundle: str, parameters: dict[str, Any], rtol: float = 1e-9
     diffs = [abs(original_numeric[k] - adapter_numeric[k]) for k in common]
     max_abs_diff = max(diffs) if diffs else 0.0
     numeric_equivalent = all(math.isclose(original_numeric[k], adapter_numeric[k], rel_tol=rtol, abs_tol=atol) for k in common)
-    same_structure = json.dumps(original_outputs, sort_keys=True, separators=(",", ":")) == json.dumps(adapter_outputs, sort_keys=True, separators=(",", ":")) if not common else set(original_numeric) == set(adapter_numeric)
-    equivalent = bool(numeric_equivalent and same_structure)
+    same_structure = _shape_signature(original_outputs) == _shape_signature(adapter_outputs)
+    numeric_paths_match = set(original_numeric) == set(adapter_numeric)
+    equivalent = bool(numeric_equivalent and same_structure and numeric_paths_match)
     return {
         "schema": VALIDATION_SCHEMA,
         "equivalent": equivalent,
         "same_structure": same_structure,
+        "numeric_paths_match": numeric_paths_match,
         "numeric_values_compared": len(common),
         "max_abs_diff": max_abs_diff,
         "rtol": rtol,

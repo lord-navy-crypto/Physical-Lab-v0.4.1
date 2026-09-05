@@ -387,14 +387,15 @@ function renderModelBuilder(){
   }
   const bundleNode=el('modelBuilderBundle');
   if(bundleNode){bundleNode.innerHTML=modelBuilderBundle?`<div class="model-bundle-card"><div><div class="category">${esc(modelBuilderBundle.bundle_id||'MODEL BUNDLE')}</div><h4>${esc(modelBuilderBundle.model_spec?.metadata?.name||'Research Model')}</h4><p class="dataset-path">${esc(modelBuilderBundle.bundle_path||'')}</p></div><div class="builder-tags"><code>source ${esc((modelBuilderBundle.source_sha256||'').slice(0,12))}</code><code>adapter ${esc((modelBuilderBundle.adapter_sha256||'').slice(0,12))}</code><code>ModelSpec ${esc((modelBuilderBundle.model_spec_sha256||'').slice(0,12))}</code></div></div>`:'<div class="empty-state">Generate a model bundle first.</div>'}
-  renderModelBuilderControls(spec);
+  renderModelBuilderControls(modelBuilderBundle?.model_spec||spec);
   const previewNode=el('modelBuilderPreviewOutput');if(previewNode)previewNode.innerHTML=modelBuilderPreviewData?renderModelBuilderOutputs(modelBuilderPreviewData.outputs||{}):'<div class="empty-state">No preview run yet.</div>';
   const validationNode=el('modelBuilderValidationOutput');if(validationNode){validationNode.innerHTML=modelBuilderValidationData?`<div class="validation-banner ${modelBuilderValidationData.equivalent?'good-callout':'bad-callout'}"><strong>${modelBuilderValidationData.equivalent?'INTERFACE EQUIVALENT':'NEEDS REVIEW'}</strong><span>Compared ${modelBuilderValidationData.numeric_values_compared||0} numeric values · max |Δ| ${esc(modelBuilderValidationData.max_abs_diff??'—')}</span></div><p class="hint">${esc(modelBuilderValidationData.boundary||'')}</p>`:'<div class="empty-state">No adapter-equivalence check yet.</div>'}
 }
+function invalidateModelBuilderGeneratedArtifacts(){modelBuilderBundle=null;modelBuilderPreviewData=null;modelBuilderValidationData=null}
 function syncModelSpecFromReview(){
   const spec=currentModelBuilderSpec();if(!spec){toast('ModelSpec JSON is invalid.',true);return null}
   document.querySelectorAll('[data-model-review]').forEach(card=>{const i=Number(card.dataset.modelReview);const p=spec.parameters?.[i];if(!p)return;const get=name=>card.querySelector(`[data-mb-review-field="${name}"]`)?.value??'';p.label=get('label').trim()||p.name;p.unit=get('unit').trim()||null;p.control=get('control');p.default=parseModelBuilderDefault(get('default'),p.type);p.min=nullableNumber(get('min'));p.max=nullableNumber(get('max'));});
-  el('modelBuilderSpec').value=JSON.stringify(spec,null,2);return spec;
+  el('modelBuilderSpec').value=JSON.stringify(spec,null,2);invalidateModelBuilderGeneratedArtifacts();return spec;
 }
 function renderModelBuilderControls(spec){
   const node=el('modelBuilderRuntimeControls');if(!node)return;const params=spec?.parameters||[];
@@ -458,7 +459,7 @@ if(el('modelBuilderPreview'))el('modelBuilderPreview').onclick=runResearchModelP
 if(el('modelBuilderValidate'))el('modelBuilderValidate').onclick=validateResearchModelAdapter;
 if(el('modelBuilderSave'))el('modelBuilderSave').onclick=saveResearchModelToProject;
 if(el('modelBuilderOpenBundle'))el('modelBuilderOpenBundle').onclick=openResearchModelBundle;
-if(el('modelBuilderSpec'))el('modelBuilderSpec').onchange=renderModelBuilder;
+if(el('modelBuilderSpec'))el('modelBuilderSpec').onchange=()=>{invalidateModelBuilderGeneratedArtifacts();renderModelBuilder()};
 
 if(el('createWorkspace'))el('createWorkspace').onclick=createProject;
 if(el('refreshWorkspaces'))el('refreshWorkspaces').onclick=async()=>{await refreshResearchBasics();renderResearch()};
