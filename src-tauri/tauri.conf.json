@@ -42,6 +42,8 @@
       "resources/ui/physical_lab_engineering_decision_ui.py": "ui/physical_lab_engineering_decision_ui.py",
       "resources/ui/physical_lab_operations_planning.py": "ui/physical_lab_operations_planning.py",
       "resources/ui/physical_lab_operations_ui.py": "ui/physical_lab_operations_ui.py",
+      "resources/ui/physical_lab_quality_reliability.py": "ui/physical_lab_quality_reliability.py",
+      "resources/ui/physical_lab_quality_reliability_ui.py": "ui/physical_lab_quality_reliability_ui.py",
       "resources/ui/physical_lab_units.py": "ui/physical_lab_units.py",
       "resources/ui/physical_lab_measurement_registry.py": "ui/physical_lab_measurement_registry.py",
       "resources/ui/physical_lab_compute_engine.py": "ui/physical_lab_compute_engine.py",
