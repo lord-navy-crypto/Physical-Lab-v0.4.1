@@ -16,6 +16,7 @@
       <nav class="nav">
         <button class="nav-item active" data-view="home"><span>⌂</span>Home</button>
         <button class="nav-item" data-view="labs"><span>◌</span>Physics Labs</button>
+        <button class="nav-item" data-view="modelbuilder"><span>＋</span>Model Builder</button>
         <button class="nav-item" data-view="runtime"><span>⬡</span>Runtime Center</button>
         <button class="nav-item" data-view="dependencies"><span>◇</span>Dependency Center</button>
         <button class="nav-item" data-view="workspaces"><span>▣</span>Projects</button>
@@ -67,6 +68,22 @@
       <section id="labsView" class="view">
         <div class="section-head"><div><h3>Physics Labs</h3><p>Each module keeps its own validated repository and isolated Python environment.</p></div><div id="labFilters" class="filters"></div></div>
         <div id="labGrid" class="card-grid"></div>
+      </section>
+
+
+      <section id="modelBuilderView" class="view">
+        <div class="research-hero"><div><div class="eyebrow">PRESERVE THE SCIENCE • AUTOMATE THE BRIDGE</div><h2>Research Model Builder</h2><p>Turn a trusted local Python research model into a reviewable ModelSpec, deterministic interface and Project-ready model bundle without silently rewriting the scientific source.</p></div><div class="research-badge" id="modelBuilderProjectBadge">No project selected</div></div>
+        <div class="tool-panel"><div class="form-row"><label>Python source<input id="modelBuilderSource" placeholder="/Users/.../my_model.py" /></label><button id="modelBuilderChooseSource" class="secondary">Choose .py</button><button id="modelBuilderAnalyze" class="primary">Analyze</button></div><p class="hint">Analyze is static AST inspection only: the selected file is not imported or executed.</p></div>
+        <div class="two-col">
+          <div class="tool-panel"><h3>Model analysis</h3><div id="modelBuilderAnalysis" class="model-builder-analysis"><div class="empty-state">Choose a Python model and analyze it.</div></div></div>
+          <div class="tool-panel"><h3>Parameter review</h3><p class="hint">Confirm labels, units and controls. Physical Lab never invents slider bounds: sliders require explicit min/max.</p><div id="modelBuilderParameterReview"><div class="empty-state">Detected parameters will appear here.</div></div><button id="modelBuilderApplyReview" class="secondary">Apply review to ModelSpec</button></div>
+        </div>
+        <div class="tool-panel"><div class="section-head"><div><h3>Advanced ModelSpec</h3><p>Structured interface contract. Edit directly when the detected structure needs correction.</p></div><button id="modelBuilderGenerate" class="primary">Generate Adapter + UI</button></div><textarea id="modelBuilderSpec" class="code-textarea" rows="18" spellcheck="false" placeholder="Analyze a model to generate a candidate ModelSpec."></textarea></div>
+        <div class="tool-panel"><div class="section-head"><div><h3>Generated model bundle</h3><p>Original snapshot, adapter, ModelSpec, UI spec, tests and provenance remain separate.</p></div><button id="modelBuilderOpenBundle" class="secondary">Open Bundle Folder</button></div><div id="modelBuilderBundle"><div class="empty-state">Generate a model bundle first.</div></div></div>
+        <div class="two-col">
+          <div class="tool-panel"><h3>Deterministic preview</h3><div id="modelBuilderRuntimeControls"><div class="empty-state">Generate a bundle to render ModelSpec controls.</div></div><label class="trust-check"><input id="modelBuilderTrusted" type="checkbox" /> I trust this local Python source and understand Preview/Validate will execute its bundled snapshot on this Mac.</label><div class="card-actions"><button id="modelBuilderPreview" class="primary">Run Preview</button><button id="modelBuilderValidate" class="secondary">Validate Adapter</button><button id="modelBuilderSave" class="secondary">Save to Active Project</button></div><p class="hint">Adapter equivalence checks interface conversion only. It is not scientific validation of equations, assumptions, units or reference truth.</p></div>
+          <div class="tool-panel"><h3>Preview output</h3><div id="modelBuilderPreviewOutput"><div class="empty-state">No preview run yet.</div></div><h3>Adapter validation</h3><div id="modelBuilderValidationOutput"><div class="empty-state">No adapter-equivalence check yet.</div></div></div>
+        </div>
       </section>
 
       <section id="runtimeView" class="view">

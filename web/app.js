@@ -23,6 +23,10 @@ let compatibilityRows = [];
 let smokeResults = [];
 let runSnapshots = [];
 let campaignData = [];
+let modelBuilderAnalysis = null;
+let modelBuilderBundle = null;
+let modelBuilderPreviewData = null;
+let modelBuilderValidationData = null;
 
 const DEFAULT_UI_SETTINGS = {enginePreference:'auto', density:'comfortable', showFeatured:true, taskCompletionToasts:true};
 let uiSettings = {...DEFAULT_UI_SETTINGS};
@@ -44,7 +48,7 @@ function toast(message, error=false){
 function showView(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active-view'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
-  const map={home:['homeView','Physical Lab','One local home for your computational physics tools.'],labs:['labsView','Physics Labs','Install, open and switch between computational models.'],runtime:['runtimeView','Runtime Center','Scientific runtimes, builders and dependency health.'],dependencies:['dependenciesView','Dependency Center','Everything Physical Lab needs, and exactly how it is delivered.'],workspaces:['workspacesView','Projects','Reproducible experimental workspaces.'],data:['dataView','Data Bridge','Measurements, Arduino serial capture and dataset provenance.'],integrity:['integrityView','Integrity Center','Per-Lab compatibility and scientific smoke tests.'],pipelines:['pipelinesView','Physics Pipelines','Explicit cross-Lab handoffs and native adapter boundaries.'],campaigns:['campaignsView','Campaigns','Persistent parameter-scan planning and run queues.'],results:['resultsView','Results Center','Statistics, model validation and reproducibility exports.'],tasks:['tasksView','Task Center','Live work performed by Physical Lab.'],settings:['settingsView','Settings','Desktop-shell defaults and visualization policy.'],lab:['labView','Lab Session','Running locally inside Physical Lab.']};
+  const map={home:['homeView','Physical Lab','One local home for your computational physics tools.'],labs:['labsView','Physics Labs','Install, open and switch between computational models.'],modelbuilder:['modelBuilderView','Research Model Builder','Preserve the science. Standardize the interface. Automate the bridge.'],runtime:['runtimeView','Runtime Center','Scientific runtimes, builders and dependency health.'],dependencies:['dependenciesView','Dependency Center','Everything Physical Lab needs, and exactly how it is delivered.'],workspaces:['workspacesView','Projects','Reproducible experimental workspaces.'],data:['dataView','Data Bridge','Measurements, Arduino serial capture and dataset provenance.'],integrity:['integrityView','Integrity Center','Per-Lab compatibility and scientific smoke tests.'],pipelines:['pipelinesView','Physics Pipelines','Explicit cross-Lab handoffs and native adapter boundaries.'],campaigns:['campaignsView','Campaigns','Persistent parameter-scan planning and run queues.'],results:['resultsView','Results Center','Statistics, model validation and reproducibility exports.'],tasks:['tasksView','Task Center','Live work performed by Physical Lab.'],settings:['settingsView','Settings','Desktop-shell defaults and visualization policy.'],lab:['labView','Lab Session','Running locally inside Physical Lab.']};
   const item=map[name]||map.home; el(item[0]).classList.add('active-view'); el('viewTitle').textContent=item[1]; el('viewSubtitle').textContent=item[2];
 }
 
@@ -210,7 +214,7 @@ function render(){
   const visible=activeCategory==='All'?labs:labs.filter(m=>m.category===activeCategory);
   el('labGrid').innerHTML=visible.map(labCard).join('');
   el('runtimeGrid').innerHTML=runtimes.map(runtimeCard).join('');
-  renderRuntimeSummary(); renderDependencies(); renderResearch(); renderSettings(); applyUiSettings(); bindDynamic(); renderTasks(); applySearch();
+  renderRuntimeSummary(); renderDependencies(); renderResearch(); renderModelBuilder(); renderSettings(); applyUiSettings(); bindDynamic(); renderTasks(); applySearch();
 }
 
 
@@ -357,6 +361,71 @@ async function closeModule(){
   el('labFrame').src='about:blank'; activeModule=null; activeMode=null; showView('labs');
 }
 
+
+function currentModelBuilderSpec(){
+  const raw=(el('modelBuilderSpec')?.value||'').trim();
+  if(!raw)return null;
+  try{return JSON.parse(raw)}catch(_){return null}
+}
+function nullableNumber(raw){const text=String(raw??'').trim();if(!text)return null;const value=Number(text);return Number.isFinite(value)?value:null}
+function modelBuilderDefaultText(value){if(value===null||value===undefined)return '';if(typeof value==='string')return value;return JSON.stringify(value)}
+function parseModelBuilderDefault(raw,type){const text=String(raw??'').trim();if(!text)return null;if(type==='number'){const n=Number(text);return Number.isFinite(n)?n:null}if(type==='boolean')return text==='true';try{return JSON.parse(text)}catch(_){return text}}
+function renderModelBuilder(){
+  const badge=el('modelBuilderProjectBadge');const ws=activeWorkspace();if(badge)badge.textContent=ws?`Project: ${ws.name}`:'No project selected';
+  const analysisNode=el('modelBuilderAnalysis');
+  if(analysisNode){
+    if(!modelBuilderAnalysis)analysisNode.innerHTML='<div class="empty-state">Choose a Python model and analyze it.</div>';
+    else{
+      const warnings=modelBuilderAnalysis.warnings||[];const functions=modelBuilderAnalysis.functions||[];const imports=modelBuilderAnalysis.imports||[];
+      analysisNode.innerHTML=`<div class="model-builder-kpis"><div><span>Entry</span><strong>${esc(modelBuilderAnalysis.candidate_entry||'Needs review')}</strong></div><div><span>Functions</span><strong>${functions.length}</strong></div><div><span>Imports</span><strong>${imports.length}</strong></div><div><span>SHA-256</span><strong>${esc((modelBuilderAnalysis.source_sha256||'').slice(0,12))}</strong></div></div><div class="builder-tags">${imports.map(x=>`<code>${esc(x)}</code>`).join('')||'<span class="hint">No imports detected.</span>'}</div>${warnings.length?`<div class="builder-warnings">${warnings.map(w=>`<div class="callout"><strong>${esc(w.kind)}</strong><br/>${esc(w.message)}</div>`).join('')}</div>`:'<div class="callout good-callout">No static execution-risk warning was detected. This is not a security guarantee.</div>'}<p class="hint">${esc(modelBuilderAnalysis.execution_boundary||'')}</p>`;
+    }
+  }
+  const spec=currentModelBuilderSpec();const review=el('modelBuilderParameterReview');
+  if(review){
+    const params=spec?.parameters||[];
+    review.innerHTML=params.length?params.map((p,i)=>`<article class="model-param-review" data-model-review="${i}"><div class="category">${esc(p.name)}</div><div class="form-grid"><label>Label<input data-mb-review-field="label" value="${esc(p.label||p.name)}" /></label><label>Unit<input data-mb-review-field="unit" value="${esc(p.unit||'')}" placeholder="unknown" /></label><label>Control<select data-mb-review-field="control"><option ${p.control==='number'?'selected':''}>number</option><option ${p.control==='slider'?'selected':''}>slider</option><option ${p.control==='toggle'?'selected':''}>toggle</option><option ${p.control==='dropdown'?'selected':''}>dropdown</option><option ${p.control==='text'?'selected':''}>text</option></select></label><label>Default<input data-mb-review-field="default" value="${esc(modelBuilderDefaultText(p.default))}" /></label><label>Min<input data-mb-review-field="min" type="number" step="any" value="${esc(p.min??'')}" /></label><label>Max<input data-mb-review-field="max" type="number" step="any" value="${esc(p.max??'')}" /></label></div></article>`).join(''):'<div class="empty-state">Detected parameters will appear here.</div>';
+  }
+  const bundleNode=el('modelBuilderBundle');
+  if(bundleNode){bundleNode.innerHTML=modelBuilderBundle?`<div class="model-bundle-card"><div><div class="category">${esc(modelBuilderBundle.bundle_id||'MODEL BUNDLE')}</div><h4>${esc(modelBuilderBundle.model_spec?.metadata?.name||'Research Model')}</h4><p class="dataset-path">${esc(modelBuilderBundle.bundle_path||'')}</p></div><div class="builder-tags"><code>source ${esc((modelBuilderBundle.source_sha256||'').slice(0,12))}</code><code>adapter ${esc((modelBuilderBundle.adapter_sha256||'').slice(0,12))}</code><code>ModelSpec ${esc((modelBuilderBundle.model_spec_sha256||'').slice(0,12))}</code></div></div>`:'<div class="empty-state">Generate a model bundle first.</div>'}
+  renderModelBuilderControls(modelBuilderBundle?.model_spec||spec);
+  const previewNode=el('modelBuilderPreviewOutput');if(previewNode)previewNode.innerHTML=modelBuilderPreviewData?renderModelBuilderOutputs(modelBuilderPreviewData.outputs||{}):'<div class="empty-state">No preview run yet.</div>';
+  const validationNode=el('modelBuilderValidationOutput');if(validationNode){validationNode.innerHTML=modelBuilderValidationData?`<div class="validation-banner ${modelBuilderValidationData.equivalent?'good-callout':'bad-callout'}"><strong>${modelBuilderValidationData.equivalent?'INTERFACE EQUIVALENT':'NEEDS REVIEW'}</strong><span>Compared ${modelBuilderValidationData.numeric_values_compared||0} numeric values · max |Δ| ${esc(modelBuilderValidationData.max_abs_diff??'—')}</span></div><p class="hint">${esc(modelBuilderValidationData.boundary||'')}</p>`:'<div class="empty-state">No adapter-equivalence check yet.</div>'}
+}
+function invalidateModelBuilderGeneratedArtifacts(){modelBuilderBundle=null;modelBuilderPreviewData=null;modelBuilderValidationData=null}
+function syncModelSpecFromReview(){
+  const spec=currentModelBuilderSpec();if(!spec){toast('ModelSpec JSON is invalid.',true);return null}
+  document.querySelectorAll('[data-model-review]').forEach(card=>{const i=Number(card.dataset.modelReview);const p=spec.parameters?.[i];if(!p)return;const get=name=>card.querySelector(`[data-mb-review-field="${name}"]`)?.value??'';p.label=get('label').trim()||p.name;p.unit=get('unit').trim()||null;p.control=get('control');p.default=parseModelBuilderDefault(get('default'),p.type);p.min=nullableNumber(get('min'));p.max=nullableNumber(get('max'));});
+  el('modelBuilderSpec').value=JSON.stringify(spec,null,2);invalidateModelBuilderGeneratedArtifacts();return spec;
+}
+function renderModelBuilderControls(spec){
+  const node=el('modelBuilderRuntimeControls');if(!node)return;const params=spec?.parameters||[];
+  if(!modelBuilderBundle||!params.length){node.innerHTML=modelBuilderBundle?'<div class="hint">This ModelSpec declares no interactive parameters.</div>':'<div class="empty-state">Generate a bundle to render ModelSpec controls.</div>';return}
+  node.innerHTML=`<div class="model-runtime-controls">${params.map(p=>modelBuilderControlHtml(p)).join('')}</div>`;
+  document.querySelectorAll('[data-model-param-range]').forEach(input=>input.oninput=()=>{const out=document.querySelector(`[data-model-param-value="${CSS.escape(input.dataset.modelParamRange)}"]`);if(out)out.textContent=input.value});
+}
+function modelBuilderControlHtml(p){
+  const name=esc(p.name),label=esc(p.label||p.name),unit=p.unit?` <span>${esc(p.unit)}</span>`:'';const value=p.default??'';
+  if(p.control==='slider'&&p.min!==null&&p.max!==null)return `<label class="model-runtime-control">${label}${unit}<div class="range-row"><input data-model-param data-model-param-range="${name}" data-param-name="${name}" type="range" min="${esc(p.min)}" max="${esc(p.max)}" step="any" value="${esc(value??p.min)}"/><output data-model-param-value="${name}">${esc(value??p.min)}</output></div></label>`;
+  if(p.control==='toggle')return `<label class="model-runtime-control toggle-row"><input data-model-param data-param-name="${name}" type="checkbox" ${value?'checked':''}/>${label}${unit}</label>`;
+  if(p.control==='dropdown'&&Array.isArray(p.options))return `<label class="model-runtime-control">${label}${unit}<select data-model-param data-param-name="${name}">${p.options.map(v=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`;
+  const type=p.control==='number'||p.type==='number'?'number':'text';return `<label class="model-runtime-control">${label}${unit}<input data-model-param data-param-name="${name}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value)}"/></label>`;
+}
+function collectModelBuilderParameters(){
+  const params={};for(const input of document.querySelectorAll('[data-model-param]')){const name=input.dataset.paramName;if(!name)continue;if(input.type==='checkbox')params[name]=input.checked;else if(input.type==='number'||input.type==='range'){const n=Number(input.value);if(!Number.isFinite(n))throw new Error(`Parameter ${name} needs a finite number.`);params[name]=n}else params[name]=input.value}return params;
+}
+function numericArray(value){return Array.isArray(value)&&value.length>1&&value.every(v=>typeof v==='number'&&Number.isFinite(v))}
+function sparkline(values){const w=280,h=90,min=Math.min(...values),max=Math.max(...values),span=Math.max(1e-12,max-min);const points=values.map((v,i)=>`${(i/(values.length-1)*w).toFixed(2)},${(h-(v-min)/span*h).toFixed(2)}`).join(' ');return `<svg class="builder-sparkline" viewBox="0 0 ${w} ${h}" role="img" aria-label="numeric output sparkline"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2"/></svg>`}
+function xyPlot(x,y){const w=520,h=180,x0=Math.min(...x),x1=Math.max(...x),y0=Math.min(...y),y1=Math.max(...y),xs=Math.max(1e-12,x1-x0),ys=Math.max(1e-12,y1-y0);const points=x.map((v,i)=>`${((v-x0)/xs*w).toFixed(2)},${(h-(y[i]-y0)/ys*h).toFixed(2)}`).join(' ');return `<div class="builder-xy"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="automatic x-y preview"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2"/></svg><small>x ${x0.toPrecision(4)} → ${x1.toPrecision(4)} · y ${y0.toPrecision(4)} → ${y1.toPrecision(4)}</small></div>`}
+function renderModelBuilderOutputs(outputs){const entries=Object.entries(outputs||{});const arrays=entries.filter(([,v])=>numericArray(v));const auto=arrays.length>=2&&arrays[0][1].length===arrays[1][1].length?`<div class="builder-auto-plot"><div class="category">AUTO X-Y · ${esc(arrays[0][0])} → ${esc(arrays[1][0])}</div>${xyPlot(arrays[0][1],arrays[1][1])}</div>`:'';return `${auto}<div class="model-output-grid">${entries.map(([k,v])=>`<article class="model-output-card"><div class="category">${esc(k)}</div>${typeof v==='number'?`<strong>${esc(v)}</strong>`:numericArray(v)?`${sparkline(v)}<small>${v.length} values · min ${Math.min(...v).toPrecision(5)} · max ${Math.max(...v).toPrecision(5)}</small>`:`<pre>${esc(JSON.stringify(v,null,2))}</pre>`}</article>`).join('')}</div>`}
+async function chooseResearchModelSource(){if(!invoke){toast('File chooser is available in the desktop build.');return}try{const path=await invoke('model_builder_choose_source');el('modelBuilderSource').value=path}catch(e){if(!String(e).toLowerCase().includes('cancel'))toast(String(e),true)}}
+async function analyzeResearchModel(){const sourcePath=el('modelBuilderSource').value.trim();if(!sourcePath){toast('Choose a .py source first.',true);return}if(!invoke){toast('Static model analysis is available in the desktop build.');return}try{modelBuilderAnalysis=await invoke('model_builder_analyze',{sourcePath});modelBuilderBundle=null;modelBuilderPreviewData=null;modelBuilderValidationData=null;el('modelBuilderSpec').value=JSON.stringify(modelBuilderAnalysis.candidate_model_spec||{},null,2);renderModelBuilder();toast('Static analysis complete. Source was not executed.')}catch(e){toast(String(e),true)}}
+async function generateResearchModel(){if(!invoke)return;const sourcePath=el('modelBuilderSource').value.trim();const spec=syncModelSpecFromReview()||currentModelBuilderSpec();if(!sourcePath||!spec){toast('Analyze the source and review ModelSpec first.',true);return}try{modelBuilderBundle=await invoke('model_builder_generate',{sourcePath,modelSpec:spec});modelBuilderPreviewData=null;modelBuilderValidationData=null;renderModelBuilder();toast('Adapter and deterministic UI bundle generated without executing the source.')}catch(e){toast(String(e),true)}}
+function modelBuilderTrusted(){return !!el('modelBuilderTrusted')?.checked}
+async function runResearchModelPreview(){if(!invoke||!modelBuilderBundle){toast('Generate a model bundle first.',true);return}if(!modelBuilderTrusted()){toast('Confirm that you trust this local Python source before execution.',true);return}try{const parameters=collectModelBuilderParameters();modelBuilderPreviewData=await invoke('model_builder_run',{bundlePath:modelBuilderBundle.bundle_path,parameters,trusted:true});renderModelBuilder();toast('Local preview complete.')}catch(e){toast(String(e),true)}}
+async function validateResearchModelAdapter(){if(!invoke||!modelBuilderBundle){toast('Generate a model bundle first.',true);return}if(!modelBuilderTrusted()){toast('Confirm that you trust this local Python source before execution.',true);return}try{const parameters=collectModelBuilderParameters();modelBuilderValidationData=await invoke('model_builder_validate',{bundlePath:modelBuilderBundle.bundle_path,parameters,trusted:true});renderModelBuilder();toast(modelBuilderValidationData.equivalent?'Adapter equivalence passed.':'Adapter needs review.',!modelBuilderValidationData.equivalent)}catch(e){toast(String(e),true)}}
+async function saveResearchModelToProject(){if(!invoke||!modelBuilderBundle){toast('Generate a model bundle first.',true);return}if(!activeWorkspaceId){toast('Create or select a canonical Project first.',true);return}try{const record=await invoke('save_model_builder_bundle',{workspaceId:activeWorkspaceId,bundlePath:modelBuilderBundle.bundle_path});await refreshResearchBasics();render();toast(`Saved ${record.name||'research model'} to the active Project.`)}catch(e){toast(String(e),true)}}
+async function openResearchModelBundle(){if(!invoke||!modelBuilderBundle)return;try{await invoke('model_builder_open_bundle',{bundlePath:modelBuilderBundle.bundle_path})}catch(e){toast(String(e),true)}}
+
 function renderTasks(){
   const list=[...tasks.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   const running=list.filter(t=>!t.done).length; el('taskBadge').textContent=String(running); el('taskBadge').classList.toggle('hidden',running===0);
@@ -381,6 +450,16 @@ el('clearTasks').onclick=()=>{for(const [k,v] of tasks)if(v.done)tasks.delete(k)
 el('openLogs').onclick=async()=>{if(!invoke){toast(logDir||'Log folder is available in the desktop build.');return}try{const p=await invoke('open_log_directory');toast(`Opened logs: ${p}`)}catch(e){toast(String(e),true)}};
 el('openData').onclick=async()=>{if(!invoke){toast(dataDir||'Data folder is available in the desktop build.');return}try{const p=await invoke('open_data_directory');toast(`Opened Physical Lab data: ${p}`)}catch(e){toast(String(e),true)}};
 
+
+if(el('modelBuilderChooseSource'))el('modelBuilderChooseSource').onclick=chooseResearchModelSource;
+if(el('modelBuilderAnalyze'))el('modelBuilderAnalyze').onclick=analyzeResearchModel;
+if(el('modelBuilderApplyReview'))el('modelBuilderApplyReview').onclick=()=>{if(syncModelSpecFromReview())renderModelBuilder()};
+if(el('modelBuilderGenerate'))el('modelBuilderGenerate').onclick=generateResearchModel;
+if(el('modelBuilderPreview'))el('modelBuilderPreview').onclick=runResearchModelPreview;
+if(el('modelBuilderValidate'))el('modelBuilderValidate').onclick=validateResearchModelAdapter;
+if(el('modelBuilderSave'))el('modelBuilderSave').onclick=saveResearchModelToProject;
+if(el('modelBuilderOpenBundle'))el('modelBuilderOpenBundle').onclick=openResearchModelBundle;
+if(el('modelBuilderSpec'))el('modelBuilderSpec').onchange=()=>{invalidateModelBuilderGeneratedArtifacts();renderModelBuilder()};
 
 if(el('createWorkspace'))el('createWorkspace').onclick=createProject;
 if(el('refreshWorkspaces'))el('refreshWorkspaces').onclick=async()=>{await refreshResearchBasics();renderResearch()};

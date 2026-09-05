@@ -4,6 +4,19 @@ All notable Physical Lab changes are recorded here. Version numbers follow SemVe
 
 ## [Unreleased]
 
+### Added — Research Model Builder MVP
+- Added a native **Model Builder** creation surface for trusted local Python research models without turning the Builder into an eleventh built-in physics Lab.
+- Added static AST inspection for top-level functions, candidate parameters/outputs, imports, source SHA-256 and execution-risk warnings; static analysis does not import or execute the selected source.
+- Added human-reviewed `physical-lab-model-spec-v1` metadata with explicit labels, units, controls, defaults and user-confirmed slider ranges.
+- Added wrapper-not-rewrite generation of `original_model.py`, `adapter.py`, `model.json`, `ui.json`, `tests.json` and `provenance.json` with deterministic fingerprints; bundle identity includes both source and reviewed-ModelSpec fingerprints so interface revisions do not silently overwrite prior bundles.
+- Added deterministic ModelSpec rendering for number, slider, toggle, dropdown and text controls plus scalar, numeric-array, automatic x-y and structured-JSON preview output.
+- Added explicit trusted local Preview and original↔adapter equivalence checks with timeout/output bounds; adapter equivalence compares output shape/type signatures and numeric paths/values.
+- Added canonical `.physlab` Project model storage under `models/<bundle-id>/` plus `models/index.json`; legacy workspaces must be migrated before Builder bundles can be registered.
+- Added deterministic and wiring validations proving Analyze/Generate do not execute student source and that execution remains an explicit local action.
+
+### Model Builder boundary
+Research Model Builder automates the interface around a student model, not the scientific judgment inside it. It does not silently rewrite source equations, infer authoritative units/ranges, establish scientific correctness, provide a security sandbox for arbitrary untrusted Internet code, or establish experimental validation, safety, compliance or certification. Public/server arbitrary-Python execution, publishing, model-library/fork services and browser/WASM execution remain deferred.
+
 ### Restored — first-class bundled scientific Labs
 - Restored **Kerr Black Hole Geodesics**, **Sun–Jupiter–Saturn Dynamics**, and **Multilayer Honeycomb Lattice** as top-level launcher Labs instead of hiding them under nonlinear-chaos / oscillation profiles.
 - The three Labs reuse the already strengthened solver, workflow, UI, verification and Model Refinement implementations shipped inside Physical Lab; no scientific equations were rewritten for this restoration.
