@@ -1,0 +1,38 @@
+name: Version Model Builder Bundle Identity
+
+on:
+  push:
+    branches: [ feature/research-model-builder-mvp ]
+    paths:
+      - .github/workflows/version-model-builder-bundle-identity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  version-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/research-model-builder-mvp
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply and validate bundle identity
+        run: |
+          python scripts/_version_model_builder_bundle_identity.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_model_builder.py scripts/model_builder_validation.py
+          python scripts/model_builder_validation.py
+          python scripts/model_builder_wiring_validation.py
+          python scripts/version_consistency.py
+          python scripts/self_check.py
+      - name: Commit validated identity hardening
+        run: |
+          rm scripts/_version_model_builder_bundle_identity.py
+          git config user.name physical-lab-ci
+          git config user.email physical-lab-ci@users.noreply.github.com
+          git add src-tauri/resources/ui/physical_lab_model_builder.py scripts/model_builder_validation.py docs/RESEARCH_MODEL_BUILDER_MVP.md README.md CHANGELOG.md
+          git add -u
+          git commit -m "Version Research Model Builder bundles by reviewed ModelSpec"
+          git push origin HEAD:feature/research-model-builder-mvp
