@@ -2,6 +2,34 @@
 
 All notable Physical Lab changes are recorded here. Version numbers follow SemVer (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added — Evidence-First Engineering Systems
+- **Credibility Passport + Evidence Graph** with explicit PRESENT / PARTIAL / MISSING factors and no aggregate credibility score.
+- **Claim-to-Evidence Matrix** and evidence freshness states, without machine truth/proof verdicts.
+- **Cross-Checks + Evidence Snapshots/Diff** for declared method/source corroboration and review-state change detection.
+- **Engineering Decision Layer** with explicit constraints, feasibility, Pareto non-dominance and human decision rationale.
+- **Operations Layer** with finite resource capacity, task precedence, queue wait, utilization, makespan and transparent dispatch-policy comparison.
+- **Quality & Reliability Layer** with descriptive variation, pooled replicate repeatability, factor contrasts, specification context and observed reliability-event/exposure evidence.
+- **Risk & Engineering Economics Layer** with user-declared probabilities/consequences and explicit signed cash-flow present-worth arithmetic.
+- **Requirements & Verification Planning** with normative `shall` requirements, source/upstream trace identifiers, test/analysis/inspection/demonstration methods, success criteria, evidence freshness and human review notes.
+- Shared nine-tab Evidence Center using the same canonical `.physlab` Project state across all engineering-review layers.
+
+### Changed — Project / desktop architecture
+- Unified new desktop projects on canonical `projects/*.physlab` storage.
+- Retired compatibility workspace-alias creation while preserving genuine legacy workspace discovery/bridge behavior.
+- Moved Rust project read, analysis, write, campaign, measurement, serial-capture and reproducibility-export paths to direct canonical/legacy resolvers rather than symlink aliases.
+- Separated non-project desktop runtime support from frozen `research_legacy_impl.rs`; the legacy implementation remains a regression/compatibility fixture rather than an active runtime module.
+
+### Release hardening
+- Added `scripts/v010_release_readiness_validation.py` and `docs/V010_RELEASE_READINESS.md`.
+- README now describes the actual Evidence-First Engineering Systems architecture instead of only the v0.9 campaign milestone.
+- Self-check now requires all Decision / Operations / Quality & Reliability / Risk & Economics / Requirements & Verification core and UI modules, Tauri resources, and Evidence Center tabs.
+- The release-hardening branch intentionally remains version `0.9.0`; version metadata advances only in a dedicated release PR after all contracts are green.
+
+### Scientific / professional boundary
+These additions organize engineering evidence, planning, trade studies and human review. They do not establish scientific truth, experimental validation of every model, process capability, field reliability, calibrated risk, financial advice, formal product verification/validation, qualification, acceptance, safety approval, standards compliance, NASA endorsement, ABET accreditation, or certification.
+
 ## [0.9.0] - 2026-09-04
 
 ### Added

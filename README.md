@@ -2,7 +2,7 @@
 
 [![Source Integrity](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml/badge.svg)](https://github.com/lord-navy-crypto/Physical-Lab-v0.4.1/actions/workflows/source-integrity.yml)
 
-**Physical Lab is a native macOS research workbench that turns seven computational-physics projects into one reproducible engineering workflow: requirement → model → automated campaign → verify → validate → compare → optimize → measure → calibrate → decide.**
+**Physical Lab is a native macOS Evidence-First Engineering Systems Workbench that turns seven computational-physics projects into one reproducible workflow: model / measurement → evidence → engineering decision → operations → quality / reliability → risk / economics → requirements / verification → human review.**
 
 It combines numerical-error analysis, Monte Carlo/statistical physics, stochastic simulation, nonlinear dynamics, oscillation/integration, and a RADIA-backed **magnet → electron trajectory → radiation** workflow. Physical Lab adds the engineering and research-software layer around those solvers: isolated environments, pinned source revisions, Safe/Full execution, scientific smoke tests, measurement provenance, V&V/UQ, model-specific requirement scorecards, automated refinement/replicate campaigns, convergence/cost analysis, robust-design summaries, measured/model comparison, batch planning, run provenance, and reproducibility exports.
 
@@ -13,11 +13,55 @@ It combines numerical-error analysis, Monte Carlo/statistical physics, stochasti
 | What physics does it cover? | Numerical error, Ising/Monte Carlo, random walk/QMC, chaos/Lyapunov analysis, oscillators/integration, RADIA magnetics, undulator radiation |
 | What is the representative deep workflow? | **RADIA Magnet Studio → realized magnetic field → measured/model residual → electron trajectory → Radiation Platform → analytic/reference comparison** |
 | Are the other Labs engineered too? | **Yes. v0.9.0 adds one-click automated engineering campaigns for Numerical Error, Ising, Random Walk, Chaos, and Oscillation, with canonical metrics fed directly into their v0.8.1 engineering scorecards** |
-| What engineering questions can it answer? | Requirement margin, uncertainty budget, sensitivity, convergence, cost↔accuracy tradeoff, finite-ensemble robustness, measured/model discrepancy, Pareto design comparison, bounded calibration, batch planning |
+| What engineering questions can it answer? | Requirement margin, uncertainty budget, sensitivity, convergence, cost↔accuracy tradeoff, Pareto decisions, operations/capacity, quality & reliability evidence, risk & economics, requirements & verification planning, measured/model discrepancy, bounded calibration |
 | How is correctness treated? | Analytic/reference comparisons, deterministic automated campaigns, scientific smoke tests, explicit model limitations, Safe/Full separation |
 | How is software reliability handled? | Per-Lab `.venv`, PEP 440 checks, `pip check`, import tests, CPython ABI checks, pinned revisions, cancellable tasks, Universal2 builds |
 | Can experiment data enter the platform? | Yes. CSV/TSV/JSON/HDF5 provenance plus bounded Arduino-style serial numeric capture |
 | Can results be reproduced? | Projects preserve parameters, source revision, Python/package state, measurements, runs, campaign fingerprints and exportable provenance |
+
+## Evidence-First Engineering Systems Workbench
+
+Physical Lab now uses one canonical `.physlab` Project state across the physics Labs and the engineering-review layers. The shared Evidence Center contains nine coordinated views:
+
+1. **Credibility Passport** — evidence coverage and graph traceability, without an aggregate credibility score.
+2. **Claims** — explicit claim-to-evidence readiness and freshness.
+3. **Cross-Checks** — declared method/source comparisons with tolerance and stale-evidence detection.
+4. **Engineering Decisions** — constraints, feasibility and Pareto trade studies with human selection rationale.
+5. **Operations** — declared resource capacity, task precedence, queue wait, utilization, makespan and dispatch-policy comparison.
+6. **Quality & Reliability** — replicate variation, descriptive factor contrasts, specification context and observed event/exposure summaries.
+7. **Risk & Economics** — explicit probability × consequence arithmetic and signed cash-flow present-worth calculations.
+8. **Requirements & Verification** — normative `shall` requirements, source/upstream trace IDs, test/analysis/inspection/demonstration planning, evidence freshness and human review notes.
+9. **Snapshots & Diff** — deterministic evidence snapshots and review-state change detection.
+
+The architecture is deliberately evidence-first rather than score-first. Physical Lab does **not** emit one synthetic engineering score, machine truth verdict, automatic requirement PASS, risk acceptance, process qualification, safety approval, standards-compliance claim, or certification verdict.
+
+The canonical product chain is:
+
+```text
+Simulation / Measurement
+        ↓
+Project Kernel + Measurement Evidence
+        ↓
+Verification / UQ / Evidence Graph
+        ↓
+Claims + Cross-Checks + Evidence Freshness
+        ↓
+Engineering Decisions
+        ↓
+Operations
+        ↓
+Quality & Reliability
+        ↓
+Risk & Economics
+        ↓
+Requirements & Verification
+        ↓
+Human Review + Evidence Snapshot / Diff
+```
+
+New projects live directly in canonical `projects/*.physlab` stores. The old workspace-alias mechanism has been retired; genuine legacy workspaces remain an explicit compatibility/migration boundary rather than a second active Project system.
+
+See `docs/V010_RELEASE_READINESS.md` plus the individual Engineering Systems layer design notes under `docs/`.
 
 ## Seven validated Lab interfaces
 

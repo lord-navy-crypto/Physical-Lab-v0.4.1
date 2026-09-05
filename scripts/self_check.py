@@ -11,6 +11,16 @@ required = [
     'src-tauri/resources/ui/physical_lab_sitecustomize_base.py',
     'src-tauri/resources/ui/physical_lab_evidence_center_patch.py',
     'src-tauri/resources/ui/physical_lab_evidence_center_ui.py',
+    'src-tauri/resources/ui/physical_lab_engineering_decisions.py',
+    'src-tauri/resources/ui/physical_lab_engineering_decision_ui.py',
+    'src-tauri/resources/ui/physical_lab_operations_planning.py',
+    'src-tauri/resources/ui/physical_lab_operations_ui.py',
+    'src-tauri/resources/ui/physical_lab_quality_reliability.py',
+    'src-tauri/resources/ui/physical_lab_quality_reliability_ui.py',
+    'src-tauri/resources/ui/physical_lab_risk_economics.py',
+    'src-tauri/resources/ui/physical_lab_risk_economics_ui.py',
+    'src-tauri/resources/ui/physical_lab_requirements_verification.py',
+    'src-tauri/resources/ui/physical_lab_requirements_verification_ui.py',
     'src-tauri/resources/ui/physical_lab_project_surface_patch.py',
     'src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command',
     'VERSION','scripts/version_consistency.py'
@@ -86,6 +96,16 @@ for resource in [
     'resources/ui/physical_lab_sitecustomize_base.py',
     'resources/ui/physical_lab_evidence_center_patch.py',
     'resources/ui/physical_lab_evidence_center_ui.py',
+    'resources/ui/physical_lab_engineering_decisions.py',
+    'resources/ui/physical_lab_engineering_decision_ui.py',
+    'resources/ui/physical_lab_operations_planning.py',
+    'resources/ui/physical_lab_operations_ui.py',
+    'resources/ui/physical_lab_quality_reliability.py',
+    'resources/ui/physical_lab_quality_reliability_ui.py',
+    'resources/ui/physical_lab_risk_economics.py',
+    'resources/ui/physical_lab_risk_economics_ui.py',
+    'resources/ui/physical_lab_requirements_verification.py',
+    'resources/ui/physical_lab_requirements_verification_ui.py',
     'resources/ui/physical_lab_project_surface_patch.py',
     'resources/ui/physical_lab_advanced.py',
 ]:
@@ -112,7 +132,7 @@ for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo
 evidence_ui=(root/'src-tauri/resources/ui/physical_lab_evidence_center_ui.py').read_text()
 evidence_patch=(root/'src-tauri/resources/ui/physical_lab_evidence_center_patch.py').read_text()
 project_surface=(root/'src-tauri/resources/ui/physical_lab_project_surface_patch.py').read_text()
-for needle in ['Credibility Passport','Claims','Cross-Checks','Snapshots & Diff','register_claim','register_cross_check','write_evidence_snapshot']:
+for needle in ['Credibility Passport','Claims','Cross-Checks','Engineering Decisions','Operations','Quality & Reliability','Risk & Economics','Requirements & Verification','Snapshots & Diff','register_claim','register_cross_check','write_evidence_snapshot']:
     assert needle in evidence_ui, needle
 assert 'ACTIVE_PROJECT_SESSION_KEY' in evidence_patch
 assert 'Create new project' in evidence_patch
@@ -153,6 +173,7 @@ print('Reproducibility export + task cancellation: configured')
 print('Enhanced simulation profiles: 7')
 print('Responsive KPI/result-card system: configured')
 print('Shared Project surface + Evidence Center: configured')
+print('Engineering Systems layers: Decisions + Operations + Quality/Reliability + Risk/Economics + Requirements/Verification configured')
 
 # Public/reproducibility hardening
 required_public = [
