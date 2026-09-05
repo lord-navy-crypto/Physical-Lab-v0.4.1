@@ -130,7 +130,10 @@ def main() -> int:
         matrix = claims.claim_evidence_matrix(project_dir)
         assert matrix["status_counts"]["READY_FOR_REVIEW"] == 1
         assert len(matrix["matrix_sha256"]) == 64
-        assert "truth" not in json.dumps(matrix).lower()
+        encoded_matrix = json.dumps(matrix).lower()
+        assert "truth_status" not in encoded_matrix
+        assert all(row["status"] in claims.CLAIM_STATUSES for row in matrix["claims"])
+        assert all(row["status"] not in {"TRUE", "PROVEN", "VALID"} for row in matrix["claims"])
 
         calibration_index_path = project_dir / "calibration" / "index.json"
         calibration_index = json.loads(calibration_index_path.read_text(encoding="utf-8"))
@@ -157,6 +160,7 @@ def main() -> int:
         print(f"- ready evaluation: {ready['evaluation_sha256'][:16]}…")
         print("- stale evidence detection: PASS")
         print("- missing evidence detection: PASS")
+        print("- machine truth verdict: intentionally absent")
         print("Boundary: evidence readiness/freshness only; no truth, standards-compliance, or certification decision.")
     return 0
 
