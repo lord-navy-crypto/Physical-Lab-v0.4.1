@@ -1,0 +1,252 @@
+name: Canonical Reproducibility Export Cutover
+
+on:
+  push:
+    branches: [ feature/rust-canonical-repro-export ]
+    paths:
+      - .github/workflows/canonical-repro-export-cutover.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-cutover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/rust-canonical-repro-export
+      - name: Apply mechanical cutover
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('src-tauri/src/research.rs')
+          read_validation_path = Path('scripts/rust_canonical_read_paths_validation.py')
+          validation_path = Path('scripts/rust_canonical_repro_export_validation.py')
+          text = source_path.read_text(encoding='utf-8')
+
+          def replace_rust_fn(text: str, name: str, replacement: str) -> str:
+              marker = f'pub fn {name}('
+              start = text.index(marker)
+              attr = text.rfind('#[tauri::command]', 0, start)
+              brace = text.index('{', start)
+              depth = 0
+              for i in range(brace, len(text)):
+                  if text[i] == '{': depth += 1
+                  elif text[i] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return text[:attr] + replacement.rstrip() + '\n' + text[i+1:]
+              raise RuntimeError(name)
+
+          if 'fn research_lab_id_name_pairs(' not in text:
+              helpers = r'''
+          fn research_lab_id_name_pairs() -> Result<Vec<(String, String)>, String> {
+              let all: Vec<Value> = serde_json::from_str(include_str!("../resources/modules.json"))
+                  .map_err(|e| e.to_string())?;
+              Ok(all
+                  .into_iter()
+                  .filter(|value| value.get("kind").and_then(Value::as_str) == Some("lab"))
+                  .filter_map(|value| {
+                      let id = value.get("id")?.as_str()?.to_string();
+                      let name = value.get("name")?.as_str()?.to_string();
+                      Some((id, name))
+                  })
+                  .collect())
+          }
+
+          fn export_reproducibility_package_from_dir(
+              app: &AppHandle,
+              project_dir: &Path,
+              workspace_id: &str,
+          ) -> Result<String, String> {
+              let provenance = project_dir.join("provenance");
+              fs::create_dir_all(&provenance).map_err(|e| e.to_string())?;
+              let mut modules = Vec::new();
+              let modules_root = modules_root_for_research(app)?;
+              for (id, name) in research_lab_id_name_pairs()? {
+                  let module_dir = modules_root.join(&id);
+                  let source = module_dir.join("source");
+                  let python_path = module_dir.join(".venv/bin/python");
+                  modules.push(json!({
+                      "id":id,
+                      "name":name,
+                      "sourceCommit":if source.exists(){command_text_in(&source,"git",&["rev-parse","HEAD"])}else{None},
+                      "python":if python_path.exists(){command_text(python_path.to_string_lossy().as_ref(), &["--version"])}else{None},
+                      "pipFreeze":if python_path.exists(){command_text(python_path.to_string_lossy().as_ref(), &["-m","pip","freeze","--all"])}else{None}
+                  }));
+              }
+              write_json(
+                  &provenance.join("environment.json"),
+                  &json!({
+                      "createdAt":now_iso(),
+                      "machine":{
+                          "arch":command_text("uname", &["-m"]),
+                          "os":command_text("sw_vers", &["-productVersion"]),
+                          "build":command_text("sw_vers", &["-buildVersion"])
+                      },
+                      "modules":modules
+                  }),
+              )?;
+              let export_dir = app_root(app)?.join("exports");
+              fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
+              let output = export_dir.join(format!(
+                  "{}-reproducible-{}.zip",
+                  safe_slug(workspace_id),
+                  Local::now().format("%Y%m%d-%H%M%S")
+              ));
+              let project_text = project_dir.to_string_lossy().to_string();
+              let output_text = output.to_string_lossy().to_string();
+              let base_name = project_dir
+                  .file_name()
+                  .and_then(|value| value.to_str())
+                  .unwrap_or("workspace")
+                  .to_string();
+              let status = Command::new("/usr/bin/ditto")
+                  .args([
+                      "-c",
+                      "-k",
+                      "--sequesterRsrc",
+                      "--keepParent",
+                      project_text.as_str(),
+                      output_text.as_str(),
+                  ])
+                  .status()
+                  .or_else(|_| {
+                      Command::new("/usr/bin/zip")
+                          .current_dir(project_dir.parent().unwrap_or(project_dir))
+                          .args(["-r", output_text.as_str(), base_name.as_str()])
+                          .status()
+                  })
+                  .map_err(|e| e.to_string())?;
+              if !status.success() {
+                  return Err("Reproducibility archive creation failed".into());
+              }
+              Ok(output.to_string_lossy().to_string())
+          }
+
+          '''
+              text = text.replace('fn list_run_snapshots_from_dir(', helpers + 'fn list_run_snapshots_from_dir(', 1)
+
+          text = replace_rust_fn(text, 'export_reproducibility_package', r'''#[tauri::command]
+          pub fn export_reproducibility_package(
+              app: AppHandle,
+              workspace_id: String,
+          ) -> Result<String, String> {
+              let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+              export_reproducibility_package_from_dir(&app, &dir, &workspace_id)
+          }''')
+          source_path.write_text(text, encoding='utf-8')
+
+          read_validation = read_validation_path.read_text(encoding='utf-8')
+          read_validation = read_validation.replace('        "export_reproducibility_package",\n', '')
+          read_validation_path.write_text(read_validation, encoding='utf-8')
+
+          validation_path.write_text(r'''#!/usr/bin/env python3
+          """Acceptance checks for alias-independent reproducibility package export."""
+          from __future__ import annotations
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[1]
+          SOURCE = ROOT / "src-tauri/src/research.rs"
+          LEGACY = ROOT / "src-tauri/src/research_legacy_impl.rs"
+
+          def compact(value: str) -> str:
+              return "".join(value.split())
+
+          def function_block(text: str, name: str) -> str:
+              marker = f"fn {name}("
+              start = text.index(marker)
+              brace = text.index("{", start)
+              depth = 0
+              for index in range(brace, len(text)):
+                  if text[index] == "{": depth += 1
+                  elif text[index] == "}":
+                      depth -= 1
+                      if depth == 0: return text[start:index + 1]
+              raise AssertionError(name)
+
+          def main() -> int:
+              source = SOURCE.read_text(encoding="utf-8")
+              legacy = LEGACY.read_text(encoding="utf-8")
+              command = compact(function_block(source, "export_reproducibility_package"))
+              assert "resolve_project_dir" in command
+              assert "export_reproducibility_package_from_dir" in command
+              assert "ensure_alias_for_id" not in command
+              assert "legacy::" not in command
+
+              helper = compact(function_block(source, "export_reproducibility_package_from_dir"))
+              old = compact(function_block(legacy, "export_reproducibility_package"))
+              for token in (
+                  'join("provenance")',
+                  'join("environment.json")',
+                  '"createdAt":now_iso()',
+                  '"arch":command_text("uname",&["-m"])',
+                  '"os":command_text("sw_vers",&["-productVersion"])',
+                  '"build":command_text("sw_vers",&["-buildVersion"])',
+                  '"sourceCommit"',
+                  '"python"',
+                  '"pipFreeze"',
+                  '"rev-parse","HEAD"',
+                  '"-m","pip","freeze","--all"',
+                  'app_root(app)?.join("exports")',
+                  '"{}-reproducible-{}.zip"',
+                  '"/usr/bin/ditto"',
+                  '"--sequesterRsrc"',
+                  '"--keepParent"',
+                  '"/usr/bin/zip"',
+                  '"Reproducibilityarchivecreationfailed"',
+              ):
+                  assert token in helper, token
+
+              for token in (
+                  'join("provenance")',
+                  'join("environment.json")',
+                  '"createdAt":now_iso()',
+                  '"arch":command_text("uname",&["-m"])',
+                  '"os":command_text("sw_vers",&["-productVersion"])',
+                  '"build":command_text("sw_vers",&["-buildVersion"])',
+                  '"sourceCommit"',
+                  '"python"',
+                  '"pipFreeze"',
+                  '"rev-parse","HEAD"',
+                  '"-m","pip","freeze","--all"',
+                  'app_root(&app)?.join("exports")',
+                  '"{}-reproducible-{}.zip"',
+                  '"/usr/bin/ditto"',
+                  '"--sequesterRsrc"',
+                  '"--keepParent"',
+                  '"/usr/bin/zip"',
+                  '"Reproducibilityarchivecreationfailed"',
+              ):
+                  assert token in old, token
+
+              lab_pairs = compact(function_block(source, "research_lab_id_name_pairs"))
+              assert 'include_str!("../resources/modules.json")' in lab_pairs
+              assert 'Some("lab")' in lab_pairs
+              assert 'value.get("id")' in lab_pairs
+              assert 'value.get("name")' in lab_pairs
+
+              print("Physical Lab Rust canonical reproducibility export: PASS")
+              print("- canonical/legacy direct resolver, no compatibility alias")
+              print("- environment provenance fields preserved")
+              print("- Lab source commit / Python / pip freeze capture preserved")
+              print("- ditto archive + zip fallback preserved")
+              print("Boundary: a reproducibility package records environment/provenance; it is not a scientific verification or validation certificate.")
+              return 0
+
+          if __name__ == "__main__":
+              raise SystemExit(main())
+          ''', encoding='utf-8')
+          PY
+          rustfmt --edition 2021 src-tauri/src/research.rs
+          python scripts/rust_canonical_read_paths_validation.py
+          python scripts/rust_canonical_repro_export_validation.py
+      - name: Commit validated source changes
+        run: |
+          git config user.name 'physical-lab-ci'
+          git config user.email 'physical-lab-ci@users.noreply.github.com'
+          git add src-tauri/src/research.rs scripts/rust_canonical_read_paths_validation.py scripts/rust_canonical_repro_export_validation.py
+          git commit -m 'Move reproducibility export to canonical project paths'
+          git push origin HEAD:feature/rust-canonical-repro-export
