@@ -1,0 +1,37 @@
+name: Integrate Requirements Verification Layer
+
+on:
+  push:
+    branches: [ feature/requirements-verification-layer ]
+    paths:
+      - .github/workflows/integrate-requirements-verification.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/requirements-verification-layer
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply guarded integration
+        run: |
+          python scripts/_integrate_requirements_verification.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_requirements_verification.py src-tauri/resources/ui/physical_lab_requirements_verification_ui.py scripts/requirements_verification_validation.py scripts/requirements_verification_wiring_validation.py
+          python -m json.tool src-tauri/tauri.conf.json >/dev/null
+          python scripts/requirements_verification_validation.py
+          python scripts/requirements_verification_wiring_validation.py
+          python scripts/self_check.py
+      - name: Commit validated non-workflow integration
+        run: |
+          rm scripts/_integrate_requirements_verification.py
+          git config user.name physical-lab-ci
+          git config user.email physical-lab-ci@users.noreply.github.com
+          git add src-tauri/resources/ui/physical_lab_evidence_center_ui.py src-tauri/tauri.conf.json scripts/_integrate_requirements_verification.py
+          git commit -m "Integrate Requirements and Verification into shared Evidence Center"
+          git push origin HEAD:feature/requirements-verification-layer
