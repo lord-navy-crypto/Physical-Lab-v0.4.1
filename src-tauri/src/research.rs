@@ -719,6 +719,152 @@ fn validate_dataset_columns_from_dir(
     })
 }
 
+fn modules_root_for_research(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_root(app)?.join("modules"))
+}
+
+fn command_text(program: &str, args: &[&str]) -> Option<String> {
+    let out = Command::new(program).args(args).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+fn command_text_in(dir: &Path, program: &str, args: &[&str]) -> Option<String> {
+    let out = Command::new(program)
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+fn touch_project_after_direct_write(project_dir: &Path, canonical: bool) -> Result<(), String> {
+    let path = project_dir.join("project.json");
+    let mut project = read_json(&path)?;
+    if canonical && is_canonical(&project) {
+        project["updated_at"] = Value::String(now_iso());
+        if let Some(object) = project.as_object_mut() {
+            object.remove("updatedAt");
+        }
+    } else {
+        project["updatedAt"] = Value::String(now_iso());
+    }
+    write_json(&path, &project)
+}
+
+fn pipeline_template_value(kind: &str) -> Value {
+    match kind {
+        "accelerator-measurement" => {
+            json!({"schema":"physical-lab-pipeline-v1","name":"Measured Field → RADIA → Radiation","steps":[
+            {"id":"measurement","type":"dataset","label":"Measured magnetic field","status":"input"},
+            {"id":"compare","type":"validation","label":"Measurement vs RADIA field","status":"ready"},
+            {"id":"radia","type":"lab","moduleId":"radia-magnet-studio","mode":"full","label":"RADIA field model","status":"user-run"},
+            {"id":"trajectory","type":"handoff","label":"Field → trajectory","status":"schema-ready"},
+            {"id":"radiation","type":"lab","moduleId":"radiation-platform","mode":"full","label":"Trajectory → radiation","status":"user-run"}
+        ],"note":"Physical Lab records and validates handoffs. Current Streamlit Labs retain ownership of their solvers; module stages are not silently auto-driven."})
+        }
+        "oscillation-modal" => {
+            json!({"schema":"physical-lab-pipeline-v1","name":"Oscillation → Chrono::Modal Comparison","steps":[
+            {"id":"osc","type":"lab","moduleId":"oscillation-integration","label":"Numerical oscillator","status":"user-run"},
+            {"id":"matrix","type":"interchange","label":"Mass / stiffness / damping package","status":"schema-ready"},
+            {"id":"modal","type":"adapter","adapterId":"chrono-modal","label":"Chrono::Modal provider","status":"adapter-boundary"},
+            {"id":"compare","type":"validation","label":"Eigenfrequency / response comparison","status":"ready"}
+        ],"note":"Chrono::Modal is not treated as a current Lab dependency until a real solver adapter consumes the interchange package."})
+        }
+        "atomistic-magnetism" => {
+            json!({"schema":"physical-lab-pipeline-v1","name":"Material Inputs → VAMPIRE → Result Import","steps":[
+            {"id":"material","type":"interchange","label":"Material / lattice / temperature / field","status":"schema-ready"},
+            {"id":"vampire","type":"adapter","adapterId":"vampire","label":"VAMPIRE runtime","status":"adapter-boundary"},
+            {"id":"results","type":"dataset","label":"Magnetization result import","status":"ready"}
+        ],"note":"No fake atomistic solver is provided. Physical Lab prepares the contract and provenance boundary for a future validated adapter."})
+        }
+        _ => json!({"schema":"physical-lab-pipeline-v1","name":"Measurement → Validation","steps":[
+            {"id":"measurement","type":"dataset","label":"Measurement dataset","status":"input"},
+            {"id":"analysis","type":"results","label":"Statistics / uncertainty","status":"ready"},
+            {"id":"validation","type":"validation","label":"Observed vs reference","status":"ready"}
+        ]}),
+    }
+}
+
+fn record_run_snapshot_to_dir(
+    app: &AppHandle,
+    project_dir: &Path,
+    canonical: bool,
+    module_id: &str,
+    mode: &str,
+    parameters_json: String,
+    results_json: String,
+) -> Result<String, String> {
+    let ts = format!(
+        "{}-{}",
+        Local::now().format("%Y%m%d-%H%M%S"),
+        Local::now().timestamp_subsec_millis()
+    );
+    let id = format!("{}-{}", safe_slug(module_id), ts);
+    let run_dir = project_dir.join("runs").join(&id);
+    fs::create_dir_all(&run_dir).map_err(|e| e.to_string())?;
+    let parameters: Value =
+        serde_json::from_str(&parameters_json).unwrap_or_else(|_| json!({"raw":parameters_json}));
+    let results: Value =
+        serde_json::from_str(&results_json).unwrap_or_else(|_| json!({"raw":results_json}));
+    let module_dir = modules_root_for_research(app)?.join(module_id);
+    let source = module_dir.join("source");
+    let source_commit = if source.exists() {
+        command_text_in(&source, "git", &["rev-parse", "HEAD"])
+    } else {
+        None
+    };
+    let python_path = module_dir.join(".venv/bin/python");
+    let python = if python_path.exists() {
+        command_text(python_path.to_string_lossy().as_ref(), &["--version"])
+    } else {
+        None
+    };
+    let pip_freeze = if python_path.exists() {
+        command_text(
+            python_path.to_string_lossy().as_ref(),
+            &["-m", "pip", "freeze", "--all"],
+        )
+    } else {
+        None
+    };
+    write_json(
+        &run_dir.join("run.json"),
+        &json!({
+            "schema":"physical-lab-run-v1",
+            "id":&id,
+            "createdAt":now_iso(),
+            "moduleId":module_id,
+            "mode":mode,
+            "parameters":parameters,
+            "results":results,
+            "provenance":{"sourceCommit":source_commit,"python":python,"pipFreeze":pip_freeze}
+        }),
+    )?;
+    touch_project_after_direct_write(project_dir, canonical)?;
+    Ok(id)
+}
+
+fn save_pipeline_to_dir(project_dir: &Path, canonical: bool, kind: &str) -> Result<String, String> {
+    let value = pipeline_template_value(kind);
+    let id = format!(
+        "{}-{}",
+        safe_slug(kind),
+        Local::now().format("%Y%m%d-%H%M%S")
+    );
+    write_json(
+        &project_dir.join("pipelines").join(format!("{id}.json")),
+        &value,
+    )?;
+    touch_project_after_direct_write(project_dir, canonical)?;
+    Ok(id)
+}
+
 fn list_run_snapshots_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
     let root = project_dir.join("runs");
     if !root.is_dir() {
@@ -971,17 +1117,16 @@ pub fn record_run_snapshot(
     parameters_json: String,
     results_json: String,
 ) -> Result<String, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    let out = legacy::record_run_snapshot(
-        app.clone(),
-        workspace_id.clone(),
-        module_id,
-        mode,
+    let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+    record_run_snapshot_to_dir(
+        &app,
+        &dir,
+        canonical,
+        &module_id,
+        &mode,
         parameters_json,
         results_json,
-    )?;
-    touch_canonical_after_write(&app, &workspace_id)?;
-    Ok(out)
+    )
 }
 
 #[tauri::command]
@@ -1103,15 +1248,18 @@ pub fn scientific_smoke_tests(app: AppHandle) -> Result<Vec<SmokeResult>, String
 
 #[tauri::command]
 pub fn pipeline_templates() -> Vec<Value> {
-    legacy::pipeline_templates()
+    vec![
+        pipeline_template_value("accelerator-measurement"),
+        pipeline_template_value("oscillation-modal"),
+        pipeline_template_value("atomistic-magnetism"),
+        pipeline_template_value("measurement-validation"),
+    ]
 }
 
 #[tauri::command]
 pub fn save_pipeline(app: AppHandle, workspace_id: String, kind: String) -> Result<String, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    let out = legacy::save_pipeline(app.clone(), workspace_id.clone(), kind)?;
-    touch_canonical_after_write(&app, &workspace_id)?;
-    Ok(out)
+    let (dir, canonical) = resolve_project_dir(&app, &workspace_id)?;
+    save_pipeline_to_dir(&dir, canonical, &kind)
 }
 
 #[tauri::command]
