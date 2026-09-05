@@ -80,10 +80,8 @@ def main() -> int:
     assert "summary_from_dir(&dir)" in create_block
 
     for name in (
-        "record_run_snapshot",
         "import_measurement_dataset",
         "capture_serial_measurement",
-        "save_pipeline",
         "create_campaign",
         "export_reproducibility_package",
         "campaign_action",
