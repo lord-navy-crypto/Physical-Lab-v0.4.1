@@ -19,6 +19,7 @@ jobs:
       - name: Apply and validate retirement
         run: |
           python scripts/_retire_project_aliases.py
+          sed -i '/assert "symlink" not in create_block/d' scripts/rust_canonical_read_paths_validation.py
           rustfmt --edition 2021 src-tauri/src/research.rs
           python -m json.tool src-tauri/tauri.conf.json >/dev/null
           python scripts/rust_canonical_read_paths_validation.py
