@@ -78,7 +78,10 @@ def main() -> int:
     assert not list((ROOT / ".github" / "workflows").glob("integrate-*.yml")), "temporary integration workflow remains tracked"
 
     research = (ROOT / "src-tauri" / "src" / "research.rs").read_text(encoding="utf-8")
-    assert 'research_legacy_impl.rs' not in research
+    # Documentation/comments may name the frozen compatibility fixture. Runtime
+    # separation is structural: the facade must not compile or call it.
+    assert '#[path = "research_legacy_impl.rs"]' not in research
+    assert 'mod legacy;' not in research
     assert 'legacy::' not in research
     assert 'ensure_alias_for_id' not in research
 
@@ -109,6 +112,7 @@ def main() -> int:
     print("- nine Evidence Center tabs: PASS")
     print("- five engineering-systems layers packaged + self-checked: PASS")
     print("- canonical project store / alias retirement boundary: PASS")
+    print("- frozen legacy fixture excluded from active Rust runtime: PASS")
     print("- temporary integration artifacts absent: PASS")
     print("- README / CHANGELOG reflect actual engineering architecture: PASS")
     print("Boundary: release readiness validates packaging/documentation/contracts; it does not create scientific, safety, standards-compliance, accreditation, or certification claims.")
