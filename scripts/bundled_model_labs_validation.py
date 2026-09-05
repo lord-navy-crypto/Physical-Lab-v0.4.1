@@ -110,6 +110,16 @@ def main() -> int:
     assert "fs::copy" in prep
     assert "physical-lab-bundled-source-v1" in prep
 
+    runtime_support = (ROOT / "src-tauri" / "src" / "research_runtime_support.rs").read_text(encoding="utf-8")
+    for marker in (
+        '"kerr-geodesics"=>',
+        '"solar-system-dynamics"=>',
+        '"honeycomb-lattice"=>',
+        'command.env("PYTHONPATH",ui)',
+        "No scientific smoke script registered",
+    ):
+        assert marker in runtime_support, marker
+
     tauri = json.loads((ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
     resources = (tauri.get("bundle") or {}).get("resources") or {}
     for resource in (
