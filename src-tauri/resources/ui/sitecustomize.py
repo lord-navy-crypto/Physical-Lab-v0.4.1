@@ -1,15 +1,16 @@
 """Physical Lab startup UI hooks.
 
 The original shared Streamlit enhancement layer is preserved byte-for-byte in
-physical_lab_sitecustomize_base. This wrapper prepares compatibility discovery
-aliases for canonical projects, executes the shared UI layer, then installs the
-project-level Evidence Center and shared Project surface for every managed Lab.
+physical_lab_sitecustomize_base. Python project browsers are patched to discover
+canonical ``projects/*.physlab`` directly; compatibility aliases are therefore
+no longer a prerequisite for the shared Lab UI. The Evidence Center and Project
+surface remain installed for every managed Lab.
 """
 from __future__ import annotations
 
 try:
-    from physical_lab_workspace_aliases import ensure_workspace_aliases as _pl_ensure_workspace_aliases
-    _pl_ensure_workspace_aliases()
+    from physical_lab_canonical_discovery_patch import install as _pl_install_canonical_discovery
+    _pl_install_canonical_discovery()
 except Exception:
     pass
 
