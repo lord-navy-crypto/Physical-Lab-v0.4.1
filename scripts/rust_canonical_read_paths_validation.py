@@ -83,8 +83,6 @@ def main() -> int:
         "record_run_snapshot",
         "import_measurement_dataset",
         "capture_serial_measurement",
-        "analyze_dataset",
-        "validate_dataset_columns",
         "save_pipeline",
         "create_campaign",
         "export_reproducibility_package",
