@@ -24,11 +24,12 @@ jobs:
           python -m py_compile scripts/research_runtime_support_validation.py scripts/self_check.py
           python scripts/research_runtime_support_validation.py
           python scripts/self_check.py
-      - name: Commit validated extraction
+      - name: Commit validated source changes
         run: |
+          git checkout -- .github/workflows/source-integrity.yml
           rm scripts/_extract_research_runtime_support.py
           git config user.name physical-lab-ci
           git config user.email physical-lab-ci@users.noreply.github.com
-          git add -A
+          git add src-tauri/src/research.rs src-tauri/src/research_runtime_support.rs scripts/research_runtime_support_validation.py scripts/self_check.py scripts/_extract_research_runtime_support.py
           git commit -m "Separate research runtime support from frozen legacy storage"
           git push origin HEAD:refactor/research-runtime-support
