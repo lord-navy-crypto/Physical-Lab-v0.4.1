@@ -1,0 +1,51 @@
+name: Integrate Research Model Builder MVP
+
+on:
+  push:
+    branches: [ feature/research-model-builder-mvp ]
+    paths:
+      - .github/workflows/integrate-model-builder-mvp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/research-model-builder-mvp
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply guarded integration
+        run: |
+          python scripts/_integrate_model_builder_mvp.py
+          # Workflow-file updates are applied later through the GitHub connector.
+          git checkout HEAD -- .github/workflows/source-integrity.yml
+      - name: Targeted validation
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_model_builder.py scripts/model_builder_validation.py scripts/model_builder_wiring_validation.py scripts/self_check.py
+          python scripts/model_builder_validation.py
+          python scripts/model_builder_wiring_validation.py
+          python scripts/version_consistency.py
+          python scripts/self_check.py
+          python -m json.tool src-tauri/tauri.conf.json >/dev/null
+          node --check web/app.js
+          rustfmt --edition 2021 --emit stdout src-tauri/src/lib.rs >/dev/null
+          rustfmt --edition 2021 --emit stdout src-tauri/src/model_builder.rs >/dev/null
+          rustfmt --edition 2021 --emit stdout src-tauri/src/research.rs >/dev/null
+      - name: Commit validated integration
+        run: |
+          rm scripts/_integrate_model_builder_mvp.py
+          git config user.name physical-lab-ci
+          git config user.email physical-lab-ci@users.noreply.github.com
+          git add web/index.html web/app.js web/styles.css src-tauri/src/lib.rs src-tauri/src/model_builder.rs src-tauri/src/research.rs src-tauri/tauri.conf.json scripts/self_check.py
+          git rm --cached scripts/_integrate_model_builder_mvp.py >/dev/null 2>&1 || true
+          git add -u scripts/_integrate_model_builder_mvp.py
+          git commit -m "Integrate Research Model Builder MVP"
+          git push origin HEAD:feature/research-model-builder-mvp
