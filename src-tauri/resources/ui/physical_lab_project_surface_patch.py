@@ -4,7 +4,8 @@ The individual upstream Labs remain unchanged. This wrapper extends Physical
 Lab's shared advanced renderer so all seven managed profiles expose the same
 canonical Project Kernel; the Evidence Center patch then extends that Project
 Kernel. During the compatibility period it also performs one non-destructive
-legacy desktop-workspace sync per Streamlit session.
+legacy desktop-workspace sync per Streamlit session when session state is
+available.
 """
 from __future__ import annotations
 
@@ -39,11 +40,12 @@ def install() -> None:
             return
         try:
             import streamlit as st
-            if LEGACY_SYNC_SESSION_KEY not in st.session_state:
+            session_state = getattr(st, "session_state", None)
+            if session_state is not None and LEGACY_SYNC_SESSION_KEY not in session_state:
                 try:
                     from physical_lab_project_unification import synchronize_legacy_workspaces
                     bridge = synchronize_legacy_workspaces()
-                    st.session_state[LEGACY_SYNC_SESSION_KEY] = bridge
+                    session_state[LEGACY_SYNC_SESSION_KEY] = bridge
                     if bridge.get("created") or bridge.get("measurements_imported"):
                         try:
                             st.toast(
@@ -53,7 +55,7 @@ def install() -> None:
                         except Exception:
                             pass
                 except Exception as bridge_exc:
-                    st.session_state[LEGACY_SYNC_SESSION_KEY] = {"errors": [{"error": str(bridge_exc)}]}
+                    session_state[LEGACY_SYNC_SESSION_KEY] = {"errors": [{"error": str(bridge_exc)}]}
                     st.warning(f"Legacy .physlab compatibility sync could not complete: {bridge_exc}")
             from physical_lab_project_kernel import render_project_workspace
             render_project_workspace(st, profile, namespace)
