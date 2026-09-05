@@ -47,6 +47,29 @@ Each experiment and result keeps its SHA-256 scientific/result fingerprint. Meas
 
 The graph records traceability relationships only. It does not infer causality or scientific validity from an edge.
 
+## Claim-to-Evidence Matrix
+
+The Claim-to-Evidence layer turns a human-authored scientific or engineering statement into an explicitly reviewable evidence object.
+
+A claim stores:
+
+- the exact statement,
+- its intended use,
+- the Credibility Passport factors that the author expects to be present,
+- explicit references to experiments, jobs, results, measurements, and/or calibrations,
+- SHA-256 snapshots of those evidence artifacts at registration time.
+
+Physical Lab evaluates the claim into one of four evidence-readiness states:
+
+- `READY_FOR_REVIEW` — all explicit evidence references still match their registered fingerprints and all required factors are `PRESENT`;
+- `PARTIAL` — evidence is current, but at least one required factor is not yet `PRESENT`;
+- `STALE` — at least one referenced evidence fingerprint changed after claim registration;
+- `EVIDENCE_MISSING` — at least one referenced artifact no longer resolves, or the claim has no explicit evidence references.
+
+These are **not truth states**. `READY_FOR_REVIEW` does not mean that Physical Lab has proven the claim. It means the evidence package is current enough for a human/domain review under the claim author's stated intended use.
+
+This layer is deliberately different from normal report generation: a sentence in a report can silently survive even when its underlying calibration or result changes; a Physical Lab claim can detect that evidence drift and become `STALE`.
+
 ## Why this is different from a normal results dashboard
 
 A normal simulation dashboard answers questions such as:
@@ -67,6 +90,8 @@ The Evidence-First workflow additionally asks:
 - Is there enough prior execution history to compare this result with another run?
 - Are logs and result fingerprints retained?
 - What evidence is still missing?
+- Which exact evidence artifacts support a particular scientific claim?
+- Has any supporting evidence changed since that claim was registered?
 
 ## Authoritative design references
 
@@ -81,24 +106,25 @@ Commercial-product comparisons should be checked against current vendor document
 
 ## Current implementation boundary
 
-Credibility Passport v1 is intentionally evidence-oriented and conservative:
+Credibility Passport and Claim-to-Evidence v1 are intentionally evidence-oriented and conservative:
 
-- It detects project-local evidence and gaps; it does not prove scientific truth.
+- They detect project-local evidence and gaps; they do not prove scientific truth.
 - Measurement upload alone is not validation.
 - Calibration metadata supplied by a user is not treated as accredited traceability.
 - A successful compute job is not by itself verification.
 - A sensitivity study is evidence about robustness only within its sampled/modelled scope.
 - A passport fingerprint identifies the evidence state, not the validity of the physical model.
+- A claim fingerprint identifies the registered statement/evidence snapshot, not whether the statement is correct.
 
 ## Next differentiating layers
 
 The natural follow-on roadmap is:
 
-1. **Claim-to-Evidence Matrix** — connect an explicit engineering/scientific claim to requirement, experiment, job, result, measurement, and uncertainty evidence.
-2. **Independent Cross-Engine Checks** — allow one invariant/observable to be checked by an independent analytic or solver path.
-3. **Reproducibility Capsule** — export a compact manifest of inputs, hashes, environment/source revisions, evidence references, and boundaries.
-4. **Evidence-diff Review** — compare two passports and explain which evidence changed, appeared, disappeared, or became stale.
-5. **Purpose-specific sufficiency profiles** — user-authored factor thresholds/checklists for a stated intended use, without pretending they are universal standards.
+1. **Independent Cross-Engine Checks** — allow one invariant/observable to be checked by an independent analytic or solver path.
+2. **Reproducibility Capsule** — export a compact manifest of inputs, hashes, environment/source revisions, evidence references, and boundaries.
+3. **Evidence-diff Review** — compare two passports/claim evaluations and explain which evidence changed, appeared, disappeared, or became stale.
+4. **Purpose-specific sufficiency profiles** — user-authored factor thresholds/checklists for a stated intended use, without pretending they are universal standards.
+5. **Claim review history** — preserve reviewer decisions separately from machine evidence-readiness status.
 
 The product principle is simple:
 
