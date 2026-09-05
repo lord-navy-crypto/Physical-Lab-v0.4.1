@@ -94,14 +94,14 @@ def main() -> int:
     assert '"source_type":"desktop-data-bridge"' in registration
     assert 'Calibrationstatus,sensoraccuracy,traceabilityandexperimentalvalidationmustbeestablishedseparately.' in registration
 
-    assert source.count("ensure_alias_for_id(") == 1
+    assert source.count("ensure_alias_for_id(") == 0
     print("Physical Lab Rust canonical serial capture: PASS")
     print("- macOS /dev/cu.* and /dev/tty.* device boundary preserved")
     print("- 1–300 s clamp, stty setup and non-blocking capture preserved")
     print("- timestamp,value CSV acquisition contract preserved")
     print("- serial capture imports directly into canonical/legacy project datasets")
     print("- canonical capture registers Measurement Evidence")
-    print("- no project command calls ensure_alias_for_id")
+    print("- compatibility alias helper fully retired")
     print("Boundary: serial acquisition plus file hashing/registration does not establish sensor accuracy, calibration traceability, experimental validation, or scientific truth.")
     return 0
 
