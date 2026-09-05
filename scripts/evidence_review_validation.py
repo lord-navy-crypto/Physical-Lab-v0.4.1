@@ -189,6 +189,17 @@ def main() -> int:
             generated_at="2026-01-01T00:00:00+00:00",
         )
         assert len(snapshot_a["snapshot_sha256"]) == 64
+        passport_for_snapshot = evidence_diff.credibility.build_credibility_passport(
+            project_dir,
+            generated_at="2026-01-01T00:00:00+00:00",
+        )
+        snapshot_node_types = {row["id"]: row["kind"] for row in snapshot_a["graph_nodes"]}
+        passport_node_types = {
+            row["id"]: row["type"]
+            for row in passport_for_snapshot["evidence_graph"]["nodes"]
+        }
+        assert snapshot_node_types == passport_node_types
+        assert snapshot_node_types and all(snapshot_node_types.values())
         assert snapshot_a["cross_check_status_counts"]["AGREES_WITHIN_TOLERANCE"] == 1
         assert snapshot_a["cross_check_status_counts"]["NOT_DISTINCT"] == 1
         assert snapshot_a["cross_check_status_counts"]["DISAGREES"] == 1
