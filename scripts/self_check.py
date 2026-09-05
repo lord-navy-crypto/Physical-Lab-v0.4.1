@@ -7,7 +7,12 @@ required = [
     'package.json','web/index.html','web/styles.css','web/app.js',
     'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs',
     'src-tauri/src/main.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
-    'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py','src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command',
+    'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py',
+    'src-tauri/resources/ui/physical_lab_sitecustomize_base.py',
+    'src-tauri/resources/ui/physical_lab_evidence_center_patch.py',
+    'src-tauri/resources/ui/physical_lab_evidence_center_ui.py',
+    'src-tauri/resources/ui/physical_lab_project_surface_patch.py',
+    'src-tauri/resources/ui/physical_lab_advanced.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command',
     'VERSION','scripts/version_consistency.py'
 ]
 missing = [p for p in required if not (root / p).exists()]
@@ -74,14 +79,26 @@ conf=json.loads((root/'src-tauri/tauri.conf.json').read_text())
 assert conf['version']==canonical_version
 assert json.loads((root/'package.json').read_text())['version']==canonical_version
 assert f'version = "{canonical_version}"' in (root/'src-tauri/Cargo.toml').read_text()
-assert 'resources/safe_engine_server.py' in conf['bundle']['resources']
-assert 'resources/ui/sitecustomize.py' in conf['bundle']['resources']
-assert 'resources/ui/physical_lab_advanced.py' in conf['bundle']['resources']
-ui=(root/'src-tauri/resources/ui/sitecustomize.py').read_text()
+resources=conf['bundle']['resources']
+assert 'resources/safe_engine_server.py' in resources
+for resource in [
+    'resources/ui/sitecustomize.py',
+    'resources/ui/physical_lab_sitecustomize_base.py',
+    'resources/ui/physical_lab_evidence_center_patch.py',
+    'resources/ui/physical_lab_evidence_center_ui.py',
+    'resources/ui/physical_lab_project_surface_patch.py',
+    'resources/ui/physical_lab_advanced.py',
+]:
+    assert resource in resources, resource
+ui_wrapper=(root/'src-tauri/resources/ui/sitecustomize.py').read_text()
+ui_base=(root/'src-tauri/resources/ui/physical_lab_sitecustomize_base.py').read_text()
+assert 'physical_lab_sitecustomize_base' in ui_wrapper
+assert 'physical_lab_evidence_center_patch' in ui_wrapper
+assert 'physical_lab_project_surface_patch' in ui_wrapper
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
-    assert profile in ui
-assert 'pl-result-grid' in ui
-assert 'Quick preset' in ui
+    assert profile in ui_base
+assert 'pl-result-grid' in ui_base
+assert 'Quick preset' in ui_base
 assert 'PHYSICAL_LAB_UI_PROFILE' in lib
 assert 'ensure_advanced_experiment_hook' in lib
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
@@ -91,6 +108,16 @@ for feature in ['2D sensitivity atlas','Binder cumulant','Twin-trajectory diverg
     assert feature in advanced, feature
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in advanced, profile
+
+evidence_ui=(root/'src-tauri/resources/ui/physical_lab_evidence_center_ui.py').read_text()
+evidence_patch=(root/'src-tauri/resources/ui/physical_lab_evidence_center_patch.py').read_text()
+project_surface=(root/'src-tauri/resources/ui/physical_lab_project_surface_patch.py').read_text()
+for needle in ['Credibility Passport','Claims','Cross-Checks','Snapshots & Diff','register_claim','register_cross_check','write_evidence_snapshot']:
+    assert needle in evidence_ui, needle
+assert 'ACTIVE_PROJECT_SESSION_KEY' in evidence_patch
+assert 'Create new project' in evidence_patch
+assert 'render_project_workspace' in project_surface
+assert 'render_advanced_experiments' in project_surface
 
 print(f'Physical Lab v{canonical_version} Research Workspace self-check: PASS')
 print('Modules: 10 (7 labs + 3 runtime/builders)')
@@ -120,6 +147,7 @@ print('Pipeline contracts + campaign queues + run comparison: configured')
 print('Reproducibility export + task cancellation: configured')
 print('Enhanced simulation profiles: 7')
 print('Responsive KPI/result-card system: configured')
+print('Shared Project surface + Evidence Center: configured')
 
 # Public/reproducibility hardening
 required_public = [
