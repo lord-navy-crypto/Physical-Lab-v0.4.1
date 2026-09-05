@@ -75,13 +75,18 @@ def main() -> int:
 
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
     resources = (conf.get("bundle") or {}).get("resources") or {}
+    # Alias support remains packaged for the Rust compatibility period, but Python
+    # startup no longer creates aliases merely so read-only UI can discover projects.
     assert "resources/ui/physical_lab_workspace_aliases.py" in resources
+    assert "resources/ui/physical_lab_project_discovery.py" in resources
+    assert "resources/ui/physical_lab_canonical_discovery_patch.py" in resources
     startup = (UI / "sitecustomize.py").read_text(encoding="utf-8")
-    alias_import = "from physical_lab_workspace_aliases import ensure_workspace_aliases"
+    discovery_import = "from physical_lab_canonical_discovery_patch import install"
     base_import = "import physical_lab_sitecustomize_base"
-    assert alias_import in startup
+    assert discovery_import in startup
     assert base_import in startup
-    assert startup.index(alias_import) < startup.index(base_import)
+    assert startup.index(discovery_import) < startup.index(base_import)
+    assert "ensure_workspace_aliases" not in startup
 
     old_data = os.environ.get("PHYSICAL_LAB_DATA_DIR")
     try:
@@ -92,7 +97,7 @@ def main() -> int:
             canonical_path, canonical_doc = projects.create_project(
                 "Canonical shell fixture",
                 slug="canonical-shell-fixture",
-                research_question="Does the canonical project remain discoverable by legacy readers?",
+                research_question="Does the canonical project remain available to compatibility readers?",
             )
             first = aliases.ensure_workspace_aliases()
             alias = root / "workspaces/canonical-shell-fixture.physlab"
@@ -150,7 +155,7 @@ def main() -> int:
     print("- compatibility alias creation + idempotence: PASS")
     print("- existing real legacy workspace preservation: PASS")
     print("- malformed project alias rejection: PASS")
-    print("- Tauri/startup packaging order: PASS")
+    print("- Python startup no longer depends on alias creation: PASS")
     print("Boundary: desktop run/campaign artifacts remain workflow/provenance records unless separately registered through the Experiment/Compute/Evidence kernels.")
     return 0
 
