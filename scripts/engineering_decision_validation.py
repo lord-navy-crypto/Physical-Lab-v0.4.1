@@ -59,7 +59,7 @@ def main() -> int:
             "job-a": {"performance": 10.0, "cost": 100.0},
             "job-b": {"performance": 12.0, "cost": 120.0},
             "job-c": {"performance": 9.0, "cost": 90.0},
-            "job-d": {"performance": 9.0, "cost": 110.0},
+            "job-d": {"performance": 10.0, "cost": 110.0},
             "job-e": {"performance": 13.0, "cost": 150.0},
         }
         for job_id, result in results.items():
