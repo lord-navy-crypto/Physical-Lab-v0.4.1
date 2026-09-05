@@ -22,6 +22,7 @@ def main() -> int:
 
     core = (UI / "physical_lab_engineering_decisions.py").read_text(encoding="utf-8")
     decision_ui = (UI / "physical_lab_engineering_decision_ui.py").read_text(encoding="utf-8")
+    evidence_ui = (UI / "physical_lab_evidence_center_ui.py").read_text(encoding="utf-8")
     patch = (UI / "physical_lab_evidence_center_patch.py").read_text(encoding="utf-8")
 
     for needle in (
@@ -47,21 +48,28 @@ def main() -> int:
         assert needle in decision_ui, needle
 
     for needle in (
-        "Physical Lab · Engineering Decision Center",
-        "render_engineering_decision_tab",
-        'project_path.join("project.json").is_file()',
+        '"Engineering Decisions"',
+        "physical_lab_engineering_decision_ui",
+        "render_engineering_decision_tab(st, path, profile, refs)",
+        "_artifact_refs(path, doc)",
+        "No aggregate credibility score or machine truth/design verdict",
+    ):
+        assert needle in evidence_ui, needle
+
+    for needle in (
         "ACTIVE_PROJECT_SESSION_KEY",
         "Create new project",
-        "_artifact_refs",
+        "render_evidence_center",
     ):
         assert needle in patch, needle
-
-    assert "assign an overall design score" in patch
+    assert "render_engineering_decision_tab" not in patch
+    assert "physical_lab_engineering_decision_ui" not in patch
     assert "Selection remains a human engineering judgment" in decision_ui
 
     print("Physical Lab Engineering Decision Center wiring: PASS")
     print("- desktop bundle resources: PASS")
     print("- shared active Project surface: PASS")
+    print("- Evidence Center fifth-tab integration: PASS")
     print("- evidence-reference bridge: PASS")
     print("- trade-study registration/review UI: PASS")
     print("- human decision rationale UI: PASS")
