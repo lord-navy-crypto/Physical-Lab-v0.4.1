@@ -45,7 +45,6 @@ jobs:
           git config user.name physical-lab-ci
           git config user.email physical-lab-ci@users.noreply.github.com
           git add web/index.html web/app.js web/styles.css src-tauri/src/lib.rs src-tauri/src/model_builder.rs src-tauri/src/research.rs src-tauri/tauri.conf.json scripts/self_check.py
-          git rm --cached scripts/_integrate_model_builder_mvp.py >/dev/null 2>&1 || true
-          git add -u scripts/_integrate_model_builder_mvp.py
+          git add -u
           git commit -m "Integrate Research Model Builder MVP"
           git push origin HEAD:feature/research-model-builder-mvp
