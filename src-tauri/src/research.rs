@@ -22,14 +22,15 @@ use serde_json::{json, Value};
 use std::{
     collections::{HashMap, HashSet},
     fs,
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
     process::Command,
 };
 use tauri::{AppHandle, Manager};
 
 pub use legacy::{
-    AdapterStatus, ColumnStats, CompatibilityRow, DatasetSummary, SmokeResult,
-    ValidationResult, WorkspaceSummary,
+    AdapterStatus, ColumnStats, CompatibilityRow, DatasetSummary, SmokeResult, ValidationResult,
+    WorkspaceSummary,
 };
 
 const PROJECT_SCHEMA: &str = "physical-lab-project-v1";
@@ -70,10 +71,16 @@ fn safe_slug(value: &str) -> String {
     }
     let trim: &[_] = &['-', '.', '_'];
     let out = out.trim_matches(trim).to_string();
-    if out.is_empty() { "project".into() } else { out }
+    if out.is_empty() {
+        "project".into()
+    } else {
+        out
+    }
 }
 
-fn now_iso() -> String { Local::now().to_rfc3339() }
+fn now_iso() -> String {
+    Local::now().to_rfc3339()
+}
 
 fn read_json(path: &Path) -> Result<Value, String> {
     serde_json::from_str(&fs::read_to_string(path).map_err(|e| e.to_string())?)
@@ -181,7 +188,10 @@ fn canonical_project_dir(app: &AppHandle, workspace_id: &str) -> Result<Option<P
             }
         }
     }
-    for entry in fs::read_dir(&root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+    for entry in fs::read_dir(&root)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
         let path = entry.path();
         if !path.is_dir() || !path.join("project.json").is_file() {
             continue;
@@ -212,7 +222,10 @@ fn legacy_project_dir(app: &AppHandle, workspace_id: &str) -> Result<Option<Path
     if direct.join("project.json").is_file() && !is_compatibility_alias(&direct) {
         return Ok(Some(direct));
     }
-    for entry in fs::read_dir(&root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+    for entry in fs::read_dir(&root)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
         let path = entry.path();
         if is_compatibility_alias(&path) || !path.join("project.json").is_file() {
             continue;
@@ -221,7 +234,10 @@ fn legacy_project_dir(app: &AppHandle, workspace_id: &str) -> Result<Option<Path
             Ok(value) => value,
             Err(_) => continue,
         };
-        let fallback = path.file_stem().and_then(|value| value.to_str()).unwrap_or("project");
+        let fallback = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("project");
         let id = project
             .get("id")
             .or_else(|| project.get("slug"))
@@ -262,7 +278,9 @@ fn create_alias(alias: &Path, target: &Path) -> Result<(), String> {
 }
 
 #[cfg(not(unix))]
-fn create_alias(_alias: &Path, _target: &Path) -> Result<(), String> { Ok(()) }
+fn create_alias(_alias: &Path, _target: &Path) -> Result<(), String> {
+    Ok(())
+}
 
 fn ensure_alias_for_id(app: &AppHandle, workspace_id: &str) -> Result<(), String> {
     let Some(canonical) = canonical_project_dir(app, workspace_id)? else {
@@ -369,7 +387,11 @@ fn register_desktop_measurement(
         "boundary":"Desktop measurement evidence with file-integrity provenance only. Calibration status, sensor accuracy, traceability and experimental validation must be established separately."
     });
     write_json(&measurement_dir.join("measurement.json"), &record)?;
-    if index.get("measurements").and_then(Value::as_object).is_none() {
+    if index
+        .get("measurements")
+        .and_then(Value::as_object)
+        .is_none()
+    {
         index["measurements"] = json!({});
     }
     let key = record
@@ -390,7 +412,10 @@ fn list_datasets_from_dir(project_dir: &Path) -> Result<Vec<DatasetSummary>, Str
         return Ok(Vec::new());
     }
     let mut output = Vec::new();
-    for entry in fs::read_dir(root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+    for entry in fs::read_dir(root)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
         let meta_path = entry.path().join("metadata.json");
         if !meta_path.is_file() {
             continue;
@@ -400,12 +425,36 @@ fn list_datasets_from_dir(project_dir: &Path) -> Result<Vec<DatasetSummary>, Str
             Err(_) => continue,
         };
         output.push(DatasetSummary {
-            id: value.get("id").and_then(Value::as_str).unwrap_or("").to_string(),
-            name: value.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
-            quantity: value.get("quantity").and_then(Value::as_str).unwrap_or("").to_string(),
-            unit: value.get("unit").and_then(Value::as_str).unwrap_or("").to_string(),
-            sensor: value.get("sensor").and_then(Value::as_str).unwrap_or("").to_string(),
-            format: value.get("format").and_then(Value::as_str).unwrap_or("").to_string(),
+            id: value
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            name: value
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            quantity: value
+                .get("quantity")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            unit: value
+                .get("unit")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            sensor: value
+                .get("sensor")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            format: value
+                .get("format")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
             source_file: value
                 .get("sourceFile")
                 .and_then(Value::as_str)
@@ -416,7 +465,10 @@ fn list_datasets_from_dir(project_dir: &Path) -> Result<Vec<DatasetSummary>, Str
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_string(),
-            sha256: value.get("sha256").and_then(Value::as_str).map(str::to_string),
+            sha256: value
+                .get("sha256")
+                .and_then(Value::as_str)
+                .map(str::to_string),
             created_at: value
                 .get("createdAt")
                 .or_else(|| value.get("created_at"))
@@ -429,13 +481,254 @@ fn list_datasets_from_dir(project_dir: &Path) -> Result<Vec<DatasetSummary>, Str
     Ok(output)
 }
 
+fn dataset_record_from_dir(
+    project_dir: &Path,
+    dataset_id: &str,
+) -> Result<(PathBuf, Value), String> {
+    let root = project_dir.join("datasets");
+    if !root.is_dir() {
+        return Err(format!("Dataset not found: {dataset_id}"));
+    }
+    for entry in fs::read_dir(&root)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
+        let folder = entry.path();
+        let meta_path = folder.join("metadata.json");
+        if !meta_path.is_file() {
+            continue;
+        }
+        let meta = match read_json(&meta_path) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let stored_id = meta.get("id").and_then(Value::as_str).unwrap_or_else(|| {
+            folder
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("")
+        });
+        if stored_id == dataset_id
+            || folder.file_name().and_then(|value| value.to_str()) == Some(dataset_id)
+        {
+            return Ok((folder, meta));
+        }
+    }
+    Err(format!("Dataset not found: {dataset_id}"))
+}
+
+fn dataset_numeric_path(dataset_dir: &Path, meta: &Value) -> Result<PathBuf, String> {
+    if let Some(raw) = meta.get("storedFile").and_then(Value::as_str) {
+        let stored = PathBuf::from(raw);
+        if stored.is_file() {
+            return Ok(stored);
+        }
+    }
+    let format = meta
+        .get("format")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !format.is_empty() {
+        let conventional = dataset_dir.join(format!("data.{format}"));
+        if conventional.is_file() {
+            return Ok(conventional);
+        }
+    }
+    for entry in fs::read_dir(dataset_dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
+        let path = entry.path();
+        if path.is_file()
+            && path.file_name().and_then(|value| value.to_str()) != Some("metadata.json")
+        {
+            return Ok(path);
+        }
+    }
+    Err("Dataset path missing".into())
+}
+
+fn parse_csv_numeric(path: &Path) -> Result<(Vec<String>, Vec<Vec<Option<f64>>>), String> {
+    let file = fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut lines = BufReader::new(file).lines();
+    let header = lines
+        .next()
+        .ok_or("Dataset is empty")?
+        .map_err(|e| e.to_string())?;
+    let sep = if header.contains('\t') { '\t' } else { ',' };
+    let headers: Vec<String> = header
+        .split(sep)
+        .map(|value| value.trim().trim_matches('"').to_string())
+        .collect();
+    let mut cols = vec![Vec::<Option<f64>>::new(); headers.len()];
+    for line in lines.take(200_000) {
+        let line = line.map_err(|e| e.to_string())?;
+        for (index, raw) in line.split(sep).enumerate().take(cols.len()) {
+            cols[index].push(raw.trim().trim_matches('"').parse::<f64>().ok());
+        }
+    }
+    Ok((headers, cols))
+}
+
+fn analyze_dataset_from_dir(
+    project_dir: &Path,
+    dataset_id: &str,
+) -> Result<Vec<ColumnStats>, String> {
+    let (dataset_dir, meta) = dataset_record_from_dir(project_dir, dataset_id)?;
+    let format = meta
+        .get("format")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if format != "csv" && format != "tsv" {
+        return Err("Numeric Result Center currently analyzes CSV/TSV directly; JSON/HDF5 remain preserved for Lab-specific readers.".into());
+    }
+    let path = dataset_numeric_path(&dataset_dir, &meta)?;
+    let (headers, cols) = parse_csv_numeric(&path)?;
+    let mut out = Vec::new();
+    for (header, column) in headers.into_iter().zip(cols.into_iter()) {
+        let values: Vec<f64> = column
+            .into_iter()
+            .flatten()
+            .filter(|value| value.is_finite())
+            .collect();
+        if values.is_empty() {
+            continue;
+        }
+        let n = values.len();
+        let mean = values.iter().sum::<f64>() / n as f64;
+        let variance = if n > 1 {
+            values
+                .iter()
+                .map(|value| (value - mean) * (value - mean))
+                .sum::<f64>()
+                / (n - 1) as f64
+        } else {
+            0.0
+        };
+        let std_dev = variance.sqrt();
+        let half = if n > 1 {
+            1.96 * std_dev / (n as f64).sqrt()
+        } else {
+            0.0
+        };
+        out.push(ColumnStats {
+            column: header,
+            n,
+            mean,
+            std_dev,
+            ci95_low: mean - half,
+            ci95_high: mean + half,
+            min: values.iter().cloned().fold(f64::INFINITY, f64::min),
+            max: values.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+        });
+    }
+    Ok(out)
+}
+
+fn validate_dataset_columns_from_dir(
+    project_dir: &Path,
+    dataset_id: &str,
+    observed_column: &str,
+    reference_column: &str,
+) -> Result<ValidationResult, String> {
+    let (dataset_dir, meta) = dataset_record_from_dir(project_dir, dataset_id)?;
+    let path = dataset_numeric_path(&dataset_dir, &meta)?;
+    let (headers, cols) = parse_csv_numeric(&path)?;
+    let observed_index = headers
+        .iter()
+        .position(|header| header == observed_column)
+        .ok_or("Observed column not found")?;
+    let reference_index = headers
+        .iter()
+        .position(|header| header == reference_column)
+        .ok_or("Reference column not found")?;
+    let pairs: Vec<(f64, f64)> = cols[observed_index]
+        .iter()
+        .zip(cols[reference_index].iter())
+        .filter_map(|(observed, reference)| Some(((*observed)?, (*reference)?)))
+        .filter(|(observed, reference)| observed.is_finite() && reference.is_finite())
+        .collect();
+    if pairs.len() < 2 {
+        return Err("Need at least two finite observed/reference pairs.".into());
+    }
+    let n = pairs.len();
+    let mae = pairs
+        .iter()
+        .map(|(observed, reference)| (observed - reference).abs())
+        .sum::<f64>()
+        / n as f64;
+    let mse = pairs
+        .iter()
+        .map(|(observed, reference)| (observed - reference) * (observed - reference))
+        .sum::<f64>()
+        / n as f64;
+    let rmse = mse.sqrt();
+    let max_abs_error = pairs
+        .iter()
+        .map(|(observed, reference)| (observed - reference).abs())
+        .fold(0.0, f64::max);
+    let reference_mean = pairs.iter().map(|(_, reference)| *reference).sum::<f64>() / n as f64;
+    let reference_scale = pairs
+        .iter()
+        .map(|(_, reference)| reference.abs())
+        .sum::<f64>()
+        / n as f64;
+    let relative_rmse = if reference_scale > 1e-15 {
+        Some(rmse / reference_scale)
+    } else {
+        None
+    };
+    let ss_tot = pairs
+        .iter()
+        .map(|(_, reference)| (reference - reference_mean) * (reference - reference_mean))
+        .sum::<f64>();
+    let ss_res = pairs
+        .iter()
+        .map(|(observed, reference)| (observed - reference) * (observed - reference))
+        .sum::<f64>();
+    let r2 = if ss_tot > 1e-30 {
+        Some(1.0 - ss_res / ss_tot)
+    } else {
+        None
+    };
+    let ratio = relative_rmse.unwrap_or(rmse);
+    let agreement = if ratio < 0.01 {
+        "Strong"
+    } else if ratio < 0.05 {
+        "Good"
+    } else if ratio < 0.15 {
+        "Moderate"
+    } else {
+        "Weak"
+    }
+    .to_string();
+    Ok(ValidationResult {
+        n,
+        mae,
+        rmse,
+        max_abs_error,
+        relative_rmse,
+        r2,
+        agreement,
+        notes: vec![
+            "Agreement labels are descriptive thresholds, not proof that either model or measurement is correct.".into(),
+            "Inspect calibration, uncertainty, discretization and model assumptions before interpreting discrepancies.".into(),
+        ],
+    })
+}
+
 fn list_run_snapshots_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
     let root = project_dir.join("runs");
     if !root.is_dir() {
         return Ok(Vec::new());
     }
     let mut output = Vec::new();
-    for entry in fs::read_dir(root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+    for entry in fs::read_dir(root)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
         let path = entry.path().join("run.json");
         if let Ok(value) = read_json(&path) {
             output.push(value);
@@ -514,7 +807,10 @@ fn list_campaigns_from_dir(project_dir: &Path) -> Result<Vec<Value>, String> {
         return Ok(Vec::new());
     }
     let mut output = Vec::new();
-    for entry in fs::read_dir(root).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+    for entry in fs::read_dir(root)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
         let path = entry.path();
         if path.extension().and_then(|value| value.to_str()) != Some("json") {
             continue;
@@ -547,48 +843,68 @@ pub fn create_workspace(app: AppHandle, name: String) -> Result<WorkspaceSummary
     let mut n = 2u32;
     while canonical.join(format!("{id}.physlab")).exists()
         || legacy.join(format!("{id}.physlab")).exists()
-        || legacy.join(format!("{id}.physlab")).symlink_metadata().is_ok()
+        || legacy
+            .join(format!("{id}.physlab"))
+            .symlink_metadata()
+            .is_ok()
     {
         id = format!("{base}-{n}");
         n += 1;
     }
     let dir = canonical.join(format!("{id}.physlab"));
     for child in [
-        "experiments", "jobs", "results", "measurements", "calibration", "reports",
-        "provenance", "datasets", "runs", "figures", "exports", "pipelines", "campaigns",
+        "experiments",
+        "jobs",
+        "results",
+        "measurements",
+        "calibration",
+        "reports",
+        "provenance",
+        "datasets",
+        "runs",
+        "figures",
+        "exports",
+        "pipelines",
+        "campaigns",
     ] {
         fs::create_dir_all(dir.join(child)).map_err(|e| e.to_string())?;
     }
     let now = now_iso();
     let project_id = format!("plproj-shell-{}-{}", Local::now().timestamp_micros(), id);
-    write_json(&dir.join("project.json"), &json!({
-        "schema":PROJECT_SCHEMA,
-        "project_version":PROJECT_VERSION,
-        "project_id":project_id,
-        "name":name.trim(),
-        "slug":id,
-        "description":"Physical Lab reproducible experimental workspace",
-        "research_question":"",
-        "created_at":now,
-        "updated_at":now,
-        "profiles":[],
-        "experiments":{},
-        "jobs":{},
-        "results":{},
-        "reports":[],
-        "migration":{"current_version":PROJECT_VERSION,"history":[]},
-        "boundary":"Project metadata and provenance index only. Scientific validity remains governed by each experiment, solver, measurement and V&V record; project membership does not certify a result."
-    }))?;
-    write_json(&dir.join("pipelines/default-measurement-validation.json"), &json!({
-        "schema":"physical-lab-pipeline-v1",
-        "name":"Measurement → Validation",
-        "steps":[
-            {"id":"measurement","type":"dataset","label":"Measurement dataset","status":"input"},
-            {"id":"analysis","type":"results","label":"Statistics / uncertainty","status":"ready"},
-            {"id":"validation","type":"validation","label":"Observed vs reference","status":"ready"}
-        ],
-        "note":"Desktop pipeline metadata only; no simulation result is automatically promoted into canonical Experiment/Result evidence."
-    }))?;
+    write_json(
+        &dir.join("project.json"),
+        &json!({
+            "schema":PROJECT_SCHEMA,
+            "project_version":PROJECT_VERSION,
+            "project_id":project_id,
+            "name":name.trim(),
+            "slug":id,
+            "description":"Physical Lab reproducible experimental workspace",
+            "research_question":"",
+            "created_at":now,
+            "updated_at":now,
+            "profiles":[],
+            "experiments":{},
+            "jobs":{},
+            "results":{},
+            "reports":[],
+            "migration":{"current_version":PROJECT_VERSION,"history":[]},
+            "boundary":"Project metadata and provenance index only. Scientific validity remains governed by each experiment, solver, measurement and V&V record; project membership does not certify a result."
+        }),
+    )?;
+    write_json(
+        &dir.join("pipelines/default-measurement-validation.json"),
+        &json!({
+            "schema":"physical-lab-pipeline-v1",
+            "name":"Measurement → Validation",
+            "steps":[
+                {"id":"measurement","type":"dataset","label":"Measurement dataset","status":"input"},
+                {"id":"analysis","type":"results","label":"Statistics / uncertainty","status":"ready"},
+                {"id":"validation","type":"validation","label":"Observed vs reference","status":"ready"}
+            ],
+            "note":"Desktop pipeline metadata only; no simulation result is automatically promoted into canonical Experiment/Result evidence."
+        }),
+    )?;
     let alias = legacy.join(format!("{id}.physlab"));
     create_alias(&alias, &dir)?;
     summary_from_dir(&dir)
@@ -598,7 +914,10 @@ pub fn create_workspace(app: AppHandle, name: String) -> Result<WorkspaceSummary
 pub fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceSummary>, String> {
     let mut rows = Vec::new();
     let mut seen = HashSet::new();
-    for entry in fs::read_dir(canonical_root(&app)?).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+    for entry in fs::read_dir(canonical_root(&app)?)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+    {
         let path = entry.path();
         if !path.is_dir() || !path.join("project.json").is_file() {
             continue;
@@ -617,7 +936,10 @@ pub fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceSummary>, String> 
     }
     let legacy = legacy_root_path(&app)?;
     if legacy.is_dir() {
-        for entry in fs::read_dir(&legacy).map_err(|e| e.to_string())?.filter_map(Result::ok) {
+        for entry in fs::read_dir(&legacy)
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+        {
             let path = entry.path();
             if is_compatibility_alias(&path) || !path.join("project.json").is_file() {
                 continue;
@@ -651,7 +973,12 @@ pub fn record_run_snapshot(
 ) -> Result<String, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let out = legacy::record_run_snapshot(
-        app.clone(), workspace_id.clone(), module_id, mode, parameters_json, results_json,
+        app.clone(),
+        workspace_id.clone(),
+        module_id,
+        mode,
+        parameters_json,
+        results_json,
     )?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(out)
@@ -670,7 +997,13 @@ pub fn import_measurement_dataset(
 ) -> Result<DatasetSummary, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let dataset = legacy::import_measurement_dataset(
-        app.clone(), workspace_id.clone(), source_path, name, quantity, unit, sensor,
+        app.clone(),
+        workspace_id.clone(),
+        source_path,
+        name,
+        quantity,
+        unit,
+        sensor,
         calibration.clone(),
     )?;
     register_desktop_measurement(
@@ -708,7 +1041,15 @@ pub fn capture_serial_measurement(
 ) -> Result<DatasetSummary, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let dataset = legacy::capture_serial_measurement(
-        app.clone(), workspace_id.clone(), device, baud, seconds, name, quantity, unit, sensor,
+        app.clone(),
+        workspace_id.clone(),
+        device,
+        baud,
+        seconds,
+        name,
+        quantity,
+        unit,
+        sensor,
     )?;
     register_desktop_measurement(
         &app,
@@ -729,8 +1070,8 @@ pub fn analyze_dataset(
     workspace_id: String,
     dataset_id: String,
 ) -> Result<Vec<ColumnStats>, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::analyze_dataset(app, workspace_id, dataset_id)
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    analyze_dataset_from_dir(&dir, &dataset_id)
 }
 
 #[tauri::command]
@@ -741,10 +1082,8 @@ pub fn validate_dataset_columns(
     observed_column: String,
     reference_column: String,
 ) -> Result<ValidationResult, String> {
-    ensure_alias_for_id(&app, &workspace_id)?;
-    legacy::validate_dataset_columns(
-        app, workspace_id, dataset_id, observed_column, reference_column,
-    )
+    let (dir, _) = resolve_project_dir(&app, &workspace_id)?;
+    validate_dataset_columns_from_dir(&dir, &dataset_id, &observed_column, &reference_column)
 }
 
 #[tauri::command]
@@ -768,11 +1107,7 @@ pub fn pipeline_templates() -> Vec<Value> {
 }
 
 #[tauri::command]
-pub fn save_pipeline(
-    app: AppHandle,
-    workspace_id: String,
-    kind: String,
-) -> Result<String, String> {
+pub fn save_pipeline(app: AppHandle, workspace_id: String, kind: String) -> Result<String, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let out = legacy::save_pipeline(app.clone(), workspace_id.clone(), kind)?;
     touch_canonical_after_write(&app, &workspace_id)?;
@@ -792,7 +1127,14 @@ pub fn create_campaign(
 ) -> Result<String, String> {
     ensure_alias_for_id(&app, &workspace_id)?;
     let out = legacy::create_campaign(
-        app.clone(), workspace_id.clone(), module_id, parameter, start, stop, points, max_parallel,
+        app.clone(),
+        workspace_id.clone(),
+        module_id,
+        parameter,
+        start,
+        stop,
+        points,
+        max_parallel,
     )?;
     touch_canonical_after_write(&app, &workspace_id)?;
     Ok(out)
