@@ -4,12 +4,13 @@
 //! Kernel used by Experiment / Measurement / Evidence tooling. Read-only desktop
 //! surfaces resolve canonical projects directly and never create compatibility
 //! aliases. The pre-cutover research implementation is frozen in
-//! `research_legacy_impl.rs`; write/computation paths that still delegate to that
-//! implementation create an on-demand `workspaces/*.physlab` symlink only during
-//! the compatibility period.
+//! `research_legacy_impl.rs` for non-project helper behavior and contract comparison.
+//! Project reads/writes resolve canonical projects directly; no compatibility
+//! symlink is created or required.
 //!
 //! Existing real legacy workspaces are never replaced or rewritten. They remain
-//! readable as a fallback until explicit migration/retirement is complete.
+//! directly readable as a fallback and eligible for the explicit non-destructive
+//! Project Kernel bridge.
 //!
 //! Self-check marker: legacy requirement evaluation still uses SpecifierSet in
 //! `research_legacy_impl.rs`; this facade does not duplicate that logic.
@@ -50,12 +51,6 @@ fn canonical_root(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn legacy_root_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_root(app)?.join("workspaces"))
-}
-
-fn legacy_root(app: &AppHandle) -> Result<PathBuf, String> {
-    let path = legacy_root_path(app)?;
-    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
-    Ok(path)
 }
 
 fn safe_slug(value: &str) -> String {
@@ -266,49 +261,6 @@ fn open_path(path: &Path) -> Result<(), String> {
         .spawn()
         .map_err(|e| e.to_string())?;
     Ok(())
-}
-
-#[cfg(unix)]
-fn create_alias(alias: &Path, target: &Path) -> Result<(), String> {
-    use std::os::unix::fs::symlink;
-    if alias.exists() || alias.symlink_metadata().is_ok() {
-        return Ok(());
-    }
-    symlink(target, alias).map_err(|e| format!("Could not create project compatibility alias: {e}"))
-}
-
-#[cfg(not(unix))]
-fn create_alias(_alias: &Path, _target: &Path) -> Result<(), String> {
-    Ok(())
-}
-
-fn ensure_alias_for_id(app: &AppHandle, workspace_id: &str) -> Result<(), String> {
-    let Some(canonical) = canonical_project_dir(app, workspace_id)? else {
-        return Ok(());
-    };
-    let alias = legacy_root(app)?.join(format!("{}.physlab", safe_slug(workspace_id)));
-    // A real legacy workspace wins during the compatibility period. Never replace
-    // it with an alias; the one-way bridge remains the safe migration path.
-    if alias.exists() || alias.symlink_metadata().is_ok() {
-        return Ok(());
-    }
-    create_alias(&alias, &canonical)
-}
-
-fn touch_canonical_after_write(app: &AppHandle, workspace_id: &str) -> Result<(), String> {
-    let Some(project_dir) = canonical_project_dir(app, workspace_id)? else {
-        return Ok(());
-    };
-    let path = project_dir.join("project.json");
-    let mut project = read_json(&path)?;
-    if !is_canonical(&project) {
-        return Ok(());
-    }
-    project["updated_at"] = Value::String(now_iso());
-    if let Some(object) = project.as_object_mut() {
-        object.remove("updatedAt");
-    }
-    write_json(&path, &project)
 }
 
 fn register_desktop_measurement(
@@ -1324,7 +1276,7 @@ os.close(fd)
 pub fn create_workspace(app: AppHandle, name: String) -> Result<WorkspaceSummary, String> {
     let base = safe_slug(&name);
     let canonical = canonical_root(&app)?;
-    let legacy = legacy_root(&app)?;
+    let legacy = legacy_root_path(&app)?;
     let mut id = base.clone();
     let mut n = 2u32;
     while canonical.join(format!("{id}.physlab")).exists()
@@ -1391,8 +1343,6 @@ pub fn create_workspace(app: AppHandle, name: String) -> Result<WorkspaceSummary
             "note":"Desktop pipeline metadata only; no simulation result is automatically promoted into canonical Experiment/Result evidence."
         }),
     )?;
-    let alias = legacy.join(format!("{id}.physlab"));
-    create_alias(&alias, &dir)?;
     summary_from_dir(&dir)
 }
 
