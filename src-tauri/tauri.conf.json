@@ -38,6 +38,8 @@
       "resources/ui/physical_lab_claims.py": "ui/physical_lab_claims.py",
       "resources/ui/physical_lab_cross_checks.py": "ui/physical_lab_cross_checks.py",
       "resources/ui/physical_lab_evidence_diff.py": "ui/physical_lab_evidence_diff.py",
+      "resources/ui/physical_lab_engineering_decisions.py": "ui/physical_lab_engineering_decisions.py",
+      "resources/ui/physical_lab_engineering_decision_ui.py": "ui/physical_lab_engineering_decision_ui.py",
       "resources/ui/physical_lab_units.py": "ui/physical_lab_units.py",
       "resources/ui/physical_lab_measurement_registry.py": "ui/physical_lab_measurement_registry.py",
       "resources/ui/physical_lab_compute_engine.py": "ui/physical_lab_compute_engine.py",
