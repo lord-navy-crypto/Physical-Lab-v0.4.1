@@ -8,7 +8,7 @@ All notable Physical Lab changes are recorded here. Version numbers follow SemVe
 - Added a native **Model Builder** creation surface for trusted local Python research models without turning the Builder into an eleventh built-in physics Lab.
 - Added static AST inspection for top-level functions, candidate parameters/outputs, imports, source SHA-256 and execution-risk warnings; static analysis does not import or execute the selected source.
 - Added human-reviewed `physical-lab-model-spec-v1` metadata with explicit labels, units, controls, defaults and user-confirmed slider ranges.
-- Added wrapper-not-rewrite generation of `original_model.py`, `adapter.py`, `model.json`, `ui.json`, `tests.json` and `provenance.json` with deterministic fingerprints.
+- Added wrapper-not-rewrite generation of `original_model.py`, `adapter.py`, `model.json`, `ui.json`, `tests.json` and `provenance.json` with deterministic fingerprints; bundle identity includes both source and reviewed-ModelSpec fingerprints so interface revisions do not silently overwrite prior bundles.
 - Added deterministic ModelSpec rendering for number, slider, toggle, dropdown and text controls plus scalar, numeric-array, automatic x-y and structured-JSON preview output.
 - Added explicit trusted local Preview and original↔adapter equivalence checks with timeout/output bounds; adapter equivalence compares output shape/type signatures and numeric paths/values.
 - Added canonical `.physlab` Project model storage under `models/<bundle-id>/` plus `models/index.json`; legacy workspaces must be migrated before Builder bundles can be registered.

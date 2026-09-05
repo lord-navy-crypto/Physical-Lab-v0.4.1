@@ -51,6 +51,13 @@ def main() -> int:
         assert provenance["generation_policy"] == "wrapper-not-rewrite"
         assert provenance["original_source_modified"] is False
 
+        revised_spec = json.loads(json.dumps(spec))
+        revised_spec["parameters"][0]["max"] = 12.0
+        revised_bundle = core.generate_bundle(str(static_source), revised_spec, str(root / "bundles"))
+        assert revised_bundle["bundle_id"] != bundle["bundle_id"], "reviewed ModelSpec change reused a bundle identity"
+        assert revised_bundle["source_sha256"] == bundle["source_sha256"]
+        assert revised_bundle["reviewed_model_spec_sha256"] != bundle["reviewed_model_spec_sha256"]
+
         preview = core.run_bundle(str(bundle_path), {"length": 2.0, "angle": 0.5, "samples": 4})
         assert marker.exists(), "explicit preview did not execute the source snapshot"
         assert preview["outputs"]["time"] == [0, 1, 2, 3]
@@ -97,6 +104,7 @@ def main() -> int:
     print("- mapping and keyword-argument calling conventions covered")
     print("- risky imports are surfaced as review warnings")
     print("- sliders require explicit human-confirmed ranges")
+    print("- bundle identity changes when reviewed ModelSpec changes, even with identical source")
     print("Boundary: adapter equivalence is interface validation, not scientific validation or certification.")
     return 0
 

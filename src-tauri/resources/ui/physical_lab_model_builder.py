@@ -45,6 +45,11 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _sha256_json(value: Any) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _source_path(raw: str) -> Path:
     path = Path(raw).expanduser().resolve()
     if path.suffix.lower() != ".py":
@@ -297,7 +302,9 @@ def generate_bundle(source: str, spec: dict[str, Any], output_root: str) -> dict
     if spec.get("metadata", {}).get("source_sha256") not in {None, _sha256(path)}:
         raise ValueError("ModelSpec source_sha256 does not match the selected source file")
     name = str(spec.get("metadata", {}).get("name") or path.stem)
-    bundle_id = f"model-{_slug(name)}-{_sha256(path)[:12]}"
+    source_digest = _sha256(path)
+    reviewed_spec_digest = _sha256_json(spec)
+    bundle_id = f"model-{_slug(name)}-{source_digest[:10]}-{reviewed_spec_digest[:10]}"
     root = Path(output_root).expanduser().resolve() / bundle_id
     root.mkdir(parents=True, exist_ok=True)
     shutil.copy2(path, root / "original_model.py")
@@ -318,7 +325,8 @@ def generate_bundle(source: str, spec: dict[str, Any], output_root: str) -> dict
         "schema": BUNDLE_SCHEMA,
         "bundle_id": bundle_id,
         "source_snapshot": "original_model.py",
-        "source_sha256": _sha256(path),
+        "source_sha256": source_digest,
+        "reviewed_model_spec_sha256": reviewed_spec_digest,
         "adapter_sha256": _sha256(root / "adapter.py"),
         "model_spec_sha256": _sha256(root / "model.json"),
         "generation_policy": "wrapper-not-rewrite",

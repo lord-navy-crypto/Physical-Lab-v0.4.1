@@ -37,7 +37,9 @@ A generated bundle contains:
 - `model.json` — `physical-lab-model-spec-v1`;
 - `ui.json` — deterministic control/output description;
 - `tests.json` — adapter-equivalence settings plus user-declared scientific tests;
-- `provenance.json` — source, adapter and ModelSpec fingerprints plus generation policy.
+- `provenance.json` — source, reviewed-ModelSpec, adapter and stored-ModelSpec fingerprints plus generation policy.
+
+Bundle identity includes both the source fingerprint and the reviewed ModelSpec fingerprint. Editing units, ranges, controls or other reviewed interface metadata therefore creates a new bundle identity instead of silently overwriting a prior interface version built from the same scientific source.
 
 Saving a bundle to a canonical Project copies these files into `models/<bundle-id>/` and updates `models/index.json`. Project membership is provenance only; it does not certify the model.
 

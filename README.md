@@ -46,7 +46,7 @@ original ↔ adapter equivalence
 canonical Project models/<bundle-id>/
 ```
 
-Generation never overwrites the selected source file. A generated bundle contains an `original_model.py` snapshot plus separate `adapter.py`, `model.json`, `ui.json`, `tests.json` and `provenance.json`, each with source/model fingerprints where applicable. Slider bounds are never invented automatically: ranges and scientific units remain human-confirmed metadata.
+Generation never overwrites the selected source file. A generated bundle contains an `original_model.py` snapshot plus separate `adapter.py`, `model.json`, `ui.json`, `tests.json` and `provenance.json`, each with source/model fingerprints where applicable. Bundle identity includes both source and reviewed-ModelSpec fingerprints, so a changed interface review cannot silently overwrite an earlier bundle made from the same scientific source. Slider bounds are never invented automatically: ranges and scientific units remain human-confirmed metadata.
 
 `Analyze` and `Generate` do not execute the selected model. `Preview` and `Validate Adapter` are separate trusted-local-code actions with a fixed timeout, bounded output capture and no shell-command execution path. The current MVP is **not a sandbox for arbitrary untrusted Internet code** and does not provide public/server Python execution.
 
