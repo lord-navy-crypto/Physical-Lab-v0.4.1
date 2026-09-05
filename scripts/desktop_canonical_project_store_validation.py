@@ -16,12 +16,14 @@ import physical_lab_project_kernel as projects
 import physical_lab_workspace_aliases as aliases
 
 
+def compact(text: str) -> str:
+    return "".join(text.split())
+
+
 def main() -> int:
     facade = (ROOT / "src-tauri/src/research.rs").read_text(encoding="utf-8")
     legacy = (ROOT / "src-tauri/src/research_legacy_impl.rs").read_text(encoding="utf-8")
 
-    # The mature pre-cutover implementation is retained rather than manually
-    # duplicated or partly deleted during storage migration.
     assert '#[path = "research_legacy_impl.rs"]' in facade
     assert len(legacy) > 25_000
     for needle in (
@@ -35,40 +37,41 @@ def main() -> int:
 
     create_start = facade.index("pub fn create_workspace(")
     create_end = facade.index("pub fn list_workspaces(", create_start)
-    create_block = facade[create_start:create_end]
+    create_block = compact(facade[create_start:create_end])
     assert 'join("projects")' in facade
     assert 'join("workspaces")' in facade
-    assert '"project_version": PROJECT_VERSION' in create_block
-    assert '"project_id": project_id' in create_block
-    assert '"created_at": now' in create_block
-    assert '"updated_at": now' in create_block
-    assert '"experiments": {}' in create_block
-    assert '"jobs": {}' in create_block
-    assert '"results": {}' in create_block
-    assert '"reports": []' in create_block
-    assert '"migration": {"current_version": PROJECT_VERSION, "history": []}' in create_block
-    assert 'create_alias(&alias, &dir)?' in create_block
+    for needle in (
+        '"project_version":PROJECT_VERSION',
+        '"project_id":project_id',
+        '"created_at":now',
+        '"updated_at":now',
+        '"experiments":{}',
+        '"jobs":{}',
+        '"results":{}',
+        '"reports":[]',
+        '"migration":{"current_version":PROJECT_VERSION,"history":[]}',
+        'create_alias(&alias,&dir)?',
+    ):
+        assert needle in create_block, needle
     assert '"id":&id' not in create_block
     assert '"createdAt":&now' not in create_block
     assert '"updatedAt":&now' not in create_block
 
-    # Desktop writes that still use the proven legacy implementation are wrapped
-    # so canonical updated_at and Measurement Evidence stay in the shared kernel.
     for needle in (
         "touch_canonical_after_write",
         "register_desktop_measurement",
         '"physical-lab-measurement-index-v1"',
         '"physical-lab-measurement-v1"',
-        '"source_type": "desktop-data-bridge"',
+        '"source_type":"desktop-data-bridge"',
         "Calibration status, sensor accuracy, traceability and experimental validation must be established separately.",
+        "SpecifierSet",
     ):
-        assert needle in facade, needle
+        assert needle in compact(facade) if needle.startswith('"source_type"') else needle in facade, needle
 
-    # Existing legacy workspaces are explicitly preserved; only absent paths can
-    # become compatibility aliases to a canonical project.
     assert "A real legacy workspace wins during the compatibility period" in facade
     assert "alias.symlink_metadata().is_ok()" in facade
-    assert "metadata.file_type().is_symlink()" in facade
+    assert "file_type().is_symlink()" in facade
+    assert "let trim: &[_] = &['-', '.', '_'];" in facade
 
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
     resources = (conf.get("bundle") or {}).get("resources") or {}
@@ -104,8 +107,6 @@ def main() -> int:
             assert second["preserved_legacy"] >= 1
             assert alias.resolve() == canonical_path.resolve()
 
-            # Same-name real legacy directory must win; alias creation must not
-            # delete, rename or replace it.
             real_legacy = root / "workspaces/legacy-owned.physlab"
             real_legacy.mkdir(parents=True)
             legacy_project = {
@@ -124,7 +125,6 @@ def main() -> int:
             assert third["canonical"] == 2
             assert third["preserved_legacy"] >= 2
 
-            # Alias layer must ignore malformed/noncanonical folders under projects/.
             malformed = root / "projects/not-canonical.physlab"
             malformed.mkdir(parents=True)
             (malformed / "project.json").write_text('{"schema":"physical-lab-project-v1","id":"wrong-shape"}', encoding="utf-8")
