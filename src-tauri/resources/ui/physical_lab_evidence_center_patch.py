@@ -31,14 +31,19 @@ def install() -> None:
             render_evidence_center(st, active, profile)
 
             # Engineering decisions consume the same active canonical project and
-            # explicit evidence-reference vocabulary. They do not maintain a
-            # second project state or a parallel truth/credibility state.
+            # explicit evidence-reference vocabulary. A stale/non-canonical path
+            # left in session state is simply ineligible for the decision surface;
+            # it is not treated as an Engineering Decision Center runtime error.
+            project_path = Path(active).expanduser().resolve()
+            if not project_path.join("project.json").is_file():
+                return
             try:
-                project_path = Path(active).expanduser().resolve()
-                if not project_path.join("project.json").is_file():
-                    return
-                from physical_lab_engineering_decision_ui import render_engineering_decision_tab
                 project_doc = project_kernel.open_project(project_path)
+            except Exception:
+                return
+
+            try:
+                from physical_lab_engineering_decision_ui import render_engineering_decision_tab
                 refs = _artifact_refs(project_path, project_doc)
                 with st.expander("Physical Lab · Engineering Decision Center", expanded=False):
                     st.caption(
