@@ -164,14 +164,14 @@ def render_quality_reliability_tab(st: Any, project_path: str | Path, profile: s
                 try:
                     exposures = _float_tokens(exposures_text)
                     event_tokens = _csv_tokens(events_text)
-                    categories = [item.strip() for item in str(categories_text).split(",")]
+                    categories = [] if not str(categories_text).strip() else [item.strip() for item in str(categories_text).split(",")]
                     if not name.strip() or not item.strip() or not exposures or not evidence_ref:
                         raise ValueError("Study name, item, at least one exposure, and an evidence reference are required.")
                     if len(event_tokens) != len(exposures):
                         raise ValueError("Event-flag count must match exposure count.")
                     if any(token not in {"0", "1"} for token in event_tokens):
                         raise ValueError("Event flags must be 0 or 1.")
-                    if categories and len(categories) not in {0, len(exposures)}:
+                    if categories and len(categories) != len(exposures):
                         raise ValueError("Event-category count must match exposure count.")
                     kind, ref_id = evidence_ref.split(":", 1)
                     trials = []
