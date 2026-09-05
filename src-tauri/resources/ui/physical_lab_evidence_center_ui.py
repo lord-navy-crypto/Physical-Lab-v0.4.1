@@ -52,6 +52,7 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
     import physical_lab_engineering_decision_ui as decision_ui
     import physical_lab_operations_ui as operations_ui
     import physical_lab_project_kernel as projects
+    import physical_lab_quality_reliability_ui as quality_reliability_ui
 
     path = Path(project_path).expanduser().resolve()
     doc = projects.open_project(path)
@@ -62,8 +63,8 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
 
     with st.expander("Physical Lab · Evidence Center", expanded=False):
         st.caption(
-            "Evidence-first review across the active .physlab project. Passport, claims, cross-checks, engineering decisions, operations plans, snapshots and diffs "
-            "use the same deterministic project state. No aggregate credibility score, machine truth verdict, design verdict, or globally optimal schedule is produced."
+            "Evidence-first review across the active .physlab project. Passport, claims, cross-checks, engineering decisions, operations plans, quality/reliability studies, snapshots and diffs "
+            "use the same deterministic project state. No aggregate credibility score, machine truth verdict, design verdict, globally optimal schedule, process qualification, or certification verdict is produced."
         )
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Evidence PRESENT", int(coverage.get("present") or 0))
@@ -77,8 +78,8 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
             f"Evidence graph `{str(passport.get('evidence_graph_sha256') or '')[:16]}…`"
         )
 
-        passport_tab, claims_tab, cross_tab, decision_tab, operations_tab, diff_tab = st.tabs([
-            "Credibility Passport", "Claims", "Cross-Checks", "Engineering Decisions", "Operations", "Snapshots & Diff"
+        passport_tab, claims_tab, cross_tab, decision_tab, operations_tab, quality_tab, diff_tab = st.tabs([
+            "Credibility Passport", "Claims", "Cross-Checks", "Engineering Decisions", "Operations", "Quality & Reliability", "Snapshots & Diff"
         ])
 
         with passport_tab:
@@ -229,6 +230,9 @@ def render_evidence_center(st: Any, project_path: str | Path, profile: str) -> N
 
         with operations_tab:
             operations_ui.render_operations_tab(st, path, profile)
+
+        with quality_tab:
+            quality_reliability_ui.render_quality_reliability_tab(st, path, profile, refs)
 
         with diff_tab:
             if st.button("Capture evidence snapshot", type="primary", key=f"pl_evidence_snapshot_{profile}"):
